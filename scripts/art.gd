@@ -75,6 +75,12 @@ const FX_EFFECTS := {
 	"feixe_cura": Vector2(64, 6),
 }
 
+## Opacidade máxima das áreas grandes no chão (Válvula, Fúria, Sopro, Segunda
+## Chance e Chuva de Prata): o efeito continua visível, mas heróis e cores dos
+## times leem por cima dele.
+const AREA_ALPHA := 0.55
+const RAIN_ALPHA := 0.45
+
 ## Distância do centro da imagem da Muralha até o centro do Talos (px).
 const MURALHA_OFFSET := 33.0
 

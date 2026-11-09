@@ -9,6 +9,8 @@ const Art = preload("res://scripts/art.gd")
 var game
 var team := 0
 var hid := ""
+## Camada do nome (acima dos corpos dos heróis).
+var name_tag: Node2D = null
 var def := {}
 var style := "frontline"
 var hp := 100.0
@@ -81,6 +83,12 @@ func setup(g, t: int, id: String, idx: int) -> void:
 	strafe_phase = randf() * TAU
 	facing = Vector2.RIGHT if team == 0 else Vector2.LEFT
 	sprite_angle = facing.angle()
+	# Nome numa camada acima dos corpos: heróis empilhados (na base) não cobrem
+	# o nome do vizinho.
+	name_tag = Node2D.new()
+	name_tag.z_index = 2
+	add_child(name_tag)
+	name_tag.draw.connect(_draw_name_tag)
 
 
 func clear_status() -> void:
@@ -748,7 +756,11 @@ func _draw() -> void:
 		# e sem emblema (a imagem já mostra os dois).
 		var px: float = Art.HERO_SPRITE_PX.get(hid, (radius + 3.0) * 2.0 / 0.8)
 		var mod := Color(1.8, 1.8, 1.8) if hit_flash > 0.0 else Color.WHITE
+		# Fundo escuro sob o corpo: separa o herói de áreas claras no chão.
+		draw_circle(Vector2.ZERO, radius + 3.0, Color(0.05, 0.04, 0.03, 0.6))
 		Art.draw_centered(self, sprite, Vector2.ZERO, Vector2(px, px), sprite_angle, mod)
+		# Anel do time com contorno escuro, para a cor ler sobre qualquer efeito.
+		UI.ring(self, Vector2.ZERO, radius + 1.5, Color(0, 0, 0, 0.75), 6.0)
 		UI.ring(self, Vector2.ZERO, radius + 1.5, tc, 3.0)
 	else:
 		draw_circle(Vector2.ZERO, radius + 3.0, tc)
@@ -834,7 +846,20 @@ func _draw() -> void:
 		var frac := clampf(a3["t"] / Data.ARM_TIME, 0.0, 1.0)
 		draw_arc(c, 12.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 20, Color(1, 1, 1, 0.8), 2.0, true)
 
-	UI.text_c(self, Vector2(0, radius + 16.0), T.hero_name(hid), 11, Color(1, 1, 1, 0.85), 3)
+	if name_tag != null:
+		name_tag.queue_redraw()
+
+
+## Nome do herói sobre uma plaquinha escura com a cor do time embaixo
+## (lê sobre a base clara e sobre efeitos). Desenhado na camada name_tag.
+func _draw_name_tag() -> void:
+	var s := T.hero_name(hid)
+	var base := Vector2(0, radius + 16.0)
+	var w := UI.font().get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 10.0
+	var r := Rect2(base.x - w * 0.5, base.y - 11.0, w, 15.0)
+	name_tag.draw_rect(r, Color(0.05, 0.04, 0.03, 0.7))
+	name_tag.draw_rect(Rect2(r.position.x, r.end.y - 2.0, r.size.x, 2.0), Color(Data.TEAM_COLORS[team], 0.9))
+	UI.text_c(name_tag, base, s, 11, Color(1, 1, 1, 0.95), 2)
 
 
 ## Muralha de Bronze desenhada por código (sem imagem).

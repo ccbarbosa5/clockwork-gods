@@ -1607,3 +1607,14 @@ func test_music_pauses_with_game() -> void:
 	done(g)
 	AudioScript.instance = old
 	a.free()
+
+
+func test_readability_names_above_bodies_and_soft_areas() -> void:
+	# Nome numa camada acima dos corpos (heróis empilhados na base não escondem
+	# o nome do vizinho) e áreas grandes translúcidas o bastante para ler os heróis.
+	var g := new_game()
+	for h in g.heroes:
+		check(h.name_tag != null and h.name_tag.z_index > 0 and h.name_tag.get_parent() == h, "nome de %s numa camada acima do corpo" % h.hid)
+	check(Art.AREA_ALPHA >= 0.35 and Art.AREA_ALPHA <= 0.65, "área grande nem invisível nem opaca (%.2f)" % Art.AREA_ALPHA)
+	check(Art.RAIN_ALPHA >= 0.3 and Art.RAIN_ALPHA <= 0.6, "Chuva de Prata translúcida (%.2f)" % Art.RAIN_ALPHA)
+	done(g)
