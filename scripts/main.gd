@@ -5,18 +5,22 @@ extends Node2D
 ##   --shot=caminho.png   salva uma captura de tela (requer renderização)
 ##   --shot-at=segundos   momento da captura (padrão 40)
 ##   --shot-menu          captura o menu em vez da partida
+##   --shot-gallery=heroi captura a Galeria de heróis aberta nesse herói
 
 const GameScript = preload("res://scripts/game.gd")
 const MenuScript = preload("res://scripts/menu.gd")
 const AudioScript = preload("res://scripts/audio.gd")
+const GalleryScript = preload("res://scripts/gallery.gd")
 
 var game: Node2D = null
 var menu: Node2D = null
+var gallery: Node2D = null
 var last_opts := {}
 var autotest := false
 var shot_path := ""
 var shot_at := 40.0
 var shot_menu := false
+var shot_gallery := ""
 var _shot_done := false
 var _frames := 0
 
@@ -32,6 +36,9 @@ func _ready() -> void:
 			shot_at = a.substr(10).to_float()
 		elif a == "--shot-menu":
 			shot_menu = true
+		elif a.begins_with("--shot-gallery="):
+			shot_menu = true
+			shot_gallery = a.substr(15)
 	var audio := Node.new()
 	audio.set_script(AudioScript)
 	add_child(audio)
@@ -39,12 +46,31 @@ func _ready() -> void:
 	menu.set_script(MenuScript)
 	add_child(menu)
 	menu.start.connect(_on_start)
+	gallery = Node2D.new()
+	gallery.set_script(GalleryScript)
+	gallery.visible = false
+	add_child(gallery)
+	menu.open_gallery.connect(_open_gallery)
+	gallery.back.connect(_close_gallery)
+	if shot_gallery != "":
+		_open_gallery()
+		gallery.open(shot_gallery)
 	if autotest:
 		Engine.time_scale = 20.0
 		_on_start({"difficulty": "hard", "autotest": true})
 	elif shot_path != "" and not shot_menu:
 		Engine.time_scale = 4.0
 		_on_start({"difficulty": "normal", "autotest": true})
+
+
+func _open_gallery() -> void:
+	menu.visible = false
+	gallery.open()
+
+
+func _close_gallery() -> void:
+	gallery.visible = false
+	menu.visible = true
 
 
 func _on_start(opts: Dictionary) -> void:

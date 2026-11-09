@@ -15,7 +15,10 @@ Tamanhos na tela são para a base 1280×720.
 | `asclepio_top.png` | 256×256 | 48×48 | Idem |
 | `talos_portrait.png` | 256×256 | círculo de 50 px | Recortado em círculo no medidor da ultimate |
 | `artemis_portrait.png` | 256×256 | círculo de 50 px | Idem |
-| `asclepio_portrait.png` | 256×256 | círculo de 50 px | Idem |
+| `asclepio_portrait.png` | 256×256 | círculo de 50 px | Idem (também na Galeria: círculo de 88 px na lista) |
+| `talos_full.png` | 512×768 | 340×510 | Galeria de heróis: corpo inteiro, de frente, fundo transparente, pés perto da base da imagem (sombra elíptica desenhada pelo código). Sem o arquivo, a galeria usa o retrato ampliado (círculo de 300 px) |
+| `artemis_full.png` | 512×768 | 340×510 | Idem |
+| `asclepio_full.png` | 512×768 | 340×510 | Idem |
 
 Com sprite, o triângulo de direção e o emblema sobre o corpo não são desenhados.
 Anel do time, sombra, barra de vida, nome, selos e estados continuam por código, sem girar.
