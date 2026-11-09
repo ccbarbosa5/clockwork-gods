@@ -334,8 +334,10 @@ func _draw_card(r: Rect2, card: String, hov: bool) -> void:
 	UI.text_c(self, Vector2(r.get_center().x + 4, head.position.y + 16), hd["name"].to_upper(), 10, Color(0.1, 0.06, 0.03))
 	# Ícone do efeito
 	var ic := Vector2(r.get_center().x, r.position.y + 54)
-	draw_circle(ic, 20.0, rc.darkened(0.45))
-	UI.ring(self, ic, 20.0, Color(rc, 0.9), 2.0)
+	if frame == null:
+		draw_circle(ic, 20.0, rc.darkened(0.45))
+		UI.ring(self, ic, 20.0, Color(rc, 0.9), 2.0)
+	# Com moldura, o círculo e o anel do ícone já vêm na imagem.
 	UI.ability_icon(self, ab, ic, 12.0, Color.WHITE)
 	# Nome e resumo
 	UI.text_box(self, Rect2(r.position.x + 4, r.position.y + 76, r.size.x - 8, 30), ab["name"], 11, Color.WHITE)
