@@ -7,6 +7,7 @@ extends SceneTree
 const Data = preload("res://scripts/data.gd")
 const GameScript = preload("res://scripts/game.gd")
 const AudioScript = preload("res://scripts/audio.gd")
+const Art = preload("res://scripts/art.gd")
 
 var _failures: Array = []
 var _current := ""
@@ -14,6 +15,15 @@ var _checks := 0
 
 
 var _ran := false
+var _failed := 0
+var _test_count := 0
+
+## Testes de desenho: o _draw só roda no fim do quadro, então estes testes
+## montam a cena (start), esperam alguns quadros e então verificam (check).
+## Rodam um de cada vez, depois dos testes comuns. Registre com after_draw().
+var _draw_tests: Array = []
+var _draw_wait := -1
+var scene: Node2D = null
 
 
 func _process(_delta: float) -> bool:
@@ -21,6 +31,10 @@ func _process(_delta: float) -> bool:
 	if not _ran:
 		_ran = true
 		_run_all()
+	elif _draw_wait > 0:
+		_draw_wait -= 1
+		if _draw_wait == 0:
+			_check_draw_test()
 	return false
 
 
@@ -30,22 +44,56 @@ func _run_all() -> void:
 		if String(m["name"]).begins_with("test_"):
 			names.append(m["name"])
 	names.sort()
-	var failed := 0
+	_test_count = names.size()
 	for n in names:
 		_current = n
 		var before := _failures.size()
 		seed(12345)
 		call(n)
-		if _failures.size() > before:
-			failed += 1
-			print("FALHOU  ", n)
-			for i in range(before, _failures.size()):
-				print("        ", _failures[i])
-		else:
-			print("ok      ", n)
-	print("")
-	print("%d testes, %d falharam, %d verificações" % [names.size(), failed, _checks])
-	quit(1 if failed > 0 else 0)
+		if _draw_tests.size() > 0 and _draw_tests[-1]["name"] == n:
+			# O resultado sai depois do desenho, junto com as falhas desta parte.
+			_draw_tests[-1]["pre"] = _failures.slice(before)
+			_failures.resize(before)
+			continue
+		_report(n, _failures.slice(before))
+	_start_draw_test()
+
+
+func _report(n: String, fails: Array) -> void:
+	if fails.size() > 0:
+		_failed += 1
+		print("FALHOU  ", n)
+		for f in fails:
+			print("        ", f)
+	else:
+		print("ok      ", n)
+
+
+func after_draw(start: Callable, check_fn: Callable) -> void:
+	_draw_tests.append({"name": _current, "start": start, "check": check_fn, "pre": []})
+
+
+func _start_draw_test() -> void:
+	if _draw_tests.is_empty():
+		print("")
+		print("%d testes, %d falharam, %d verificações" % [_test_count, _failed, _checks])
+		quit(1 if _failed > 0 else 0)
+		return
+	var d: Dictionary = _draw_tests[0]
+	_current = d["name"]
+	d["start"].call()
+	_draw_wait = 3
+
+
+func _check_draw_test() -> void:
+	var d: Dictionary = _draw_tests.pop_front()
+	_current = d["name"]
+	var before := _failures.size()
+	d["check"].call()
+	var fails: Array = d["pre"]
+	fails.append_array(_failures.slice(before))
+	_report(d["name"], fails)
+	_start_draw_test()
 
 
 # ---------------------------------------------------------------------------
@@ -811,3 +859,110 @@ func test_audio_music_generates_and_loops() -> void:
 	check(st != null and st.loop_mode == AudioStreamWAV.LOOP_FORWARD, "música deveria repetir em loop")
 	check(st != null and st.get_length() > 15.0, "música deveria ter pelo menos 15 s")
 	a.free()
+
+
+# ---------------------------------------------------------------------------
+# Imagens (scripts/art.gd)
+func _all_art_paths() -> Array:
+	var paths: Array = []
+	for hid in Data.HERO_ORDER:
+		paths.append(Art.HERO_SPRITE % hid)
+		paths.append(Art.HERO_PORTRAIT % hid)
+	for ab in Data.ABILITIES.keys():
+		paths.append(Art.ICON % ab)
+	for role in Data.ROLE_COLORS.keys():
+		paths.append(Art.CARD_FRAME % String(role).to_lower())
+	for kind in Art.PROJECTILES.keys():
+		paths.append(Art.FX % Art.PROJECTILES[kind]["fx"])
+	return paths
+
+
+## Partida parada com tudo que usa imagem na tela: sprites, selos armados,
+## retratos (uma ultimate pronta), cartas (uma em destaque), próxima carta,
+## os três tipos de projétil, avisos de habilidade e registro lateral.
+func _art_scene() -> Node2D:
+	var g := new_game()
+	var c = g.commanders[0]
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	var s = hero(g, 0, "asclepio")
+	pin(t, Vector2(600, 300))
+	pin(a, Vector2(520, 260))
+	pin(s, Vector2(520, 340))
+	t.ult = 100.0
+	t.hit_flash = 0.1
+	a.arm("salto", false)
+	t.arm("furia", true)
+	g.cast(a, "disparo", Vector2(900, 260))
+	g.cast(s, "veneno", Vector2(900, 340))
+	g.spawn_projectile(a, Vector2(560, 300), Vector2(900, 100), 10.0, 5.0, "basic", Color.WHITE)
+	g.hud.hover = 0
+	for h in g.heroes:
+		h.queue_redraw()
+	g.queue_redraw()
+	g.hud.queue_redraw()
+	check(c.hand[0] != "" and c.next_card() != "", "cena de teste precisa de cartas na mão e na fila")
+	return g
+
+
+func test_art_without_images_returns_null() -> void:
+	# Ainda não há nenhuma imagem: o carregador devolve null para tudo.
+	Art.clear_cache()
+	for p in _all_art_paths():
+		check(Art.tex(p) == null, "sem o arquivo, deveria devolver null: " + p)
+	check(Art.hero_sprite("talos") == null and Art.hero_portrait("artemis") == null, "atalhos de herói devolvem null")
+	check(Art.icon("muralha") == null and Art.card_frame("Tanque") == null and Art.fx("tiro_basico") == null, "atalhos devolvem null")
+	check(not Art.draw_fx(null, "nao_existe", Vector2.ZERO, Vector2.ONE), "efeito sem imagem retorna false (quem chama desenha por código)")
+	for k in Data.ABILITIES.keys():
+		check(Art.ability_id(Data.ABILITIES[k]) == k, "chave da habilidade a partir do dicionário: " + k)
+	for hid in Data.HERO_ORDER:
+		check(Art.HERO_SPRITE_PX.has(hid), "tamanho do sprite definido: " + hid)
+
+
+func test_art_draw_without_images_uses_code_drawing() -> void:
+	# Sem imagens, a partida desenha só por código e nada quebra.
+	after_draw(func():
+		Art.clear_cache()
+		Art.drawn = 0
+		scene = _art_scene(),
+	func():
+		check(Art.drawn == 0, "sem imagens nada deveria ser desenhado por textura (desenhou %d)" % Art.drawn)
+		done(scene)
+		scene = null)
+
+
+func test_art_draw_with_images_in_memory() -> void:
+	# Com texturas criadas em memória em todos os caminhos, o desenho com
+	# sprite, retrato, ícones, moldura e projéteis roda sem erro.
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		var tx := ImageTexture.create_from_image(img)
+		Art.clear_cache()
+		for p in _all_art_paths():
+			Art.set_texture(p, tx)
+		Art.drawn = 0
+		scene = _art_scene(),
+	func():
+		# 6 sprites + 3 retratos + 4 cartas + próxima + 3 projéteis + selos e ícones.
+		check(Art.drawn >= 20, "deveria desenhar as imagens (desenhou %d)" % Art.drawn)
+		check(scene.hud.hover == 0, "carta em destaque continua com moldura")
+		done(scene)
+		scene = null
+		Art.clear_cache())
+
+
+func test_art_hero_sprite_turns_smoothly() -> void:
+	# O sprite gira no máximo 720°/s em direção a `facing`.
+	var g := new_game()
+	var t = hero(g, 0, "talos")
+	pin(t, Vector2(600, 300))
+	t.facing = Vector2.RIGHT
+	t.sprite_angle = 0.0
+	t.facing = Vector2.LEFT
+	step(g, 0.1)
+	check(absf(t.sprite_angle) <= deg_to_rad(72.0) + 0.02, "em 0,1 s gira no máximo 72° (girou %.1f°)" % rad_to_deg(absf(t.sprite_angle)))
+	check(absf(t.sprite_angle) > deg_to_rad(60.0), "deveria estar girando (girou %.1f°)" % rad_to_deg(absf(t.sprite_angle)))
+	step(g, 0.2)
+	check(absf(angle_difference(t.sprite_angle, PI)) < 0.01, "em 0,3 s já deveria apontar para a esquerda")
+	done(g)

@@ -50,6 +50,8 @@ Detalhes em [docs/TESTES.md](docs/TESTES.md). Bugs encontrados e corrigidos fica
 | `scripts/hud.gd` | Interface do jogador |
 | `scripts/menu.gd` | Tela inicial |
 | `scripts/audio.gd` | Sons e música sintetizados por código |
+| `scripts/art.gd` | Imagens (sprites, retratos, ícones, molduras, efeitos) com cache; sem o PNG, desenho por código |
+| `assets/` | PNGs do jogo (opcionais). Nomes e tamanhos em [assets/README.md](assets/README.md) |
 
 ## Publicação no itch.io
 

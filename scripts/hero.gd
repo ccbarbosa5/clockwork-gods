@@ -3,6 +3,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const Art = preload("res://scripts/art.gd")
 
 var game
 var team := 0
@@ -18,6 +19,8 @@ var respawn_t := 0.0
 var attack_cd := 0.0
 var target = null
 var facing := Vector2.RIGHT
+## Ângulo do sprite: segue `facing` girando no máximo Art.HERO_TURN_DEG por segundo.
+var sprite_angle := 0.0
 var retreating := false
 var slot_index := 0
 
@@ -76,6 +79,7 @@ func setup(g, t: int, id: String, idx: int) -> void:
 	speed = def["speed"]
 	strafe_phase = randf() * TAU
 	facing = Vector2.RIGHT if team == 0 else Vector2.LEFT
+	sprite_angle = facing.angle()
 
 
 func clear_status() -> void:
@@ -127,6 +131,7 @@ func has_armed(ab: String) -> bool:
 func tick(dt: float) -> void:
 	if not alive:
 		respawn_t -= dt
+		sprite_angle = facing.angle()
 		if respawn_t <= 0.0:
 			game.respawn(self)
 		return
@@ -198,6 +203,7 @@ func tick(dt: float) -> void:
 		var spd := speed * (1.0 - slow_amt)
 		position += move * spd * dt
 	game.resolve_collisions(self)
+	sprite_angle = rotate_toward(sprite_angle, facing.angle(), deg_to_rad(Art.HERO_TURN_DEG) * dt)
 	queue_redraw()
 
 
@@ -723,14 +729,24 @@ func _draw() -> void:
 	if ult >= 100.0:
 		var pulse := 0.5 + 0.5 * sin(t * 6.0)
 		UI.ring(self, Vector2.ZERO, radius + 7.0, Color(Data.GOLD, 0.4 + 0.5 * pulse), 2.0)
-	draw_circle(Vector2.ZERO, radius + 3.0, tc)
-	draw_circle(Vector2.ZERO, radius, hc)
-	UI.hero_glyph(self, hid, Vector2.ZERO, radius * 0.5, Color(0.1, 0.07, 0.05, 0.9))
+	var sprite := Art.hero_sprite(hid)
+	if sprite != null:
+		# Com sprite: só a imagem gira com o herói; o anel do time fica fixo e por
+		# cima dela, para a cor do time sempre aparecer. Sem triângulo de direção
+		# e sem emblema (a imagem já mostra os dois).
+		var px: float = Art.HERO_SPRITE_PX.get(hid, (radius + 3.0) * 2.0 / 0.8)
+		var mod := Color(1.8, 1.8, 1.8) if hit_flash > 0.0 else Color.WHITE
+		Art.draw_centered(self, sprite, Vector2.ZERO, Vector2(px, px), sprite_angle, mod)
+		UI.ring(self, Vector2.ZERO, radius + 1.5, tc, 3.0)
+	else:
+		draw_circle(Vector2.ZERO, radius + 3.0, tc)
+		draw_circle(Vector2.ZERO, radius, hc)
+		UI.hero_glyph(self, hid, Vector2.ZERO, radius * 0.5, Color(0.1, 0.07, 0.05, 0.9))
 
-	# Indicador de direção
-	var tip := facing * (radius + 9.0)
-	var side := Vector2(-facing.y, facing.x) * 5.0
-	draw_colored_polygon(PackedVector2Array([tip, facing * (radius + 2.0) + side, facing * (radius + 2.0) - side]), tc)
+		# Indicador de direção
+		var tip := facing * (radius + 9.0)
+		var side := Vector2(-facing.y, facing.x) * 5.0
+		draw_colored_polygon(PackedVector2Array([tip, facing * (radius + 2.0) + side, facing * (radius + 2.0) - side]), tc)
 
 	# Golpe corpo a corpo
 	if swing_t > 0.0:

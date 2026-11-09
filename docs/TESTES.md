@@ -18,7 +18,7 @@ Cada função `test_*` cria uma partida isolada, posiciona heróis e verifica um
 godot --headless --path . --script res://tests/tests.gd
 ```
 
-Testes `test_bugXXX_*` protegem contra a volta dos bugs de `docs/BUGS.md`. Os testes `test_audio_*` conferem os sons: todo som usado no código existe (um nome errado ficaria mudo sem erro), nada vazio, limite de repetição, configurações salvas e música em loop.
+Testes `test_bugXXX_*` protegem contra a volta dos bugs de `docs/BUGS.md`. Os testes `test_art_*` conferem as imagens: sem os PNGs o carregador devolve null e a partida desenha só por código; com texturas criadas em memória, o desenho com sprites, retratos, ícones, molduras e projéteis roda sem erro; o sprite do herói gira no máximo 720°/s. Testes de desenho usam `after_draw()`, porque o `_draw` só roda no fim do quadro. Os testes `test_audio_*` conferem os sons: todo som usado no código existe (um nome errado ficaria mudo sem erro), nada vazio, limite de repetição, configurações salvas e música em loop.
 
 ## 2. Simulador de partidas (`tests/simulate.gd`)
 
