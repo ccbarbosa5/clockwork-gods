@@ -1,6 +1,8 @@
 extends RefCounted
 ## Utilitários de desenho compartilhados.
 
+const Art = preload("res://scripts/art.gd")
+
 static func font() -> Font:
 	return ThemeDB.fallback_font
 
@@ -101,10 +103,20 @@ static func effect_icon(ci: CanvasItem, effect: String, c: Vector2, s: float, co
 					c + Vector2(ox - s * 0.35, -s * 0.7), c + Vector2(ox + s * 0.35, 0), c + Vector2(ox - s * 0.35, s * 0.7)]), col, w * 1.2, true)
 
 
-## Selo de habilidade: círculo na cor da função com o ícone do efeito.
+## Ícone da habilidade: usa assets/icons/<habilidade>.png no mesmo tamanho do
+## ícone por código (lado 2·s); sem a imagem, desenha o ícone do tipo de efeito.
+static func ability_icon(ci: CanvasItem, ab: Dictionary, c: Vector2, s: float, col: Color) -> void:
+	var t := Art.icon(Art.ability_id(ab))
+	if t == null:
+		effect_icon(ci, ab["effect"], c, s, col)
+		return
+	Art.draw_centered(ci, t, c, Vector2(s, s) * 2.0, 0.0, Color(1, 1, 1, col.a))
+
+
+## Selo de habilidade: círculo na cor da função com o ícone da habilidade.
 static func badge(ci: CanvasItem, c: Vector2, r: float, ab: Dictionary, role_col: Color, alpha := 1.0, ult := false) -> void:
 	ci.draw_circle(c, r + 2.0, Color(0, 0, 0, 0.7 * alpha))
 	ci.draw_circle(c, r, Color(role_col.darkened(0.35), alpha))
 	if ult:
 		ci.draw_arc(c, r + 3.0, 0.0, TAU, 32, Color(0.95, 0.76, 0.31, alpha), 2.5, true)
-	effect_icon(ci, ab["effect"], c, r * 0.6, Color(1, 1, 1, alpha))
+	ability_icon(ci, ab, c, r * 0.6, Color(1, 1, 1, alpha))
