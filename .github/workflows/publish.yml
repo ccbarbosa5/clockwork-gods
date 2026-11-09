@@ -46,14 +46,8 @@ jobs:
           mkdir -p "$DEST"
           cp ~/godot/templates/* "$DEST/"
 
-      - name: Importar projeto
-        run: timeout 300 ~/godot/godot --headless --path . --import || true
-
-      - name: Teste automático (bot contra bot)
-        run: |
-          timeout 300 ~/godot/godot --headless --path . -- --autotest 2>&1 | tee autotest.log
-          if grep -q "SCRIPT ERROR" autotest.log; then echo "Erro de script no teste"; exit 1; fi
-          grep -q "RESULTADO" autotest.log
+      - name: Testes (regras, regressão e simulação de partidas)
+        run: GODOT=~/godot/godot tools/run_tests.sh --matches=12
 
       - name: Exportar para web
         run: |

@@ -15,6 +15,11 @@ var show_help := false
 var t := 0.0
 
 
+## Versão lida do projeto (BUG-013: o menu mostrava uma versão fixa e antiga).
+static func version_label() -> String:
+	return "Protótipo v%s  ·  Talos · Ártemis · Asclépio" % ProjectSettings.get_setting("application/config/version", "?")
+
+
 func play_rect() -> Rect2:
 	return Rect2(520, 470, 240, 54)
 
@@ -97,7 +102,7 @@ func _draw() -> void:
 	UI.panel(self, hr, Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
 	UI.text_c(self, hr.get_center() + Vector2(0, 5), "Como jogar", 14, Color.WHITE)
 
-	UI.text_c(self, Vector2(640, 700), "Protótipo v0.1  ·  Talos · Ártemis · Asclépio", 12, Color(1, 1, 1, 0.35))
+	UI.text_c(self, Vector2(640, 700), version_label(), 12, Color(1, 1, 1, 0.35))
 
 	if show_help:
 		_draw_help()

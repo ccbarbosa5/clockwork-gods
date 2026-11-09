@@ -1,0 +1,273 @@
+extends SceneTree
+## Simulador de partidas: joga várias partidas bot contra bot, verifica
+## invariantes a cada passo (anomalias = possíveis bugs) e mede o equilíbrio.
+## Rodar:  godot --headless --path . --script res://tests/simulate.gd -- --matches=12
+## Sai com código 1 se encontrar anomalias ou métricas fora dos limites.
+
+const Data = preload("res://scripts/data.gd")
+const GameScript = preload("res://scripts/game.gd")
+
+const STEP := 1.0 / 60.0
+const MAX_TIME := 420.0
+
+## Limites aceitáveis das métricas agregadas.
+const LIMITS := {
+	"duration_min": 100.0, "duration_max": 330.0,
+	"kills_min": 5.0,
+	"winrate_min": 0.15,            # cada lado vence pelo menos 15% (bots iguais)
+	"formation_ok_min": 0.80,       # tempo com a linha de trás atrás do tanque
+	"armed_wait_max": 4.0,          # espera média de uma carta armada (s)
+}
+
+var matches := 12
+var anomalies: Array = []
+var anomaly_counts := {}
+var _ran := false
+
+
+func _process(_delta: float) -> bool:
+	if not _ran:
+		_ran = true
+		_run()
+	return false
+
+
+func _run() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--matches="):
+			matches = a.substr(10).to_int()
+	var results: Array = []
+	var casts := {}
+	var t0 := Time.get_ticks_msec()
+	for m in matches:
+		seed(1000 + m)
+		var diffs: Array = [["hard", "hard"], ["normal", "normal"], ["hard", "easy"], ["easy", "hard"]][m % 4]
+		var behaviors := ["balanced", "aggressive", "defensive"]
+		var r := _play_match(m, diffs[0], diffs[1], behaviors[m % 3], casts)
+		results.append(r)
+		print("partida %2d  %-6s x %-6s  vencedor=%2d  %5.1fs  progresso %5.1f/%5.1f  abates %2d  cartas %2d/%2d  ults %d/%d  formação %.0f%%  espera %.1fs" % [
+			m + 1, diffs[0], diffs[1], r["winner"], r["duration"], r["p0"], r["p1"], r["kills"],
+			r["cards0"], r["cards1"], r["ults0"], r["ults1"], r["formation"] * 100.0, r["armed_wait"]])
+
+	print("")
+	print("=== Métricas ===")
+	var failed := false
+	var same: Array = []
+	for i in results.size():
+		if i % 4 < 2:
+			same.append(results[i])
+	var avg_dur := _avg(results, "duration")
+	var avg_kills := _avg(results, "kills")
+	var avg_form := _avg(results, "formation")
+	var avg_wait := _avg(results, "armed_wait")
+	var w0 := 0
+	var w1 := 0
+	for r in same:
+		if r["winner"] == 0:
+			w0 += 1
+		elif r["winner"] == 1:
+			w1 += 1
+	var n_same: int = maxi(1, same.size())
+	print("duração média      %.1f s   (limite %.0f a %.0f)" % [avg_dur, LIMITS["duration_min"], LIMITS["duration_max"]])
+	print("abates por partida %.1f     (mínimo %.0f)" % [avg_kills, LIMITS["kills_min"]])
+	print("vitórias (bots iguais)  azul %d · vermelho %d de %d" % [w0, w1, same.size()])
+	print("formação respeitada %.0f%%  (mínimo %.0f%%)" % [avg_form * 100.0, LIMITS["formation_ok_min"] * 100.0])
+	print("espera média carta armada %.2f s (máximo %.1f)" % [avg_wait, LIMITS["armed_wait_max"]])
+	if avg_dur < LIMITS["duration_min"] or avg_dur > LIMITS["duration_max"]:
+		failed = true; print("  !! duração média fora do limite")
+	if avg_kills < LIMITS["kills_min"]:
+		failed = true; print("  !! poucos abates")
+	if same.size() >= 4 and (float(w0) / n_same < LIMITS["winrate_min"] or float(w1) / n_same < LIMITS["winrate_min"]):
+		failed = true; print("  !! um lado vence quase sempre com bots iguais")
+	if avg_form < LIMITS["formation_ok_min"]:
+		failed = true; print("  !! linha de trás passa muito à frente do tanque")
+	if avg_wait > LIMITS["armed_wait_max"]:
+		failed = true; print("  !! heróis demoram demais para usar cartas armadas")
+
+	print("")
+	print("=== Habilidades usadas (todas as partidas) ===")
+	var line := ""
+	for ab in Data.ABILITIES.keys():
+		var n: int = casts.get(ab, 0)
+		line += "%s %d · " % [Data.ABILITIES[ab]["name"], n]
+		if n == 0:
+			failed = true
+			_anomaly("habilidade nunca usada: " + ab, "")
+	print(line)
+	var total := 0.0
+	for ab in Data.ABILITIES.keys():
+		total += casts.get(ab, 0)
+	var avg_cast := total / Data.ABILITIES.size()
+	print("")
+	print("=== Pontos de melhoria (não reprovam) ===")
+	var any_warn := false
+	for ab in Data.ABILITIES.keys():
+		var n2: int = casts.get(ab, 0)
+		if n2 > 0 and n2 < avg_cast * 0.25:
+			any_warn = true
+			print("carta pouco usada: %s (%d usos, média %.0f)" % [Data.ABILITIES[ab]["name"], n2, avg_cast])
+	if not any_warn:
+		print("nenhum")
+
+	print("")
+	print("=== Anomalias ===")
+	if anomalies.is_empty():
+		print("nenhuma")
+	else:
+		failed = true
+		for k in anomaly_counts.keys():
+			print("%4dx  %s" % [anomaly_counts[k], k])
+		print("primeiras ocorrências:")
+		for i in mini(10, anomalies.size()):
+			print("   ", anomalies[i])
+	print("")
+	print("tempo real %.1f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
+	print("RESULTADO_SIMULACAO ", "FALHOU" if failed else "OK")
+	quit(1 if failed else 0)
+
+
+func _avg(list: Array, key: String) -> float:
+	if list.is_empty():
+		return 0.0
+	var s := 0.0
+	for r in list:
+		s += float(r[key])
+	return s / list.size()
+
+
+func _anomaly(kind: String, detail: String) -> void:
+	anomaly_counts[kind] = anomaly_counts.get(kind, 0) + 1
+	if anomaly_counts[kind] <= 3:
+		anomalies.append(kind + "  " + detail)
+
+
+func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionary) -> Dictionary:
+	var g := Node2D.new()
+	g.set_script(GameScript)
+	root.add_child(g)
+	g.setup({"autotest": true, "difficulty": d1, "difficulty0": d0})
+	g.set_process(false)
+	g.hud.set_process(false)
+	g.commanders[0].behavior = beh
+
+	# Contar habilidades usadas e tempo de espera das armadas.
+	var waits: Array = []
+	var still := {}
+	var last_pos := {}
+	for h in g.heroes:
+		still[h] = 0.0
+		last_pos[h] = h.position
+	var form_ok := 0
+	var form_total := 0
+	var prev_feed := 0
+
+	while not g.ended and g.time < MAX_TIME:
+		# Antes do passo: registrar cartas armadas para medir a espera.
+		var armed_before := {}
+		for h in g.heroes:
+			for a in h.armed:
+				armed_before[str(h.get_instance_id()) + a["ab"]] = a["t"]
+		g._step(STEP)
+		var tag := "partida %d t=%.1f" % [idx + 1, g.time]
+		for h in g.heroes:
+			var ids := {}
+			for a in h.armed:
+				ids[str(h.get_instance_id()) + a["ab"]] = true
+			for k in armed_before.keys():
+				if k.begins_with(str(h.get_instance_id())) and not ids.has(k) and h.alive:
+					waits.append(Data.ARM_TIME - armed_before[k])
+		_check_invariants(g, tag, still, last_pos)
+		# Formação: herói de trás não passa muito do tanque vivo.
+		if g.point_unlocked() and int(g.time * 60.0) % 15 == 0:
+			for t in 2:
+				var tank = g.get_hero(t, "talos")
+				if tank == null or not tank.alive or tank.retreating:
+					continue
+				var fwd := 1.0 if t == 0 else -1.0
+				for hid in ["artemis", "asclepio"]:
+					var b = g.get_hero(t, hid)
+					if b.alive and not b.retreating:
+						form_total += 1
+						if (b.position.x - tank.position.x) * fwd <= 60.0:
+							form_ok += 1
+
+	for ab in g.cast_counts.keys():
+		casts[ab] = casts.get(ab, 0) + g.cast_counts[ab]
+	if not g.ended:
+		_anomaly("partida não terminou", "partida %d" % (idx + 1))
+	var kills := 0
+	for h in g.heroes:
+		kills += h.stats["kills"]
+	var r := {"winner": g.result, "duration": g.time, "p0": g.progress[0], "p1": g.progress[1],
+		"kills": kills, "cards0": g.commanders[0].cards_played, "cards1": g.commanders[1].cards_played,
+		"ults0": g.commanders[0].ults_used, "ults1": g.commanders[1].ults_used,
+		"formation": float(form_ok) / maxf(1.0, float(form_total)),
+		"armed_wait": _mean(waits)}
+	g.free()
+	return r
+
+
+func _mean(a: Array) -> float:
+	if a.is_empty():
+		return 0.0
+	var s := 0.0
+	for x in a:
+		s += x
+	return s / a.size()
+
+
+func _check_invariants(g, tag: String, still: Dictionary, last_pos: Dictionary) -> void:
+	for h in g.heroes:
+		var name: String = "%s(t%d)" % [h.hid, h.team]
+		if not h.alive:
+			if not h.armed.is_empty():
+				_anomaly("herói morto com habilidade armada", tag + " " + name)
+			last_pos[h] = h.position
+			still[h] = 0.0
+			continue
+		var p: Vector2 = h.position
+		if is_nan(p.x) or is_nan(p.y):
+			_anomaly("posição NaN", tag + " " + name)
+			continue
+		if not g.ARENA.grow(1.0).has_point(p):
+			_anomaly("herói fora da arena", tag + " " + name + " " + str(p))
+		for o in g.OBSTACLES:
+			if p.distance_to(Vector2(o.x, o.y)) < o.z + h.radius - 1.5:
+				_anomaly("herói dentro de obstáculo", tag + " " + name)
+		if p.distance_to(g.SPAWNS[1 - h.team]) < g.SPAWN_R + h.radius - 1.5:
+			_anomaly("herói dentro da base inimiga", tag + " " + name)
+		if h.hp > h.max_hp + 0.01 or h.hp <= 0.0:
+			_anomaly("vida inválida", tag + " %s hp=%.1f" % [name, h.hp])
+		for a in h.armed:
+			if a["t"] < -2.0 and h.stun_t <= 0.0 and h.dash_t <= 0.0:
+				_anomaly("carta armada travada (passou do prazo)", tag + " " + name + " " + a["ab"])
+		# Herói totalmente parado por muito tempo fora da base (congelado)
+		var moved: float = p.distance_to(last_pos[h])
+		last_pos[h] = p
+		var in_spawn: bool = p.distance_to(g.spawn_pos(h.team)) < g.SPAWN_R
+		if moved < 0.01 and h.stun_t <= 0.0 and h.root_t <= 0.0 and not in_spawn:
+			still[h] += STEP
+			if still[h] > 3.0:
+				_anomaly("herói congelado por mais de 3 s", tag + " " + name + " " + str(p))
+				still[h] = -999.0
+		elif moved >= 0.01:
+			still[h] = 0.0
+	for t in 2:
+		var c = g.commanders[t]
+		if c.ichor < -0.001 or c.ichor > Data.ICHOR_MAX + 0.001:
+			_anomaly("Ícor fora do limite", tag + " %.2f" % c.ichor)
+		var all: Array = []
+		for x in c.hand:
+			if x != "":
+				all.append(x)
+				var owner = c.card_hero(x)
+				if not owner.alive:
+					_anomaly("carta de herói morto na mão", tag + " " + x)
+		all.append_array(c.queue)
+		if all.size() != 9:
+			_anomaly("deck com tamanho errado", tag + " %d cartas" % all.size())
+		if c.hand.has("") and c.next_card() != "":
+			_anomaly("espaço vazio na mão com carta disponível", tag)
+	for t in 2:
+		if g.progress[t] < 0.0 or g.progress[t] > 100.0:
+			_anomaly("progresso fora do limite", tag)

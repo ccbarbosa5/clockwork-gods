@@ -44,22 +44,34 @@ func think(dt: float) -> void:
 				cmd.use_ult(hid)
 				return
 
-	var options: Array = []
+	# Cartas com bom momento agora, mesmo as que ainda não dá para pagar.
+	var good: Array = []
 	for i in cmd.HAND_SIZE:
-		if cmd.can_play(i) != "":
-			continue
 		var card: String = cmd.hand[i]
+		if card == "":
+			continue
+		var reason: String = cmd.can_play(i)
+		if reason != "" and reason != "icor":
+			continue
 		var hero = cmd.card_hero(card)
 		if hero.has_armed(card):
 			continue
 		if hero.decide(card, false) != null:
-			options.append(i)
-	if options.is_empty() and cmd.ichor >= Data.ICHOR_MAX - 0.3:
+			good.append(i)
+	# Prefere a carta mais cara; se ela está quase paga, guarda Ícor para ela.
+	good.sort_custom(func(x, y): return Data.ABILITIES[cmd.hand[x]]["cost"] > Data.ABILITIES[cmd.hand[y]]["cost"])
+	for i in good:
+		var cost: float = Data.ABILITIES[cmd.hand[i]]["cost"]
+		if cmd.ichor >= cost:
+			cmd.play(i)
+			return
+		if cmd.ichor >= cost - 1.5 and difficulty != "easy":
+			return
+	if cmd.ichor >= Data.ICHOR_MAX - 0.3:
 		for i in cmd.HAND_SIZE:
 			if cmd.can_play(i) == "":
-				options.append(i)
-	if not options.is_empty():
-		cmd.play(options[randi() % options.size()])
+				cmd.play(i)
+				return
 
 
 func _maybe_behavior() -> void:

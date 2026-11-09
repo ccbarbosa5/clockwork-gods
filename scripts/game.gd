@@ -23,8 +23,8 @@ const OBSTACLES := [
 	Vector3(1030, 215, 34), Vector3(1030, 385, 34),
 	Vector3(420, 150, 28), Vector3(420, 450, 28),
 	Vector3(860, 150, 28), Vector3(860, 450, 28),
-	Vector3(545, 95, 22), Vector3(545, 505, 22),
-	Vector3(735, 95, 22), Vector3(735, 505, 22),
+	Vector3(545, 122, 22), Vector3(545, 478, 22),
+	Vector3(735, 122, 22), Vector3(735, 478, 22),
 	Vector3(330, 300, 20), Vector3(950, 300, 20),
 ]
 
@@ -38,6 +38,7 @@ var fx: Array = []
 var texts: Array = []
 var killfeed: Array = []
 var cast_feed: Array = []
+var cast_counts := {}
 var popups: Array = []
 var flash_t := 0.0
 var flash_col := Color.WHITE
@@ -79,8 +80,9 @@ func setup(opts: Dictionary) -> void:
 		c.setup(self, t, Data.HERO_ORDER)
 		commanders[t] = c
 	commanders[0].behavior = opts.get("behavior", "balanced")
-	bots[1] = Bot.new()
-	bots[1].setup(self, 1, commanders[1], difficulty)
+	if opts.get("bots", true):
+		bots[1] = Bot.new()
+		bots[1].setup(self, 1, commanders[1], difficulty)
 	if autotest:
 		bots[0] = Bot.new()
 		bots[0].setup(self, 0, commanders[0], opts.get("difficulty0", "hard"))
@@ -233,23 +235,35 @@ func _separate() -> void:
 
 
 func resolve_collisions(h) -> void:
+	# Várias passadas: empurrar para fora de obstáculos pode jogar o herói contra
+	# a borda, e a borda pode devolvê-lo ao obstáculo (BUG-009).
+	for it in 3:
+		for o in OBSTACLES:
+			var c := Vector2(o.x, o.y)
+			var v: Vector2 = h.position - c
+			var d := v.length()
+			var minimum: float = o.z + h.radius
+			if d < minimum:
+				if d < 0.01:
+					v = Vector2(0, 1)
+					d = 1.0
+				h.position = c + v / d * minimum
+		var enemy_spawn: Vector2 = SPAWNS[1 - h.team]
+		var ve: Vector2 = h.position - enemy_spawn
+		var de := ve.length()
+		if de < SPAWN_R + h.radius:
+			h.position = enemy_spawn + ve / maxf(de, 0.01) * (SPAWN_R + h.radius)
+		h.position.x = clampf(h.position.x, ARENA.position.x + h.radius, ARENA.end.x - h.radius)
+		h.position.y = clampf(h.position.y, ARENA.position.y + h.radius, ARENA.end.y - h.radius)
+	# Se ainda sobrepõe (vão entre obstáculo e borda menor que o herói), sai pela lateral.
 	for o in OBSTACLES:
-		var c := Vector2(o.x, o.y)
-		var v: Vector2 = h.position - c
-		var d := v.length()
-		var minimum: float = o.z + h.radius
-		if d < minimum:
-			if d < 0.01:
-				v = Vector2(0, 1)
-				d = 1.0
-			h.position = c + v / d * minimum
-	var enemy_spawn: Vector2 = SPAWNS[1 - h.team]
-	var ve: Vector2 = h.position - enemy_spawn
-	var de := ve.length()
-	if de < SPAWN_R + h.radius:
-		h.position = enemy_spawn + ve / maxf(de, 0.01) * (SPAWN_R + h.radius)
-	h.position.x = clampf(h.position.x, ARENA.position.x + h.radius, ARENA.end.x - h.radius)
-	h.position.y = clampf(h.position.y, ARENA.position.y + h.radius, ARENA.end.y - h.radius)
+		var c2 := Vector2(o.x, o.y)
+		var minimum2: float = o.z + h.radius
+		if h.position.distance_to(c2) < minimum2 - 0.5:
+			var dy: float = h.position.y - c2.y
+			var dx: float = sqrt(maxf(0.0, minimum2 * minimum2 - dy * dy))
+			var sx := 1.0 if h.position.x >= c2.x else -1.0
+			h.position.x = c2.x + sx * (dx + 0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -616,6 +630,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			return false
 	var abd: Dictionary = Data.ABILITIES[ab]
 	var is_ult: bool = abd.get("ult", false)
+	cast_counts[ab] = cast_counts.get(ab, 0) + 1
 	popups.append({"hero": h, "pos": h.position, "ab": ab, "t": 1.6, "max": 1.6, "ult": is_ult})
 	cast_feed.push_front({"t": 6.0, "team": h.team, "hid": h.hid, "ab": ab, "ult": is_ult})
 	if cast_feed.size() > 6:

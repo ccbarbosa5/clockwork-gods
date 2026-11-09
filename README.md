@@ -28,11 +28,15 @@ Todos os números de balanceamento estão em `scripts/data.gd`.
 1. Instale o [Godot 4.7](https://godotengine.org/download).
 2. Abra a pasta do projeto no Godot e aperte F5.
 
-Teste automático bot contra bot (sem janela):
+## Testes
+
+O projeto tem um sistema de testes automático: testes de regras e regressão, um simulador que joga partidas inteiras procurando anomalias e capturas de tela para revisão visual. O CI roda tudo antes de publicar.
 
 ```
-godot --headless --path . -- --autotest
+GODOT=/caminho/do/godot tools/run_tests.sh
 ```
+
+Detalhes em [docs/TESTES.md](docs/TESTES.md). Bugs encontrados e corrigidos ficam em [docs/BUGS.md](docs/BUGS.md), cada um com um teste que impede a volta dele.
 
 ## Estrutura
 

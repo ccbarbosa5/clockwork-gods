@@ -247,7 +247,7 @@ func decide(ab: String, forced: bool):
 			var bs := INF
 			for e in enemies:
 				var d: float = position.distance_to(e.position)
-				if d < 250.0:
+				if d < 300.0:
 					var sc: float = d + e.hp * 0.3
 					if sc < bs:
 						bs = sc
@@ -340,7 +340,7 @@ func decide(ab: String, forced: bool):
 				return _lead(n3)
 		"engrenagem":
 			var low = null
-			var lf := 0.7
+			var lf := 0.85
 			for a in allies:
 				var f: float = a.hp / a.max_hp
 				if f < lf and _nearest(a.position, enemies, 450.0) != null:
@@ -388,14 +388,17 @@ func _think(dt: float) -> Vector2:
 	_try_attack()
 
 	if retreating:
-		var dest: Vector2 = game.spawn_pos(team)
+		if target != null and position.distance_to(target.position) < 120.0:
+			return _kite(target.position)
 		if not is_healer():
 			var sup = _team_healer()
 			if sup != null and not sup.retreating:
-				dest = sup.position - Vector2(forward * 50.0, 0.0)
-		if target != null and position.distance_to(target.position) < 120.0:
-			return _kite(target.position)
-		return _go(dest, 25.0)
+				# Fica a 60 px do curandeiro, do lado em que está: sem atravessá-lo
+				# nem empurrá-lo (BUG-014) e sem congelar (BUG-011).
+				var side_dir: Vector2 = position - sup.position
+				side_dir = side_dir.normalized() if side_dir.length() > 1.0 else Vector2(-forward, 0.0)
+				return _hold(sup.position + side_dir * 60.0)
+		return _go(game.spawn_pos(team), 25.0)
 
 	var form := _formation_pos(beh, forward)
 
@@ -412,7 +415,9 @@ func _think(dt: float) -> Vector2:
 		var d: float = position.distance_to(target.position)
 		match style:
 			"frontline", "dive":
-				if d > def["range"] * 0.6:
+				# Já no alcance: para de empurrar o alvo (BUG-010: tanques travavam
+				# se empurrando um contra o outro).
+				if d - target.radius > def["range"] * 0.8:
 					return _steer(target.position)
 				return _strafe() * 0.5
 			"battle_support":
@@ -596,8 +601,17 @@ func _kite(from: Vector2) -> Vector2:
 	return _steer(position + dir * 90.0)
 
 
+## Movimento lateral em combate: perpendicular ao alvo e longe das bordas
+## (BUG-008: antes era sempre vertical e prendia o herói na parede).
 func _strafe() -> Vector2:
-	return Vector2(0.0, sin(game.time * 1.3 + strafe_phase))
+	var perp := Vector2(-facing.y, facing.x)
+	var v := perp * sin(game.time * 1.3 + strafe_phase)
+	var safe: Rect2 = game.ARENA.grow(-(radius + 30.0))
+	if not safe.has_point(position + v * 40.0):
+		v = -v
+		if not safe.has_point(position + v * 40.0):
+			v = (game.CENTER - position).normalized()
+	return v
 
 
 ## Vai até a posição e, ao chegar, continua se movimentando levemente.

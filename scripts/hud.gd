@@ -67,6 +67,8 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	var m := get_global_mouse_position()
+	if event is InputEventMouse:
+		m = (make_input_local(event) as InputEventMouse).position
 	if game.ended:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			if end_button(0).has_point(m):
