@@ -874,6 +874,8 @@ func _all_art_paths() -> Array:
 		paths.append(Art.CARD_FRAME % String(role).to_lower())
 	for kind in Art.PROJECTILES.keys():
 		paths.append(Art.FX % Art.PROJECTILES[kind]["fx"])
+	for name in Art.FX_EFFECTS.keys():
+		paths.append(Art.FX % name)
 	return paths
 
 
@@ -950,6 +952,81 @@ func test_art_draw_with_images_in_memory() -> void:
 		done(scene)
 		scene = null
 		Art.clear_cache())
+
+
+## Partida parada com todos os efeitos de imagem única ativos ao mesmo tempo:
+## áreas, armadilha armada e disparada, Chuva de Prata, Muralha, auras,
+## estados, soco, feixe de cura, fumaça e sinais de cura.
+func _fx_scene() -> Node2D:
+	var g := new_game()
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	var s = hero(g, 0, "asclepio")
+	var e = hero(g, 1, "talos")
+	pin(t, Vector2(600, 300))
+	pin(a, Vector2(520, 220))
+	pin(s, Vector2(520, 380))
+	pin(e, Vector2(760, 300))
+	g.cast(t, "valvula", t.position)
+	g.cast(t, "furia", t.position)
+	g.cast(s, "sopro", s.position)
+	g.cast(s, "segunda", s.position)
+	g.cast(a, "chuva", Vector2(800, 300))
+	g.cast(t, "muralha", Vector2(800, 300))
+	g.traps.append({"pos": Vector2(400, 300), "team": 0, "arm": 0.0, "life": 20.0, "src": a})
+	g.fx.append({"type": "img", "img": "armadilha_fechada", "pos": Vector2(420, 330), "r": 22.0, "col": Color.WHITE, "t": 0.6, "max": 0.6})
+	g.add_puff(Vector2(640, 200), Color.WHITE)
+	t.shield_hp = 100.0
+	t.shield_t = 5.0
+	a.root_t = 2.0
+	a.poison_t = 3.0
+	e.stun_t = 2.0
+	t.swing_t = 0.15
+	s.heal_target = a
+	s.heal_beam_t = 0.3
+	for h in g.heroes:
+		h.queue_redraw()
+	g.queue_redraw()
+	return g
+
+
+func test_art_effects_without_images_draw_by_code() -> void:
+	after_draw(func():
+		Art.clear_cache()
+		Art.drawn = 0
+		Art.drawn_names.clear()
+		scene = _fx_scene(),
+	func():
+		check(Art.drawn == 0 and Art.drawn_names.is_empty(), "sem imagens os efeitos deveriam sair só por código (texturas: %d)" % Art.drawn)
+		done(scene)
+		scene = null)
+
+
+func test_art_every_effect_image_is_used() -> void:
+	# Com uma textura em cada caminho fx/, todo efeito listado em Art.FX_EFFECTS
+	# precisa aparecer na cena: se algum nome não for desenhado, a imagem
+	# entregue pela arte nunca apareceria no jogo.
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		var tx := ImageTexture.create_from_image(img)
+		Art.clear_cache()
+		for p in _all_art_paths():
+			Art.set_texture(p, tx)
+		Art.drawn_names.clear()
+		scene = _fx_scene(),
+	func():
+		for name in Art.FX_EFFECTS.keys():
+			check(Art.drawn_names.has(name), "a imagem fx/%s.png nunca é desenhada" % name)
+		done(scene)
+		scene = null
+		Art.clear_cache())
+
+
+func test_art_effects_documented_in_assets_readme() -> void:
+	var readme := FileAccess.get_file_as_string("res://assets/README.md")
+	for name in Art.FX_EFFECTS.keys():
+		check(readme.contains(name + ".png"), "assets/README.md deveria listar fx/%s.png" % name)
 
 
 func test_art_hero_sprite_turns_smoothly() -> void:

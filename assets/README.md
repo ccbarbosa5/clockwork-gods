@@ -57,6 +57,63 @@ Imagem única, animada pelo código (escala, transparência, giro). Projéteis d
 | `veneno_projetil.png` | 160×64 | 35×14 |
 | `tiro_basico.png` | 64×32 | 12×6 (tingido com a cor do herói: desenhe claro/neutro) |
 
-Os demais efeitos (áreas, auras, partículas) ainda são só desenho por código. Para ligar
-um deles, use `Art.draw_fx(ci, "nome", centro, tamanho, escala, alfa, giro)`: ela devolve
-false sem a imagem, e aí o código desenha como hoje.
+Efeitos ligados por imagem única. Sem o arquivo, o efeito continua desenhado por código.
+Tamanhos "na tela" são em escala 1; o código anima por escala, transparência e giro.
+Tudo que gira (projéteis, auras, partículas) usa luz de cima, neutra.
+
+### Áreas no chão (512×512)
+
+Desenhadas no diâmetro da área; crescem de 30% a 100%, somem e giram devagar.
+A arte deve preencher o círculo inteiro da imagem (o centro da imagem é o centro da área).
+
+| Arquivo | Habilidade | Na tela | Duração |
+| --- | --- | --- | --- |
+| `furia_area.png` | Fúria da Forja (onda + rachaduras) | 420 px | 0,7 s (substitui também as rachaduras desenhadas) |
+| `valvula_area.png` | Válvula de Pressão (onda de vapor) | 380 px | 0,5 s |
+| `sopro_area.png` | Sopro Restaurador (onda de cura) | 420 px | 0,6 s |
+| `segunda_area.png` | Segunda Chance (explosão dourada) | 480 px | 0,7 s (substitui também os raios desenhados) |
+| `chuva_area.png` | Chuva de Prata (área no chão) | 340 px | 2,5 s, girando 0,3 rad/s, 90% de opacidade |
+
+Nas áreas com imagem, um anel fino na cor do time continua por código (Chuva de Prata), para mostrar de quem é.
+
+### Objetos no chão (128×128)
+
+| Arquivo | Uso | Na tela |
+| --- | --- | --- |
+| `armadilha_aberta.png` | Armadilha armada (35% de opacidade enquanto arma, 0,6 s) | 44 px, com anel do time por cima |
+| `armadilha_fechada.png` | Armadilha disparada, some em 0,6 s | 44 px |
+
+### Presa ao herói
+
+| Arquivo | Fonte | Na tela | Observação |
+| --- | --- | --- | --- |
+| `muralha_arco.png` | 256×128 | 96×48 | Arco convexo virado para a DIREITA (frente). Centro da imagem a 44 px à frente do Talos; gira com ele. Opacidade cai com a resistência (mínimo 30%) |
+| `soco_arco.png` | 128×64 | 64×32 (Talos) | Arco de impacto virado para a direita, a raio + 12 px à frente; some em 0,18 s |
+| `feixe_cura.png` | 64×16 | 6 px de espessura | Textura horizontal repetida do Asclépio até o aliado (até 260 px) |
+
+### Auras e estados (256×256)
+
+Feitas no tamanho do Talos e reduzidas pelo raio dos outros heróis (Ártemis 68%, Asclépio 73%).
+
+| Arquivo | Estado | Na tela (Talos) | Animação |
+| --- | --- | --- | --- |
+| `aura_valvula.png` | Protegido pela Válvula de Pressão | 64 px | gira 1 rad/s, 85% |
+| `aura_engrenagem.png` | Escudo da Engrenagem Vital | 72 px | gira -1,8 rad/s, 95% |
+| `aura_segunda.png` | Imortal (Segunda Chance) | 76 px | gira 1,5 rad/s, 90% |
+| `aura_raiz.png` | Preso pela Armadilha | 64 px | fixa, 4 px abaixo do centro |
+
+### Partículas
+
+| Arquivo | Fonte | Na tela | Uso |
+| --- | --- | --- | --- |
+| `fumaca.png` | 64×64 | 20 a 32 px, crescendo até 130% | Vapor da Válvula e rastro da Investida/Salto (tingida pela cor do efeito: desenhe branca) |
+| `chuva_flecha.png` | 32×32 | 12 px | Flechas da Chuva de Prata, desenhadas apontando para a DIREITA (o código inclina para a queda) |
+| `cura_mais.png` | 32×32 | 14 px | Sinais de cura do Sopro Restaurador, sobem 26 px |
+| `veneno_bolha.png` | 16×16 | 5 a 8 px | Bolhas sobre o envenenado |
+| `atordoado_estrela.png` | 32×32 | 8 px | 3 estrelas girando sobre o atordoado |
+
+O rastro de avanço não tem arquivo: com sprite, usa cópias translúcidas do próprio herói.
+
+Para ligar um efeito novo: `Art.draw_fx(ci, "nome", centro, tamanho, escala, alfa, giro)` devolve
+false sem a imagem, e aí o código desenha como hoje. Todo nome novo vai em `Art.FX_EFFECTS`
+(`scripts/art.gd`) e nesta lista; os testes conferem as duas coisas.
