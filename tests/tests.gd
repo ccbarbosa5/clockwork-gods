@@ -907,13 +907,21 @@ func _art_scene() -> Node2D:
 	return g
 
 
-func test_art_without_images_returns_null() -> void:
-	# Ainda não há nenhuma imagem: o carregador devolve null para tudo.
+## Simula um projeto sem nenhuma imagem (independe do que já existe em assets/).
+func _no_images() -> void:
 	Art.clear_cache()
 	for p in _all_art_paths():
-		check(Art.tex(p) == null, "sem o arquivo, deveria devolver null: " + p)
+		Art.set_texture(p, null)
+
+
+func test_art_without_images_returns_null() -> void:
+	# Arquivo inexistente devolve null; com todas as imagens ausentes, os atalhos também.
+	Art.clear_cache()
+	check(Art.tex("res://assets/fx/nao_existe.png") == null, "arquivo inexistente deveria devolver null")
+	_no_images()
 	check(Art.hero_sprite("talos") == null and Art.hero_portrait("artemis") == null, "atalhos de herói devolvem null")
 	check(Art.icon("muralha") == null and Art.card_frame("Tanque") == null and Art.fx("tiro_basico") == null, "atalhos devolvem null")
+	Art.clear_cache()
 	check(not Art.draw_fx(null, "nao_existe", Vector2.ZERO, Vector2.ONE), "efeito sem imagem retorna false (quem chama desenha por código)")
 	for k in Data.ABILITIES.keys():
 		check(Art.ability_id(Data.ABILITIES[k]) == k, "chave da habilidade a partir do dicionário: " + k)
@@ -924,13 +932,14 @@ func test_art_without_images_returns_null() -> void:
 func test_art_draw_without_images_uses_code_drawing() -> void:
 	# Sem imagens, a partida desenha só por código e nada quebra.
 	after_draw(func():
-		Art.clear_cache()
+		_no_images()
 		Art.drawn = 0
 		scene = _art_scene(),
 	func():
 		check(Art.drawn == 0, "sem imagens nada deveria ser desenhado por textura (desenhou %d)" % Art.drawn)
 		done(scene)
-		scene = null)
+		scene = null
+		Art.clear_cache())
 
 
 func test_art_draw_with_images_in_memory() -> void:
@@ -992,14 +1001,15 @@ func _fx_scene() -> Node2D:
 
 func test_art_effects_without_images_draw_by_code() -> void:
 	after_draw(func():
-		Art.clear_cache()
+		_no_images()
 		Art.drawn = 0
 		Art.drawn_names.clear()
 		scene = _fx_scene(),
 	func():
 		check(Art.drawn == 0 and Art.drawn_names.is_empty(), "sem imagens os efeitos deveriam sair só por código (texturas: %d)" % Art.drawn)
 		done(scene)
-		scene = null)
+		scene = null
+		Art.clear_cache())
 
 
 func test_art_every_effect_image_is_used() -> void:
@@ -1021,6 +1031,50 @@ func test_art_every_effect_image_is_used() -> void:
 		done(scene)
 		scene = null
 		Art.clear_cache())
+
+
+## Tamanho de fonte esperado de cada imagem (assets/README.md).
+const ART_SOURCE_SIZES := {
+	"heroes": Vector2i(256, 256), "icons": Vector2i(256, 256), "cards": Vector2i(240, 236),
+	"fx/disparo_projetil": Vector2i(256, 64), "fx/veneno_projetil": Vector2i(160, 64), "fx/tiro_basico": Vector2i(64, 32),
+	"fx/furia_area": Vector2i(512, 512), "fx/valvula_area": Vector2i(512, 512), "fx/sopro_area": Vector2i(512, 512),
+	"fx/segunda_area": Vector2i(512, 512), "fx/chuva_area": Vector2i(512, 512),
+	"fx/armadilha_aberta": Vector2i(128, 128), "fx/armadilha_fechada": Vector2i(128, 128),
+	"fx/muralha_arco": Vector2i(256, 128), "fx/soco_arco": Vector2i(128, 64), "fx/feixe_cura": Vector2i(64, 16),
+	"fx/aura_valvula": Vector2i(256, 256), "fx/aura_engrenagem": Vector2i(256, 256), "fx/aura_segunda": Vector2i(256, 256),
+	"fx/aura_raiz": Vector2i(256, 256), "fx/fumaca": Vector2i(64, 64), "fx/chuva_flecha": Vector2i(32, 32),
+	"fx/cura_mais": Vector2i(32, 32), "fx/veneno_bolha": Vector2i(16, 16), "fx/atordoado_estrela": Vector2i(32, 32),
+}
+
+
+func test_art_delivered_images_are_valid() -> void:
+	# Toda imagem que já está em assets/ precisa ter nome conhecido, tamanho
+	# certo e transparência. Pega entregas com nome ou tamanho errado.
+	var known := {}
+	for p in _all_art_paths():
+		known[p] = true
+	var found := 0
+	for sub in ["heroes", "icons", "cards", "fx"]:
+		var dir := DirAccess.open("res://assets/" + sub)
+		if dir == null:
+			continue
+		for f in dir.get_files():
+			if not f.ends_with(".png"):
+				continue
+			found += 1
+			var path := "res://assets/%s/%s" % [sub, f]
+			check(known.has(path), "imagem com nome desconhecido (não seria usada): " + path)
+			var t: Texture2D = load(path)
+			check(t != null, "imagem não carrega: " + path)
+			if t == null:
+				continue
+			var key: String = sub + "/" + f.get_basename()
+			var want: Vector2i = ART_SOURCE_SIZES.get(key, ART_SOURCE_SIZES.get(sub, Vector2i.ZERO))
+			if want != Vector2i.ZERO:
+				check(Vector2i(t.get_width(), t.get_height()) == want, "%s tem %dx%d, esperado %dx%d" % [path, t.get_width(), t.get_height(), want.x, want.y])
+			var img := t.get_image()
+			check(img != null and img.detect_alpha() != Image.ALPHA_NONE, "imagem sem transparência: " + path)
+	print("        (imagens entregues conferidas: %d)" % found)
 
 
 func test_art_effects_documented_in_assets_readme() -> void:
