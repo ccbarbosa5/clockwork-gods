@@ -18,7 +18,7 @@ Cada função `test_*` cria uma partida isolada, posiciona heróis e verifica um
 godot --headless --path . --script res://tests/tests.gd
 ```
 
-Testes `test_bugXXX_*` protegem contra a volta dos bugs de `docs/BUGS.md`.
+Testes `test_bugXXX_*` protegem contra a volta dos bugs de `docs/BUGS.md`. Os testes `test_audio_*` conferem os sons: todo som usado no código existe (um nome errado ficaria mudo sem erro), nada vazio, limite de repetição, configurações salvas e música em loop.
 
 ## 2. Simulador de partidas (`tests/simulate.gd`)
 
@@ -39,7 +39,8 @@ Também mede o equilíbrio e reprova se sair dos limites:
 | --- | --- |
 | Duração média | 100 a 330 s |
 | Abates por partida | pelo menos 5 |
-| Vitórias com bots iguais | cada lado pelo menos 15% |
+| Vitórias com bots iguais | cada lado pelo menos 15% (reprova só com 10+ partidas; abaixo disso apenas avisa) |
+| Ponto do inimigo livre com o time de pé lutando longe dele | no máximo 15 s por partida |
 | Formação (linha de trás atrás do tanque) | pelo menos 80% do tempo |
 | Espera média de carta armada | no máximo 4 s |
 | Toda habilidade usada | pelo menos uma vez |

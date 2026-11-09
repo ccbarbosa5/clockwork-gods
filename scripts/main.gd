@@ -8,6 +8,7 @@ extends Node2D
 
 const GameScript = preload("res://scripts/game.gd")
 const MenuScript = preload("res://scripts/menu.gd")
+const AudioScript = preload("res://scripts/audio.gd")
 
 var game: Node2D = null
 var menu: Node2D = null
@@ -31,6 +32,9 @@ func _ready() -> void:
 			shot_at = a.substr(10).to_float()
 		elif a == "--shot-menu":
 			shot_menu = true
+	var audio := Node.new()
+	audio.set_script(AudioScript)
+	add_child(audio)
 	menu = Node2D.new()
 	menu.set_script(MenuScript)
 	add_child(menu)

@@ -6,6 +6,7 @@ extends SceneTree
 
 const Data = preload("res://scripts/data.gd")
 const GameScript = preload("res://scripts/game.gd")
+const AudioScript = preload("res://scripts/audio.gd")
 
 var _failures: Array = []
 var _current := ""
@@ -355,6 +356,21 @@ func test_contested_point_pauses_progress() -> void:
 	done(g)
 
 
+func test_contested_with_majority_progresses_slowly() -> void:
+	var g := new_game()
+	pin_all_far(g)
+	g.time = Data.UNLOCK_TIME + 0.1
+	g.point_owner = 0
+	g.progress[0] = 30.0
+	pin(hero(g, 0, "talos"), g.CENTER)
+	pin(hero(g, 0, "artemis"), g.CENTER + Vector2(-30, 20))
+	pin(hero(g, 1, "talos"), g.CENTER + Vector2(30, 0))
+	step(g, 4.0)
+	var expected: float = 30.0 + 4.0 * Data.PROGRESS_RATE * Data.CONTESTED_RATE
+	check(absf(g.progress[0] - expected) < 0.3, "com mais heróis no ponto o dono avança a meia velocidade (%.1f, esperado %.1f)" % [g.progress[0], expected])
+	done(g)
+
+
 func test_point_locked_before_unlock() -> void:
 	var g := new_game()
 	pin_all_far(g)
@@ -437,6 +453,46 @@ func test_bug002_kiting_does_not_trap_in_corner() -> void:
 	pin(hero(g, 1, "talos"), Vector2(300, 450))
 	step(g, 1.5)
 	check(a.position.y < g.ARENA.end.y - a.radius - 5.0, "Ártemis ficou presa na borda inferior: %s" % str(a.position))
+	done(g)
+
+
+func test_bug015_losing_team_contests_point_instead_of_chasing() -> void:
+	# BUG-015: time perdendo ficava lutando longe do ponto e o inimigo pontuava livre.
+	var g := new_game()
+	g.time = Data.UNLOCK_TIME + 1.0
+	g.point_owner = 1
+	g.progress[1] = 60.0
+	for h in g.heroes:
+		if h.team == 1:
+			pin(h, Vector2(520, 150) + Vector2(h.slot_index * 30.0, 0))  # fora do ponto, perto do time azul
+		else:
+			h.position = Vector2(430, 260) + Vector2(0, h.slot_index * 40.0)
+	step(g, 6.0)
+	var on := 0
+	for h in g.alive_heroes(0):
+		if g.in_point(h.position):
+			on += 1
+	check(on >= 1, "nenhum herói azul foi contestar o ponto do inimigo")
+	check(g.point_owner == 0 or g.capture_team == 0 or g.contested or on >= 1, "time azul deveria estar tomando o ponto")
+	done(g)
+
+
+func test_bug016_support_not_frozen_at_point_edge() -> void:
+	# BUG-016: contestando, o suporte travava na borda do ponto querendo curar alguém fora.
+	var g := new_game()
+	pin_all_far(g)
+	g.time = Data.UNLOCK_TIME + 1.0
+	g.point_owner = 1
+	var s = hero(g, 0, "asclepio")
+	s.position = g.CENTER + Vector2(-g.POINT_R * 0.72, 0)
+	s.stun_t = 0.0
+	var a = hero(g, 0, "artemis")
+	pin(a, Vector2(330, 420))
+	a.hp = a.max_hp * 0.3
+	step(g, 0.5)
+	var moved := _path_len(g, s, 3.0)
+	check(moved > 10.0, "suporte congelou na borda do ponto (%.1f px em 3 s)" % moved)
+	check(g.in_point(s.position), "suporte deveria continuar dentro do ponto")
 	done(g)
 
 
@@ -675,3 +731,83 @@ func test_all_cards_have_visual_data() -> void:
 	for hid in Data.HERO_ORDER:
 		check(Data.ROLE_COLORS.has(Data.HEROES[hid]["role"]), "função sem cor: " + hid)
 		check(Data.STYLES.has(Data.HEROES[hid]["style"]), "estilo inválido: " + hid)
+
+
+# ---------------------------------------------------------------------------
+# Áudio
+func new_audio() -> Node:
+	var a := Node.new()
+	a.set_script(AudioScript)
+	a.settings_path = "user://test_settings.cfg"
+	a.instant = true
+	root.add_child(a)
+	return a
+
+
+func test_audio_every_ability_and_event_has_sound() -> void:
+	var a := new_audio()
+	for ab in Data.ABILITIES.keys():
+		check(a.sounds.has(ab), "habilidade sem som: " + ab)
+	for n in a.sounds.keys():
+		var st: AudioStreamWAV = a.sounds[n]
+		check(st.data.size() > 200, "som vazio: " + n)
+		check(st.get_length() < 3.0, "som longo demais: " + n)
+	a.free()
+
+
+func test_audio_names_used_in_code_exist() -> void:
+	# Um nome de som digitado errado fica mudo sem erro; este teste pega isso.
+	var a := new_audio()
+	var re := RegEx.new()
+	re.compile("sfx\\(\"([a-z_]+)\"|play\\(\"([a-z_]+)\"")
+	var found := 0
+	for path in ["res://scripts/game.gd", "res://scripts/hero.gd", "res://scripts/hud.gd", "res://scripts/menu.gd"]:
+		var txt := FileAccess.get_file_as_string(path)
+		for m in re.search_all(txt):
+			found += 1
+			var name := m.get_string(1) if m.get_string(1) != "" else m.get_string(2)
+			check(a.sounds.has(name), "som usado no código não existe: %s (%s)" % [name, path])
+	check(found >= 15, "o teste deveria encontrar os usos de som no código (achou %d)" % found)
+	# Expressões com operador ternário
+	for n in ["capture_us", "capture_them", "victory", "defeat", "death", "kill", "shot", "shot_support", "no_ichor", "click"]:
+		check(a.sounds.has(n), "som de evento não existe: " + n)
+	a.free()
+
+
+func test_audio_rate_limit() -> void:
+	var a := new_audio()
+	check(a.play("hit"), "primeiro som deveria tocar")
+	check(not a.play("hit"), "repetição imediata deveria ser barrada")
+	check(not a.play("nao_existe"), "som inexistente retorna false")
+	a.free()
+
+
+func test_audio_settings_persist() -> void:
+	var a := new_audio()
+	a.set_volume(0.3)
+	if not a.muted:
+		a.toggle_mute()
+	if a.music_on:
+		a.toggle_music()
+	a.free()
+	var b := new_audio()
+	check(absf(b.volume - 0.3) < 0.01, "volume deveria ser salvo")
+	check(b.muted, "mudo deveria ser salvo")
+	check(not b.music_on, "música desligada deveria ser salva")
+	b.toggle_mute()
+	b.toggle_music()
+	b.set_volume(0.8)
+	b.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_settings.cfg"))
+
+
+func test_audio_music_generates_and_loops() -> void:
+	var a := new_audio()
+	var guard := 0
+	while not a.generate_music_step(50.0) and guard < 400:
+		guard += 1
+	check(a.music_ready, "música deveria terminar de gerar")
+	var st: AudioStreamWAV = a._music_player.stream
+	check(st != null and st.loop_mode == AudioStreamWAV.LOOP_FORWARD, "música deveria repetir em loop")
+	check(st != null and st.get_length() > 15.0, "música deveria ter pelo menos 15 s")
+	a.free()

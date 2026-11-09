@@ -29,9 +29,19 @@ Quando não é possível automatizar (visual ou configuração), a proteção fi
 | BUG-012 | 0.3 | Simulador | Talos entalava entre coluna e borda | Vão de 33 px, menor que o Talos (44 px) | Colunas afastadas da borda | `test_bug012_map_gaps_fit_largest_hero` (confere todos os vãos do mapa) |
 | BUG-013 | 0.3 | Revisão visual | Menu mostrava "v0.1" em versões novas | Versão escrita fixa no código | Menu lê a versão do projeto | `test_bug013_menu_shows_project_version` |
 | BUG-014 | 0.3 | Teste de regressão | Tanque recuando empurrava o curandeiro até a base | Destino do recuo ficava atrás do curandeiro | Tanque fica a 60 px do curandeiro, do lado em que está | `test_bug014_retreating_tank_does_not_push_healer` |
+| BUG-015 | 0.3 | Jogador | Time perdendo lutava longe do ponto e o inimigo pontuava livre | IA perseguia inimigos sem considerar o objetivo | Com o ponto do inimigo ou neutro, heróis vão ao ponto, lutam nele e não saem perseguindo; perto da derrota ninguém recua | `test_bug015_losing_team_contests_point_instead_of_chasing` + métrica do simulador (caiu de 84 s para menos de 1 s por partida) |
+| BUG-016 | 0.4 | Simulador | Suporte congelava na borda do ponto | Trava de "não sair do ponto" anulava todo o movimento | Circula dentro do ponto quando a trava age | `test_bug016_support_not_frozen_at_point_edge` |
+
+## Bugs do próprio sistema de testes
+
+| ID | Versão | Sintoma | Correção |
+| --- | --- | --- | --- |
+| TST-001 | 0.3 | Simulador contava cada habilidade milhares de vezes | Contagem feita pelo jogo (`cast_counts`) |
+| TST-002 | 0.4 | Simulador dava comportamento inicial diferente só ao time azul, distorcendo o equilíbrio | Mesmo comportamento inicial nos dois lados; equilíbrio só reprova com 10+ partidas entre bots iguais (experimento com 60 partidas confirmou que não há vantagem de lado) |
 
 ## Melhorias encontradas pelos testes
 
 | ID | Versão | Encontrado por | Observação | Mudança |
 | --- | --- | --- | --- | --- |
 | MEL-001 | 0.3 | Simulador | Investida a Vapor e Engrenagem Vital quase nunca eram usadas | Condições de uso mais amplas e bot passa a guardar Ícor para cartas caras |
+| MEL-002 | 0.4 | Simulador | Com a disputa constante pelo ponto (BUG-015), as partidas passaram de 5 min | Progresso mais rápido (100% em 80 s) e, com o ponto disputado, o dono avança a meia velocidade se tiver mais heróis nele; média voltou a ~4,5 min |

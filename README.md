@@ -11,7 +11,7 @@ Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você 
 - **Ícor:** recarrega com o tempo (+1 a cada 2,5 s) e com abates. Abater um herói do time que está na frente rende Ícor extra.
 - **Ultimates:** botões redondos (Q, W, E), também usadas pelo herói no melhor momento. Carregam com dano, cura, dano mitigado e tempo no ponto. Não custam Ícor.
 - **Comportamento da IA:** Agressivo, Equilibrado ou Defensivo (Z, X, C), com 10 s de recarga entre trocas.
-- **P** pausa a partida.
+- **P** pausa a partida. **M** liga e desliga o som (volume e música no menu).
 
 ## Heróis
 
@@ -49,6 +49,7 @@ Detalhes em [docs/TESTES.md](docs/TESTES.md). Bugs encontrados e corrigidos fica
 | `scripts/bot.gd` | Decisões do bot |
 | `scripts/hud.gd` | Interface do jogador |
 | `scripts/menu.gd` | Tela inicial |
+| `scripts/audio.gd` | Sons e música sintetizados por código |
 
 ## Publicação no itch.io
 

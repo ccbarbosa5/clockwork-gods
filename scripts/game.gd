@@ -7,6 +7,7 @@ const HeroScript = preload("res://scripts/hero.gd")
 const Commander = preload("res://scripts/commander.gd")
 const Bot = preload("res://scripts/bot.gd")
 const HUD = preload("res://scripts/hud.gd")
+const AudioScript = preload("res://scripts/audio.gd")
 
 signal request(action: String)
 
@@ -129,6 +130,30 @@ func in_point(p: Vector2) -> bool:
 
 func in_arena(p: Vector2) -> bool:
 	return ARENA.has_point(p)
+
+
+## O time precisa ir ao ponto: o inimigo controla, está capturando, ou ele está neutro.
+## Nesses casos a IA prioriza pisar no ponto em vez de perseguir longe (BUG-015).
+func contest_need(t: int) -> bool:
+	if not point_unlocked():
+		return false
+	var e := 1 - t
+	if point_owner == e:
+		return true
+	if capture_team == e and capture_prog > 0.0:
+		return true
+	return point_owner == -1
+
+
+## Inimigo perto de vencer: o time luta no ponto até o fim, sem recuar.
+func desperate(t: int) -> bool:
+	return point_owner == 1 - t and progress[1 - t] >= 85.0
+
+
+## Toca um efeito sonoro (se o áudio estiver ativo).
+func sfx(name: String, db := 0.0) -> void:
+	if AudioScript.instance != null and not autotest:
+		AudioScript.instance.play(name, db)
 
 
 func count_traps(t: int) -> int:
@@ -270,10 +295,14 @@ func resolve_collisions(h) -> void:
 # Ponto de controle
 func _update_point(dt: float) -> void:
 	if not point_unlocked():
+		var left := Data.UNLOCK_TIME - time
+		if left <= 3.0 and int(ceil(left)) != int(ceil(left + dt)):
+			sfx("tick")
 		return
 	if not _announced_unlock:
 		_announced_unlock = true
 		announce("PONTO LIBERADO!", Data.GOLD, 2.0)
+		sfx("unlock")
 	var n := [0, 0]
 	for h in heroes:
 		if h.alive and in_point(h.position):
@@ -301,13 +330,18 @@ func _update_point(dt: float) -> void:
 					capture_prog = 0.0
 					capture_team = -1
 					announce("Ponto capturado pelo time %s" % Data.TEAM_NAMES[t], Data.TEAM_COLORS[t], 2.0)
+					sfx("capture_us" if t == player_team else "capture_them")
 					_burst(CENTER, POINT_R + 10.0, Data.TEAM_COLORS[t], 0.6)
 	else:
 		capture_prog = maxf(0.0, capture_prog - dt / Data.CAPTURE_TIME * 0.5)
 		if capture_prog <= 0.0:
 			capture_team = -1
-	if point_owner >= 0 and not contested:
-		progress[point_owner] = minf(100.0, progress[point_owner] + Data.PROGRESS_RATE * dt)
+	if point_owner >= 0:
+		var rate := Data.PROGRESS_RATE
+		if contested:
+			# Disputado: só avança (a meia velocidade) se o dono tiver mais heróis no ponto.
+			rate = Data.PROGRESS_RATE * Data.CONTESTED_RATE if n[point_owner] > n[1 - point_owner] else 0.0
+		progress[point_owner] = minf(100.0, progress[point_owner] + rate * dt)
 
 
 func _check_end() -> void:
@@ -320,6 +354,7 @@ func _check_end() -> void:
 			if not overtime:
 				overtime = true
 				announce("PRORROGAÇÃO!", Data.GOLD, 2.0)
+				sfx("overtime")
 			return
 		if progress[0] > progress[1]:
 			_end(0)
@@ -332,6 +367,7 @@ func _check_end() -> void:
 func _end(winner: int) -> void:
 	ended = true
 	result = winner
+	sfx("victory" if winner == player_team else "defeat")
 
 
 # ---------------------------------------------------------------------------
@@ -358,6 +394,7 @@ func deal_damage(src, victim, amount: float, show_text := true) -> void:
 		src.add_charge(amt * Data.ULT_DMG)
 	if show_text:
 		add_text(victim.position + Vector2(randf_range(-10, 10), -victim.radius - 18), str(int(round(amount))), Color(1, 0.92, 0.75))
+		sfx("hit", -8.0)
 	if victim.hp <= 0.0:
 		_kill(victim, src)
 
@@ -402,6 +439,7 @@ func _kill(victim, killer) -> void:
 			reward += Data.KILL_BONUS_LEADER
 		commanders[killer.team].add_ichor(reward)
 		add_text(victim.position + Vector2(0, -10), "+%d Ícor" % reward, Data.GOLD, 1.4)
+	sfx("death" if victim.team == player_team else "kill")
 	killfeed.push_front({"t": 4.0, "a": killer_name, "at": 1 - victim.team, "b": victim.def["name"], "bt": victim.team})
 	if killfeed.size() > 4:
 		killfeed.resize(4)
@@ -415,6 +453,8 @@ func respawn(h) -> void:
 	h.clear_status()
 	h.position = _spawn_slot(h.team, h.slot_index)
 	commanders[h.team].refill()
+	if h.team == player_team:
+		sfx("respawn", -6.0)
 
 
 func spawn_projectile(src, pos: Vector2, vel: Vector2, dmg: float, r: float, kind: String, col: Color, pierce := false, life := 1.2) -> void:
@@ -631,6 +671,9 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 	var abd: Dictionary = Data.ABILITIES[ab]
 	var is_ult: bool = abd.get("ult", false)
 	cast_counts[ab] = cast_counts.get(ab, 0) + 1
+	sfx(ab, 0.0 if h.team == player_team else -3.0)
+	if is_ult and h.team != player_team:
+		sfx("ult_warning", -2.0)
 	popups.append({"hero": h, "pos": h.position, "ab": ab, "t": 1.6, "max": 1.6, "ult": is_ult})
 	cast_feed.push_front({"t": 6.0, "team": h.team, "hid": h.hid, "ab": ab, "ult": is_ult})
 	if cast_feed.size() > 6:

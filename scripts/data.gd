@@ -6,7 +6,8 @@ extends RefCounted
 const MATCH_TIME := 300.0          # tempo limite (s)
 const UNLOCK_TIME := 12.0          # ponto libera após (s)
 const CAPTURE_TIME := 6.0          # tempo para capturar o ponto (s)
-const PROGRESS_RATE := 100.0 / 105.0  # % por segundo enquanto controla
+const PROGRESS_RATE := 100.0 / 80.0   # % por segundo enquanto controla
+const CONTESTED_RATE := 0.5         # fração do progresso quando disputado com vantagem numérica
 const RESPAWN := 6.0               # tempo de renascimento (s)
 const SPAWN_REGEN := 90.0          # cura por segundo dentro da própria base
 

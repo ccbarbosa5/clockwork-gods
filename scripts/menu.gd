@@ -3,6 +3,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const AudioScript = preload("res://scripts/audio.gd")
 
 signal start(opts: Dictionary)
 
@@ -18,6 +19,15 @@ var t := 0.0
 ## Versão lida do projeto (BUG-013: o menu mostrava uma versão fixa e antiga).
 static func version_label() -> String:
 	return "Protótipo v%s  ·  Talos · Ártemis · Asclépio" % ProjectSettings.get_setting("application/config/version", "?")
+
+
+func vol_rect(i: int) -> Rect2:
+	# 0 = diminuir, 1 = aumentar, 2 = música
+	return [Rect2(40, 662, 30, 30), Rect2(176, 662, 30, 30), Rect2(220, 662, 130, 30)][i]
+
+
+func _audio():
+	return AudioScript.instance
 
 
 func play_rect() -> Rect2:
@@ -49,15 +59,27 @@ func _input(event: InputEvent) -> void:
 		if show_help:
 			show_help = false
 			return
+		var a = _audio()
+		if a != null:
+			if vol_rect(0).has_point(m):
+				a.set_volume(snappedf(a.volume - 0.1, 0.1)); a.play("click"); return
+			if vol_rect(1).has_point(m):
+				a.set_volume(snappedf(a.volume + 0.1, 0.1)); a.play("click"); return
+			if vol_rect(2).has_point(m):
+				a.toggle_music(); a.play("click"); return
 		if play_rect().has_point(m):
+			if a != null:
+				a.play("card")
 			start.emit({"difficulty": difficulty, "behavior": behavior})
 		elif help_rect().has_point(m):
 			show_help = true
 		for i in 3:
 			if diff_rect(i).has_point(m):
 				difficulty = DIFFS[i]
+				if a != null: a.play("click")
 			if beh_rect(i).has_point(m):
 				behavior = Data.BEHAVIORS[i]
+				if a != null: a.play("click")
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
 			if show_help:
@@ -66,6 +88,8 @@ func _input(event: InputEvent) -> void:
 				start.emit({"difficulty": difficulty, "behavior": behavior})
 		elif event.keycode == KEY_ESCAPE:
 			show_help = false
+		elif event.keycode == KEY_M and _audio() != null:
+			_audio().toggle_mute()
 
 
 func _draw() -> void:
@@ -103,9 +127,25 @@ func _draw() -> void:
 	UI.text_c(self, hr.get_center() + Vector2(0, 5), "Como jogar", 14, Color.WHITE)
 
 	UI.text_c(self, Vector2(640, 700), version_label(), 12, Color(1, 1, 1, 0.35))
+	_draw_audio()
 
 	if show_help:
 		_draw_help()
+
+
+func _draw_audio() -> void:
+	var a = _audio()
+	if a == null:
+		return
+	UI.text_l(self, Vector2(40, 652), "Som" + ("  (mudo — M)" if a.muted else "  (M para mudo)"), 12, Color(1, 1, 1, 0.6))
+	for i in 3:
+		UI.panel(self, vol_rect(i), Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
+	UI.text_c(self, vol_rect(0).get_center() + Vector2(0, 6), "-", 18, Color.WHITE)
+	UI.text_c(self, vol_rect(1).get_center() + Vector2(0, 6), "+", 18, Color.WHITE)
+	var bar := Rect2(76, 672, 94, 10)
+	draw_rect(bar, Color(0, 0, 0, 0.6))
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * a.volume, bar.size.y)), Data.GOLD if not a.muted else Color(0.5, 0.5, 0.5))
+	UI.text_c(self, vol_rect(2).get_center() + Vector2(0, 5), "Música: " + ("ligada" if a.music_on else "desligada"), 12, Color.WHITE)
 
 
 func _draw_help() -> void:
@@ -129,7 +169,7 @@ func _draw_help() -> void:
 		"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.",
 		"Herói abatido renasce em 6 s; as cartas dele voltam ao deck.",
 		"",
-		"P pausa a partida.",
+		"P pausa a partida. M liga e desliga o som.",
 	]
 	var y := 175.0
 	for l in lines:

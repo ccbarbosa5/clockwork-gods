@@ -4,6 +4,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const AudioScript = preload("res://scripts/audio.gd")
 
 const PANEL := Rect2(0, 560, 1280, 160)
 const ICHOR_BAR := Rect2(350, 700, 504, 14)
@@ -79,6 +80,10 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
 		game.paused = not game.paused
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M:
+		if AudioScript.instance != null:
+			AudioScript.instance.toggle_mute()
+		return
 	if game.paused or not _player_controls():
 		return
 
@@ -114,6 +119,7 @@ func _flash(reason: String) -> void:
 		"carga": "Ultimate ainda carregando", "vazio": "Sem carta neste espaço", "cd": "Aguarde para trocar o comportamento"}
 	msg = texts.get(reason, reason)
 	msg_t = 1.4
+	game.sfx("no_ichor" if reason == "icor" else "click")
 
 
 func _play(i: int) -> void:
@@ -124,6 +130,7 @@ func _play(i: int) -> void:
 	pressed = i
 	press_t = 0.12
 	cmd.play(i)
+	game.sfx("card")
 
 
 func _ult(hid: String) -> void:
@@ -132,6 +139,7 @@ func _ult(hid: String) -> void:
 		_flash(reason)
 		return
 	cmd.use_ult(hid)
+	game.sfx("card")
 
 
 func _behavior(b: String) -> void:
@@ -139,6 +147,8 @@ func _behavior(b: String) -> void:
 		return
 	if not cmd.set_behavior(b):
 		_flash("cd")
+	else:
+		game.sfx("click")
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +202,8 @@ func _draw_top() -> void:
 	else:
 		status = "Ponto neutro"
 	UI.text_c(self, Vector2(640, 35), status, 11, Color(1, 1, 1, 0.75))
+	if AudioScript.instance != null and AudioScript.instance.muted:
+		UI.text_r(self, Vector2(760, 35), "Mudo (M)", 10, Color(1, 0.6, 0.5, 0.9))
 
 
 func _draw_panel() -> void:
@@ -282,7 +294,7 @@ func _draw_panel() -> void:
 		UI.text_c(self, r2.get_center() + Vector2(0, 15), Data.BEHAVIOR_KEYS[k], 9, Color(1, 1, 1, 0.5))
 	if cmd.behavior_cd > 0.0:
 		UI.text_c(self, Vector2(1128, 676), "Nova troca em %d s" % int(ceil(cmd.behavior_cd)), 11, Color(1, 1, 1, 0.6))
-	UI.text_c(self, Vector2(1128, 702), "Clique na carta: o herói usa no melhor momento", 10, Color(1, 1, 1, 0.4))
+	UI.text_c(self, Vector2(1128, 702), "Clique na carta: o herói usa no melhor momento · M mudo", 10, Color(1, 1, 1, 0.4))
 
 
 func _gem(c: Vector2, cost: int, r: float) -> void:

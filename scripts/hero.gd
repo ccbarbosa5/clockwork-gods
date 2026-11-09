@@ -184,6 +184,17 @@ func tick(dt: float) -> void:
 		var move := _think(dt)
 		if root_t > 0.0:
 			move = Vector2.ZERO
+		# Contestando: dentro do ponto, não sai dele perseguindo ninguém.
+		if not retreating and game.contest_need(team) and game.in_point(position):
+			var out: Vector2 = position - game.CENTER
+			if out.length() > game.POINT_R * 0.7:
+				var n := out.normalized()
+				var outward := move.dot(n)
+				if outward > 0.0:
+					move -= n * outward
+				if move.length() < 0.15:
+					# Sem congelar: circula dentro do ponto (BUG-016).
+					move = Vector2(-n.y, n.x) * 0.4 * sin(game.time * 1.1 + strafe_phase) - n * 0.2
 		var spd := speed * (1.0 - slow_amt)
 		position += move * spd * dt
 	game.resolve_collisions(self)
@@ -370,6 +381,9 @@ func _think(dt: float) -> Vector2:
 	var enemies: Array = game.alive_heroes(1 - team)
 	var hpf := hp / max_hp
 	var th: float = {"aggressive": 0.15, "balanced": 0.3, "defensive": 0.35}[beh]
+	if game.desperate(team):
+		th = 0.0
+		retreating = false
 	if hpf < th and undying_t <= 0.0:
 		retreating = true
 	if retreating and hpf > 0.8:
@@ -399,6 +413,10 @@ func _think(dt: float) -> Vector2:
 				side_dir = side_dir.normalized() if side_dir.length() > 1.0 else Vector2(-forward, 0.0)
 				return _hold(sup.position + side_dir * 60.0)
 		return _go(game.spawn_pos(team), 25.0)
+
+	# Objetivo primeiro: com o ponto do inimigo (ou neutro), vai para o ponto.
+	if game.contest_need(team) and position.distance_to(game.CENTER) > game.POINT_R * 0.75:
+		return _steer(_contest_spot(forward))
 
 	var form := _formation_pos(beh, forward)
 
@@ -446,6 +464,19 @@ func _think(dt: float) -> Vector2:
 				return _strafe() * 0.5
 
 	return _hold(form)
+
+
+## Lugar dentro do ponto para contestar, mantendo a formação.
+func _contest_spot(forward: float) -> Vector2:
+	var c: Vector2 = game.CENTER
+	match style:
+		"frontline", "dive":
+			return c + Vector2(forward * 25.0, 0.0)
+		"backline_dps", "flank":
+			return c + Vector2(-forward * 40.0, -35.0)
+		"backline_support", "battle_support":
+			return c + Vector2(-forward * 50.0, 35.0)
+	return c
 
 
 ## Posição na formação, conforme o estilo do herói.
@@ -529,6 +560,8 @@ func _pick_target(enemies: Array, beh: String):
 	if style == "dive":
 		aggro += 150.0
 	var leash: float = {"aggressive": 99999.0, "balanced": game.POINT_R + 380.0, "defensive": game.POINT_R + 220.0}[beh]
+	if game.contest_need(team):
+		leash = minf(leash, game.POINT_R + 110.0)
 	var best = null
 	var best_score := INF
 	for e in enemies:
@@ -563,6 +596,7 @@ func _try_attack() -> void:
 	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0))
 	if def["range"] < 100.0:
 		swing_t = 0.18
+		game.sfx("melee", -10.0)
 		game.deal_damage(self, target, def["dmg"])
 		for e in game.alive_heroes(1 - team):
 			if e != target and e.position.distance_to(target.position) < 45.0:
@@ -570,6 +604,7 @@ func _try_attack() -> void:
 	else:
 		var dir: Vector2 = (target.position - position).normalized()
 		var col: Color = role_color().lightened(0.45)
+		game.sfx("shot" if not is_healer() else "shot_support", -14.0)
 		game.spawn_projectile(self, position + dir * (radius + 4.0), dir * def["proj_speed"], def["dmg"], 5.0, "basic", col)
 
 
