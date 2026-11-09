@@ -50,6 +50,18 @@ Por isso: faixa do topo (48 px na fonte) clara, porque o nome do herói é escri
 o resto escuro, porque nome e resumo da habilidade são brancos/claros. Custo no canto superior
 esquerdo e ícone no centro (círculo em y ≈ 108 px na fonte). A miniatura da próxima carta não usa moldura.
 
+## map/
+
+| Arquivo | Fonte | Na tela | Observação |
+| --- | --- | --- | --- |
+| `arena_floor.png` | 2560×1040 | 1280×520 (arena inteira, y 40 a 560) | Opaco, visto de cima. Substitui o fundo, a grade e a faixa central; a borda de bronze da arena continua por código. Na imagem-fonte: bases em (124, 520) e (2436, 520), ponto em (1280, 520) |
+| `pillar_large.png` | 160×160 | 80×80 (raio 34) e 66×66 (raio 28) | Coluna vista de cima, transparente. O círculo de colisão ocupa 85% da imagem (136 px da fonte); o resto é borda ou detalhe. Sem sombra: o código desenha a sombra 6 px abaixo |
+| `pillar_small.png` | 112×112 | 52×52 (raio 22) e 47×47 (raio 20) | Idem, 85% (95 px da fonte) |
+| `control_point.png` | 512×512 | 211×211 (ponto de raio 95) | Plataforma neutra, transparente fora do círculo. A borda do ponto fica a 90% da imagem (461 px da fonte). O código desenha por cima o anel na cor do dono, o pulso de disputa, o arco de captura e a contagem; antes de liberar, a imagem fica acinzentada |
+| `spawn_base.png` | 384×384 | 167×167 (base de raio 75) | Neutra (sem azul nem vermelho). Borda a 90% da imagem. O código tinge de leve e contorna com a cor do time. A base azul (x 62) sai em parte da tela pela esquerda e a vermelha pela direita |
+
+As colunas, o ponto e a base não giram; luz de cima, neutra. Sem a imagem, cada peça continua desenhada por código.
+
 ## fx/
 
 Imagem única, animada pelo código (escala, transparência, giro). Projéteis desenhados apontando para a direita:

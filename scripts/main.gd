@@ -11,6 +11,7 @@ const GameScript = preload("res://scripts/game.gd")
 const MenuScript = preload("res://scripts/menu.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 const GalleryScript = preload("res://scripts/gallery.gd")
+const T = preload("res://scripts/i18n.gd")
 
 var game: Node2D = null
 var menu: Node2D = null
@@ -27,6 +28,7 @@ var _frames := 0
 
 func _ready() -> void:
 	randomize()
+	T.init()
 	for a in OS.get_cmdline_user_args():
 		if a == "--autotest":
 			autotest = true

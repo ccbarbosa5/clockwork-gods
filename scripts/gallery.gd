@@ -7,6 +7,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const T = preload("res://scripts/i18n.gd")
 const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
@@ -24,17 +25,6 @@ const COLS := 2
 const INFO_X := 700.0
 const INFO_R := 1250.0
 
-const LABELS := {
-	"title": {"pt": "Heróis", "en": "Heroes"},
-	"back": {"pt": "Voltar", "en": "Back"},
-	"attrs": {"pt": "Atributos", "en": "Attributes"},
-	"abilities": {"pt": "Habilidades", "en": "Abilities"},
-	"hp": {"pt": "Vida", "en": "Health"},
-	"speed": {"pt": "Velocidade", "en": "Speed"},
-	"range": {"pt": "Alcance", "en": "Range"},
-	"ichor": {"pt": "Ícor", "en": "Ichor"},
-	"ult": {"pt": "Ultimate", "en": "Ultimate"},
-}
 
 var heroes: Array = []
 var selected := 0
@@ -71,11 +61,6 @@ func select(i: int) -> void:
 	selected = clampi(i, 0, heroes.size() - 1)
 	_scroll_to(selected)
 	queue_redraw()
-
-
-static func label(key: String) -> String:
-	var d: Dictionary = LABELS[key]
-	return d.get(Data.lang, d["pt"])
 
 
 # ---------------------------------------------------------------------------
@@ -204,11 +189,11 @@ func _draw() -> void:
 
 
 func _draw_header() -> void:
-	UI.text_c(self, Vector2(640, 52), label("title").to_upper(), 30, Data.GOLD, 5)
+	UI.text_c(self, Vector2(640, 52), T.t("GAL_TITLE"), 30, Data.GOLD, 5)
 	var br := back_rect()
 	var hov := br.has_point(get_global_mouse_position())
 	UI.panel(self, br, Color(Data.BRONZE, 0.35) if hov else Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.7), 1.5)
-	UI.text_c(self, br.get_center() + Vector2(0, 5), "‹ " + label("back") + "  (ESC)", 14, Color.WHITE)
+	UI.text_c(self, br.get_center() + Vector2(0, 5), T.t("GAL_BACK"), 14, Color.WHITE)
 
 
 func _draw_list() -> void:
@@ -227,8 +212,8 @@ func _draw_list() -> void:
 		UI.panel(self, r, bg, border, 3.0 if on else 1.5)
 		var c := r.position + Vector2(r.size.x * 0.5, 58)
 		_portrait(hid, c, 44.0, role_col)
-		UI.text_c(self, Vector2(c.x, r.position.y + 126), Data.hero_text(hid, "name"), 15, Color.WHITE, 2)
-		UI.text_c(self, Vector2(c.x, r.position.y + 141), Data.role_name(hid), 11, role_col.lightened(0.2))
+		UI.text_c(self, Vector2(c.x, r.position.y + 126), T.hero_name(hid), 15, Color.WHITE, 2)
+		UI.text_c(self, Vector2(c.x, r.position.y + 141), T.role_name(Data.HEROES[hid]["role"]), 11, role_col.lightened(0.2))
 	# Barra de rolagem (só quando a lista não cabe).
 	var ms := max_scroll()
 	if ms > 0.0:
@@ -275,33 +260,33 @@ func _draw_info(hid: String) -> void:
 	var w := INFO_R - INFO_X
 	var f := UI.font()
 	# Nome e epíteto
-	UI.text_l(self, Vector2(x, 128), Data.hero_text(hid, "name"), 42, Data.GOLD, 6)
-	italic_text(Vector2(x, 160), Data.hero_text(hid, "epithet"), 19, Data.BRONZE.lightened(0.35))
+	UI.text_l(self, Vector2(x, 128), T.hero_name(hid), 42, Data.GOLD, 6)
+	italic_text(Vector2(x, 160), T.hero_text(hid, "epithet"), 19, Data.BRONZE.lightened(0.35))
 	# Função (com a cor) e origem
-	var role := Data.role_name(hid)
+	var role := T.role_name(h["role"])
 	var rw := f.get_string_size(role, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 24.0
 	var chip := Rect2(x, 174, rw, 26)
 	UI.panel(self, chip, Color(role_col, 0.3), role_col, 2.0)
 	UI.text_c(self, chip.get_center() + Vector2(0, 5), role, 14, Color.WHITE)
-	UI.text_l(self, Vector2(chip.end.x + 14, 193), Data.origin_name(hid), 15, Color(1, 1, 1, 0.75))
+	UI.text_l(self, Vector2(chip.end.x + 14, 193), T.origin_name(h["origin"]), 15, Color(1, 1, 1, 0.75))
 	# Biografia (até 3 linhas) e frase marcante
-	draw_multiline_string(f, Vector2(x, 228), Data.hero_text(hid, "bio"), HORIZONTAL_ALIGNMENT_LEFT, w, 15, 3, Color(1, 1, 1, 0.85))
-	italic_text(Vector2(x + 4, 300), "“" + Data.hero_text(hid, "quote") + "”", 16, Color(Data.GOLD, 0.9), w - 10, 2)
+	draw_multiline_string(f, Vector2(x, 228), T.hero_text(hid, "bio"), HORIZONTAL_ALIGNMENT_LEFT, w, 15, 3, Color(1, 1, 1, 0.85))
+	italic_text(Vector2(x + 4, 300), "“" + T.hero_text(hid, "quote") + "”", 16, Color(Data.GOLD, 0.9), w - 10, 2)
 	# Atributos
-	_section(Vector2(x, 362), label("attrs"))
-	var stats := [["hp", "hp", ""], ["speed", "speed", " px/s"], ["range", "range", " px"]]
+	_section(Vector2(x, 362), T.t("GAL_ATTRS"))
+	var stats := [["GAL_HP", "hp"], ["GAL_SPEED", "speed"], ["GAL_RANGE", "range"]]
 	for i in stats.size():
 		var key: String = stats[i][0]
 		var y := 378.0 + i * 24.0
-		UI.text_l(self, Vector2(x, y + 11), label(key), 14, Color(1, 1, 1, 0.8))
+		UI.text_l(self, Vector2(x, y + 11), T.t(key), 14, Color(1, 1, 1, 0.8))
 		var bar := Rect2(x + 110, y, w - 200, 12)
 		draw_rect(bar, Color(0, 0, 0, 0.55))
 		var frac := stat_fraction(hid, stats[i][1])
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), role_col)
 		draw_rect(bar, Color(Data.BRONZE, 0.6), false, 1.0)
-		UI.text_r(self, Vector2(INFO_R, y + 11), "%d%s" % [int(h[stats[i][1]]), stats[i][2]], 14, Color.WHITE)
+		UI.text_r(self, Vector2(INFO_R, y + 11), stat_text(hid, stats[i][1]), 14, Color.WHITE)
 	# Habilidades: 3 cartas e a ultimate
-	_section(Vector2(x, 468), label("abilities"))
+	_section(Vector2(x, 468), T.t("GAL_ABILITIES"))
 	var abs: Array = h["cards"].duplicate()
 	abs.append(h["ult"])
 	for i in abs.size():
@@ -309,17 +294,29 @@ func _draw_info(hid: String) -> void:
 		var is_ult: bool = ab.get("ult", false)
 		var y2 := 478.0 + i * 55.0
 		UI.badge(self, Vector2(x + 20, y2 + 24), 19.0, ab, role_col, 1.0, is_ult)
-		UI.text_l(self, Vector2(x + 50, y2 + 18), ab["name"], 16, Color.WHITE, 2)
-		var cost := label("ult") if is_ult else "%d %s" % [ab["cost"], label("ichor")]
+		UI.text_l(self, Vector2(x + 50, y2 + 18), T.ab_name(abs[i]), 16, Color.WHITE, 2)
+		var cost := T.t("GAL_ULT") if is_ult else T.tf("GAL_COST", [ab["cost"]])
 		UI.text_r(self, Vector2(INFO_R, y2 + 18), cost, 14, Data.GOLD)
 		if not is_ult:
 			draw_circle(Vector2(INFO_R - f.get_string_size(cost, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x - 12, y2 + 13), 5.0, Data.GOLD)
-		UI.text_l(self, Vector2(x + 50, y2 + 40), ab["desc"], 13, Color(1, 1, 1, 0.7))
+		UI.text_l(self, Vector2(x + 50, y2 + 40), T.ab_desc(abs[i]), 13, Color(1, 1, 1, 0.7))
 
 
 func _section(p: Vector2, s: String) -> void:
 	UI.text_l(self, p, s.to_upper(), 13, Data.BRONZE.lightened(0.3))
 	draw_line(p + Vector2(UI.font().get_string_size(s.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 10, -5), Vector2(INFO_R, p.y - 5), Color(Data.BRONZE, 0.35), 1.0)
+
+
+## Valor do atributo como o jogador vê: vida em número, velocidade em m/s,
+## alcance em m (1 m = 30 px).
+static func stat_text(hid: String, key: String) -> String:
+	var v: float = Data.HEROES[hid][key]
+	match key:
+		"speed":
+			return T.mps(v)
+		"range":
+			return T.meters(v)
+	return str(int(v))
 
 
 ## Atributo do herói como fração do maior valor entre todos os heróis (0..1).

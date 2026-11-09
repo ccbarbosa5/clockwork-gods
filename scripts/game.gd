@@ -2,6 +2,7 @@ extends Node2D
 ## Partida: mapa, ponto de controle, combate, habilidades e regras.
 
 const Data = preload("res://scripts/data.gd")
+const T = preload("res://scripts/i18n.gd")
 const UI = preload("res://scripts/ui.gd")
 const Art = preload("res://scripts/art.gd")
 const HeroScript = preload("res://scripts/hero.gd")
@@ -14,7 +15,7 @@ signal request(action: String)
 
 const ARENA := Rect2(0, 40, 1280, 520)
 const CENTER := Vector2(640, 300)
-const POINT_R := 95.0
+const POINT_R := Data.POINT_R
 const SPAWN_R := 75.0
 const SPAWNS := [Vector2(62, 300), Vector2(1218, 300)]
 const STEP := 1.0 / 60.0
@@ -93,7 +94,7 @@ func setup(opts: Dictionary) -> void:
 	hud.z_index = 10
 	add_child(hud)
 	hud.setup(self)
-	announce("O ponto libera em %d s" % int(Data.UNLOCK_TIME), Data.GOLD, 2.5)
+	announce(T.tf("ANN_UNLOCK", [int(Data.UNLOCK_TIME)]), Data.GOLD, 2.5)
 
 
 func _spawn_slot(t: int, i: int) -> Vector2:
@@ -302,7 +303,7 @@ func _update_point(dt: float) -> void:
 		return
 	if not _announced_unlock:
 		_announced_unlock = true
-		announce("PONTO LIBERADO!", Data.GOLD, 2.0)
+		announce(T.t("ANN_POINT_OPEN"), Data.GOLD, 2.0)
 		sfx("unlock")
 	var n := [0, 0]
 	for h in heroes:
@@ -330,7 +331,7 @@ func _update_point(dt: float) -> void:
 					point_owner = t
 					capture_prog = 0.0
 					capture_team = -1
-					announce("Ponto capturado pelo time %s" % Data.TEAM_NAMES[t], Data.TEAM_COLORS[t], 2.0)
+					announce(T.tf("ANN_CAPTURED", [T.team_name(t)]), Data.TEAM_COLORS[t], 2.0)
 					sfx("capture_us" if t == player_team else "capture_them")
 					_burst(CENTER, POINT_R + 10.0, Data.TEAM_COLORS[t], 0.6)
 	else:
@@ -354,7 +355,7 @@ func _check_end() -> void:
 		if contested or (capture_team >= 0 and capture_team != point_owner and capture_prog > 0.0):
 			if not overtime:
 				overtime = true
-				announce("PRORROGAÇÃO!", Data.GOLD, 2.0)
+				announce(T.t("ANN_OVERTIME"), Data.GOLD, 2.0)
 				sfx("overtime")
 			return
 		if progress[0] > progress[1]:
@@ -431,17 +432,17 @@ func _kill(victim, killer) -> void:
 	commanders[victim.team].refund(victim)
 	victim.clear_status()
 	_burst(victim.position, 40.0, Data.TEAM_COLORS[victim.team], 0.5)
-	var killer_name := "O destino"
+	var killer_hid := ""  # vazio = "O destino"
 	if killer != null and is_instance_valid(killer) and killer.team != victim.team:
 		killer.stats["kills"] += 1
-		killer_name = killer.def["name"]
+		killer_hid = killer.hid
 		var reward := Data.KILL_REWARD
 		if progress[victim.team] > progress[killer.team]:
 			reward += Data.KILL_BONUS_LEADER
 		commanders[killer.team].add_ichor(reward)
-		add_text(victim.position + Vector2(0, -10), "+%d Ícor" % reward, Data.GOLD, 1.4)
+		add_text(victim.position + Vector2(0, -10), T.tf("TEXT_ICHOR_GAIN", [reward]), Data.GOLD, 1.4)
 	sfx("death" if victim.team == player_team else "kill")
-	killfeed.push_front({"t": 4.0, "a": killer_name, "at": 1 - victim.team, "b": victim.def["name"], "bt": victim.team})
+	killfeed.push_front({"t": 4.0, "a": killer_hid, "at": 1 - victim.team, "b": victim.hid, "bt": victim.team})
 	if killfeed.size() > 4:
 		killfeed.resize(4)
 	commanders[victim.team].on_hero_died(victim.hid)
@@ -681,8 +682,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 	if cast_feed.size() > 6:
 		cast_feed.resize(6)
 	if is_ult:
-		var who := "SUA ULTIMATE" if h.team == player_team else "ULTIMATE INIMIGA"
-		announce("%s: %s" % [who, abd["name"]], Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.2), 1.8)
+		announce(T.tf("ANN_YOUR_ULT" if h.team == player_team else "ANN_ENEMY_ULT", [T.ab_name(ab)]), Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.2), 1.8)
 		flash_t = 0.6
 		flash_col = Data.TEAM_COLORS[h.team]
 	return true
@@ -731,21 +731,27 @@ func announce(s: String, col: Color, t := 2.0) -> void:
 # ---------------------------------------------------------------------------
 # Desenho do mapa
 func _draw() -> void:
-	# Piso
-	draw_rect(ARENA, Color(0.16, 0.13, 0.11))
-	for i in 17:
-		var x := 80.0 * i
-		draw_line(Vector2(x, ARENA.position.y), Vector2(x, ARENA.end.y), Color(1, 0.85, 0.6, 0.04), 1.0)
-	for j in 7:
-		var y := ARENA.position.y + 80.0 * j
-		draw_line(Vector2(0, y), Vector2(1280, y), Color(1, 0.85, 0.6, 0.04), 1.0)
-	# Faixa central (aqueduto)
-	draw_rect(Rect2(CENTER.x - 3, ARENA.position.y, 6, ARENA.size.y), Color(0.95, 0.76, 0.31, 0.06))
+	# Piso (map/arena_floor.png; sem a imagem, grade e aqueduto por código)
+	if not Art.draw_floor(self, ARENA):
+		draw_rect(ARENA, Color(0.16, 0.13, 0.11))
+		for i in 17:
+			var x := 80.0 * i
+			draw_line(Vector2(x, ARENA.position.y), Vector2(x, ARENA.end.y), Color(1, 0.85, 0.6, 0.04), 1.0)
+		for j in 7:
+			var y := ARENA.position.y + 80.0 * j
+			draw_line(Vector2(0, y), Vector2(1280, y), Color(1, 0.85, 0.6, 0.04), 1.0)
+		# Faixa central (aqueduto)
+		draw_rect(Rect2(CENTER.x - 3, ARENA.position.y, 6, ARENA.size.y), Color(0.95, 0.76, 0.31, 0.06))
 	draw_rect(ARENA, Color(0.78, 0.54, 0.23, 0.7), false, 3.0)
 
 	# Bases
 	for t in 2:
 		var sc: Color = Data.TEAM_COLORS[t]
+		if Art.draw_map(self, "spawn_base", SPAWNS[t], SPAWN_R):
+			# Imagem neutra: o código tinge de leve e contorna com a cor do time.
+			draw_circle(SPAWNS[t], SPAWN_R, Color(sc, 0.1))
+			UI.ring(self, SPAWNS[t], SPAWN_R, Color(sc, 0.75), 3.0)
+			continue
 		draw_circle(SPAWNS[t], SPAWN_R, Color(sc, 0.12))
 		UI.ring(self, SPAWNS[t], SPAWN_R, Color(sc, 0.6), 2.0)
 		UI.gear(self, SPAWNS[t], 22.0, 8, Color(sc, 0.25), time * (0.4 if t == 0 else -0.4))
@@ -756,9 +762,13 @@ func _draw() -> void:
 		pc = Data.TEAM_COLORS[point_owner]
 	if not point_unlocked():
 		pc = Color(0.5, 0.5, 0.5)
-	draw_circle(CENTER, POINT_R, Color(pc, 0.14))
-	UI.gear(self, CENTER, 34.0, 10, Color(pc, 0.3), time * 0.25)
-	draw_circle(CENTER, 16.0, Color(0.95, 0.76, 0.31, 0.6 if point_unlocked() else 0.2))
+	if Art.draw_map(self, "control_point", CENTER, POINT_R, 0.0, Color(1, 1, 1) if point_unlocked() else Color(0.6, 0.6, 0.6)):
+		# Imagem neutra: a cor do dono vem por cima, num véu e no anel.
+		draw_circle(CENTER, POINT_R, Color(pc, 0.1 if point_owner >= 0 else 0.0))
+	else:
+		draw_circle(CENTER, POINT_R, Color(pc, 0.14))
+		UI.gear(self, CENTER, 34.0, 10, Color(pc, 0.3), time * 0.25)
+		draw_circle(CENTER, 16.0, Color(0.95, 0.76, 0.31, 0.6 if point_unlocked() else 0.2))
 	UI.ring(self, CENTER, POINT_R, Color(pc, 0.8), 3.0)
 	if contested:
 		var pulse := 0.5 + 0.5 * sin(time * 10.0)
@@ -772,6 +782,8 @@ func _draw() -> void:
 	for o in OBSTACLES:
 		var c := Vector2(o.x, o.y)
 		draw_circle(c + Vector2(0, 6), o.z, Color(0, 0, 0, 0.35))
+		if Art.draw_map(self, Art.pillar_name(o.z), c, o.z):
+			continue
 		draw_circle(c, o.z, Color(0.42, 0.29, 0.15))
 		draw_circle(c, o.z * 0.8, Color(0.6, 0.43, 0.22))
 		UI.gear(self, c, o.z * 0.55, 6, Color(0.32, 0.22, 0.12), time * 0.3 + o.x)
@@ -876,7 +888,7 @@ func _draw() -> void:
 	for h in heroes:
 		if not h.alive:
 			var sp: Vector2 = _spawn_slot(h.team, h.slot_index)
-			UI.text_c(self, sp + Vector2(0, 5), "%s %d" % [h.def["name"].substr(0, 1), int(ceil(h.respawn_t))], 12, Color(Data.TEAM_COLORS[h.team], 0.8), 3)
+			UI.text_c(self, sp + Vector2(0, 5), "%s %d" % [T.hero_name(h.hid).substr(0, 1), int(ceil(h.respawn_t))], 12, Color(Data.TEAM_COLORS[h.team], 0.8), 3)
 
 
 func draw_overlay(ci: CanvasItem) -> void:
@@ -895,7 +907,7 @@ func draw_overlay(ci: CanvasItem) -> void:
 		var c: Vector2 = pp["pos"] + Vector2(0, -48.0 - 14.0 * k)
 		UI.badge(ci, c, 17.0 if big else 13.0, abd, role_col, a, big)
 		var tc: Color = Data.TEAM_COLORS[hero.team if is_instance_valid(hero) else 0].lerp(Color.WHITE, 0.45)
-		UI.text_c(ci, c + Vector2(0, (32.0 if big else 27.0)), abd["name"], 14 if big else 12, Color(Data.GOLD if big else tc, a), 4)
+		UI.text_c(ci, c + Vector2(0, (32.0 if big else 27.0)), T.ab_name(pp["ab"]), 14 if big else 12, Color(Data.GOLD if big else tc, a), 4)
 	var fy := 62.0
 	for cf in cast_feed:
 		var fa: float = clampf(cf["t"], 0.0, 1.0)
@@ -903,7 +915,7 @@ func draw_overlay(ci: CanvasItem) -> void:
 		var hd: Dictionary = Data.HEROES[cf["hid"]]
 		var rcol: Color = Data.ROLE_COLORS[hd["role"]]
 		UI.badge(ci, Vector2(22, fy - 5), 8.0, abd2, rcol, fa, cf["ult"])
-		var txt: String = "%s · %s" % [hd["name"], abd2["name"]]
+		var txt: String = "%s · %s" % [T.hero_name(cf["hid"]), T.ab_name(cf["ab"])]
 		var col: Color = Data.GOLD if cf["ult"] else Data.TEAM_COLORS[cf["team"]].lerp(Color.WHITE, 0.35)
 		UI.text_l(ci, Vector2(38, fy), txt, 13, Color(col, fa), 3)
 		fy += 20.0
@@ -913,7 +925,7 @@ func draw_overlay(ci: CanvasItem) -> void:
 	var y := 64.0
 	for k in killfeed:
 		var a2: float = clampf(k["t"], 0.0, 1.0)
-		var s: String = "%s  »  %s" % [k["a"], k["b"]]
+		var s: String = "%s  »  %s" % [T.hero_name(k["a"]) if k["a"] != "" else T.t("FEED_FATE"), T.hero_name(k["b"])]
 		UI.text_r(ci, Vector2(1268, y), s, 13, Color(1, 1, 1, a2), 3)
 		y += 18.0
 	if announce_t > 0.0:

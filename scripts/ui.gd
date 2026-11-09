@@ -2,6 +2,12 @@ extends RefCounted
 ## Utilitários de desenho compartilhados.
 
 const Art = preload("res://scripts/art.gd")
+const T = preload("res://scripts/i18n.gd")
+const Data = preload("res://scripts/data.gd")
+
+## Linhas da ajuda "Como jogar" (chaves de i18n; "" = linha em branco).
+const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "",
+	"HELP_09", "HELP_10", "HELP_11", "HELP_12", "", "HELP_13", "HELP_14"]
 
 static func font() -> Font:
 	return ThemeDB.fallback_font
@@ -120,3 +126,39 @@ static func badge(ci: CanvasItem, c: Vector2, r: float, ab: Dictionary, role_col
 	if ult:
 		ci.draw_arc(c, r + 3.0, 0.0, TAU, 32, Color(0.95, 0.76, 0.31, alpha), 2.5, true)
 	ability_icon(ci, ab, c, r * 0.6, Color(1, 1, 1, alpha))
+
+
+## Botão padrão da interface (painel de bronze, texto centralizado).
+static func button(ci: CanvasItem, r: Rect2, label: String, hov: bool, active := false, size := 14) -> void:
+	var bg := Color(Data.BRONZE, 0.5) if active else (Color(Data.BRONZE, 0.3) if hov else Color(0, 0, 0, 0.45))
+	panel(ci, r, bg, Data.GOLD if active or hov else Color(Data.BRONZE, 0.6), 2.0 if active else 1.5)
+	text_c(ci, r.get_center() + Vector2(0, size * 0.36), label, size, Color.WHITE)
+
+
+## Botão de idioma: metade PT, metade EN; a metade do idioma atual fica acesa.
+static func lang_toggle(ci: CanvasItem, r: Rect2, mouse: Vector2) -> void:
+	for i in 2:
+		var l: String = T.LANGS[i]
+		var half := Rect2(r.position + Vector2(r.size.x * 0.5 * i, 0), Vector2(r.size.x * 0.5, r.size.y))
+		button(ci, half, T.t("LANG_" + l.to_upper()), half.has_point(mouse), T.lang() == l, 13)
+
+
+## Idioma da metade clicada do botão de idioma ("" se fora dele).
+static func lang_at(r: Rect2, p: Vector2) -> String:
+	if not r.has_point(p):
+		return ""
+	return T.LANGS[0] if p.x < r.get_center().x else T.LANGS[1]
+
+
+## Tela "Como jogar" (menu e pausa).
+static func draw_help(ci: CanvasItem) -> void:
+	ci.draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.8))
+	var r := Rect2(220, 70, 840, 580)
+	panel(ci, r, Color(0.1, 0.08, 0.06), Data.BRONZE, 3.0)
+	text_c(ci, Vector2(640, 115), T.t("HELP_TITLE"), 30, Data.GOLD, 4)
+	var y := 160.0
+	for key in HELP_LINES:
+		if key != "":
+			text_l(ci, Vector2(260, y), T.t(key), 15, Color(1, 1, 1, 0.85))
+		y += 25.0
+	text_c(ci, Vector2(640, 636), T.t("HELP_BACK"), 13, Color(1, 1, 1, 0.5))
