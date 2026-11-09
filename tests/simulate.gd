@@ -2,6 +2,8 @@ extends SceneTree
 ## Simulador de partidas: joga várias partidas bot contra bot, verifica
 ## invariantes a cada passo (anomalias = possíveis bugs) e mede o equilíbrio.
 ## Rodar:  godot --headless --path . --script res://tests/simulate.gd -- --matches=12
+##         ... -- --balance   joga as 64 combinações de times (bots difíceis dos
+##                            dois lados) e mostra a taxa de vitória de cada herói
 ## Sai com código 1 se encontrar anomalias ou métricas fora dos limites.
 
 const Data = preload("res://scripts/data.gd")
@@ -22,6 +24,12 @@ const LIMITS := {
 }
 
 var matches := 12
+var balance := false
+## As 8 composições possíveis (um herói por função).
+var comps: Array = []
+## Por herói: partidas e vitórias (sem contar espelhos, quando está nos dois times).
+var hero_games := {}
+var hero_wins := {}
 var anomalies: Array = []
 var anomaly_counts := {}
 var _ran := false
@@ -38,6 +46,14 @@ func _run() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--matches="):
 			matches = a.substr(10).to_int()
+		elif a == "--balance":
+			balance = true
+	for t in Data.heroes_of_role("Tanque"):
+		for d in Data.heroes_of_role("Dano"):
+			for s in Data.heroes_of_role("Suporte"):
+				comps.append([t, d, s])
+	if balance:
+		matches = comps.size() * comps.size()
 	var results: Array = []
 	var casts := {}
 	var t0 := Time.get_ticks_msec()
@@ -45,10 +61,21 @@ func _run() -> void:
 		seed(1000 + m)
 		var diffs: Array = [["hard", "hard"], ["normal", "normal"], ["hard", "easy"], ["easy", "hard"]][m % 4]
 		var behaviors := ["balanced", "aggressive", "defensive"]
-		var r := _play_match(m, diffs[0], diffs[1], behaviors[m % 3], casts)
+		var beh: String = behaviors[m % 3]
+		# Times em rodízio: em 12 partidas todos os heróis jogam dos dois lados.
+		var t0c: Array = comps[m % comps.size()]
+		var t1c: Array = comps[(m * 3 + 5) % comps.size()]
+		if balance:
+			diffs = ["hard", "hard"]
+			beh = "balanced"
+			t0c = comps[m / comps.size()]
+			t1c = comps[m % comps.size()]
+		var r := _play_match(m, diffs[0], diffs[1], beh, casts, [t0c, t1c])
+		if diffs[0] == diffs[1]:
+			_count_heroes(r["winner"], t0c, t1c)
 		results.append(r)
-		print("partida %2d  %-6s x %-6s  vencedor=%2d  %5.1fs  progresso %5.1f/%5.1f  abates %2d  cartas %2d/%2d  ults %d/%d  formação %.0f%%  espera %.1fs  livre %.0fs" % [
-			m + 1, diffs[0], diffs[1], r["winner"], r["duration"], r["p0"], r["p1"], r["kills"],
+		print("partida %2d  %-6s x %-6s  %s x %s  vencedor=%2d  %5.1fs  progresso %5.1f/%5.1f  abates %2d  cartas %2d/%2d  ults %d/%d  formação %.0f%%  espera %.1fs  livre %.0fs" % [
+			m + 1, diffs[0], diffs[1], "/".join(t0c), "/".join(t1c), r["winner"], r["duration"], r["p0"], r["p1"], r["kills"],
 			r["cards0"], r["cards1"], r["ults0"], r["ults1"], r["formation"] * 100.0, r["armed_wait"], r["uncontested"]])
 
 	print("")
@@ -94,6 +121,12 @@ func _run() -> void:
 	if avg_wait > LIMITS["armed_wait_max"]:
 		failed = true; print("  !! heróis demoram demais para usar cartas armadas")
 
+	print("")
+	print("=== Taxa de vitória por herói (bots do mesmo nível; sem espelhos) ===")
+	for hid in Data.HERO_ORDER:
+		var gms: int = hero_games.get(hid, 0)
+		var wns: float = hero_wins.get(hid, 0.0)
+		print("%-9s %5.1f%%  (%d partidas)" % [hid, 100.0 * wns / maxf(1.0, gms), gms])
 	print("")
 	print("=== Habilidades usadas (todas as partidas) ===")
 	var line := ""
@@ -151,11 +184,24 @@ func _anomaly(kind: String, detail: String) -> void:
 		anomalies.append(kind + "  " + detail)
 
 
-func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionary) -> Dictionary:
+## Conta a partida para os heróis de cada lado (empate vale meia vitória).
+func _count_heroes(winner: int, t0c: Array, t1c: Array) -> void:
+	for side in 2:
+		var mine: Array = t0c if side == 0 else t1c
+		var other: Array = t1c if side == 0 else t0c
+		for hid in mine:
+			if other.has(hid):
+				continue
+			hero_games[hid] = hero_games.get(hid, 0) + 1
+			var w := 1.0 if winner == side else (0.5 if winner < 0 else 0.0)
+			hero_wins[hid] = hero_wins.get(hid, 0.0) + w
+
+
+func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionary, teams: Array) -> Dictionary:
 	var g := Node2D.new()
 	g.set_script(GameScript)
 	root.add_child(g)
-	g.setup({"autotest": true, "difficulty": d1, "difficulty0": d0})
+	g.setup({"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams})
 	g.set_process(false)
 	g.hud.set_process(false)
 	g.commanders[0].behavior = beh
@@ -214,13 +260,14 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 		# Formação: herói de trás não passa muito do tanque vivo.
 		if g.point_unlocked() and int(g.time * 60.0) % 15 == 0:
 			for t in 2:
-				var tank = g.get_hero(t, "talos")
+				var tank = g.team_hero(t, 0)
 				if tank == null or not tank.alive or tank.retreating:
 					continue
 				var fwd := 1.0 if t == 0 else -1.0
-				for hid in ["artemis", "asclepio"]:
-					var b = g.get_hero(t, hid)
-					if b.alive and not b.retreating:
+				for i in [1, 2]:
+					var b = g.team_hero(t, i)
+					# Flanco (Zeus) contorna pelas laterais de propósito.
+					if b.style != "flank" and b.alive and not b.retreating:
 						form_total += 1
 						if (b.position.x - tank.position.x) * fwd <= 60.0:
 							form_ok += 1
@@ -266,7 +313,7 @@ func _check_invariants(g, tag: String, still: Dictionary, last_pos: Dictionary) 
 		if not g.ARENA.grow(1.0).has_point(p):
 			_anomaly("herói fora da arena", tag + " " + name + " " + str(p))
 		for o in g.OBSTACLES:
-			if p.distance_to(Vector2(o.x, o.y)) < o.z + h.radius - 1.5:
+			if not h.leaping and p.distance_to(Vector2(o.x, o.y)) < o.z + h.radius - 1.5:
 				_anomaly("herói dentro de obstáculo", tag + " " + name)
 		if p.distance_to(g.SPAWNS[1 - h.team]) < g.SPAWN_R + h.radius - 1.5:
 			_anomaly("herói dentro da base inimiga", tag + " " + name)

@@ -315,6 +315,80 @@ func _make_sfx() -> void:
 	_tone(b, 0.1, 1.2, 1760, 1760, 0.07, "tri", 2.5, 0.2)
 	_add("segunda", b)
 	await _maybe_yield()
+	# --- Hércules ---
+	b = _buf(0.7)  # Salto de Nemeia: rugido curto + baque
+	_tone(b, 0, 0.35, 180, 120, 0.35, "square", 6.0)
+	_noise(b, 0, 0.3, 0.3, 6.0, 0.3)
+	_tone(b, 0.42, 0.28, 90, 40, 0.7, "sine", 9.0)
+	_noise(b, 0.42, 0.1, 0.5, 30.0, 0.8)
+	_add("nemeia", b)
+	await _maybe_yield()
+	b = _buf(0.6)  # Pele do Leão: rosnado grave
+	_tone(b, 0, 0.6, 110, 95, 0.4, "square", 3.0, 0.04)
+	_tone(b, 0, 0.6, 220, 200, 0.12, "tri", 4.0)
+	_add("pele", b)
+	await _maybe_yield()
+	b = _buf(0.4)  # Corrente de Cérbero: elos
+	for k in 6:
+		_noise(b, k * 0.04, 0.015, 0.4, 100.0, 0.9)
+		_tone(b, k * 0.04, 0.03, 1500 - k * 90, 1400 - k * 90, 0.15, "sine", 70.0)
+	_add("corrente", b)
+	await _maybe_yield()
+	b = _buf(1.0)  # Décimo Terceiro Trabalho: grito + impacto
+	_tone(b, 0, 0.4, 260, 380, 0.3, "square", 4.0)
+	_noise(b, 0.15, 0.4, 0.3, 4.0, 0.2, 0.01, 0.6)
+	_tone(b, 0.55, 0.45, 120, 35, 0.8, "sine", 6.0)
+	_noise(b, 0.55, 0.08, 0.6, 40.0, 0.9)
+	_add("trabalho", b)
+	await _maybe_yield()
+	# --- Zeus ---
+	b = _buf(0.45)  # Corrente de Raios: estalos elétricos
+	for k in 4:
+		_noise(b, k * 0.07, 0.06, 0.55, 35.0, 0.95)
+		_tone(b, k * 0.07, 0.07, 2400, 900, 0.18, "square", 30.0)
+	_add("raios", b)
+	await _maybe_yield()
+	b = _buf(1.3)  # Nuvem de Tempestade: rumor + trovão
+	_noise(b, 0, 0.9, 0.25, 1.5, 0.08, 0.2)
+	_noise(b, 1.0, 0.3, 0.7, 12.0, 0.6)
+	_tone(b, 1.0, 0.3, 70, 40, 0.5, "sine", 8.0)
+	_add("nuvem", b)
+	await _maybe_yield()
+	b = _buf(0.4)  # Voo da Águia: grito agudo + vento
+	_tone(b, 0, 0.25, 1800, 2600, 0.25, "tri", 6.0)
+	_noise(b, 0, 0.35, 0.2, 5.0, 0.4, 0.02, 0.15)
+	_add("aguia", b)
+	await _maybe_yield()
+	b = _buf(1.6)  # Fúria do Olimpo: trovões
+	for k in 4:
+		_noise(b, k * 0.35, 0.3, 0.6, 9.0, 0.5)
+		_tone(b, k * 0.35, 0.3, 90, 45, 0.4, "sine", 7.0)
+	_add("olimpo", b)
+	await _maybe_yield()
+	# --- Atena ---
+	b = _buf(0.9)  # Égide: escudo + brilho
+	_tone(b, 0, 0.8, 330, 330, 0.3, "sine", 3.0)
+	_tone(b, 0, 0.8, 495, 495, 0.2, "sine", 3.5)
+	_tone(b, 0.05, 0.6, 1980, 1980, 0.08, "sine", 5.0)
+	_add("egide", b)
+	await _maybe_yield()
+	b = _buf(0.8)  # Comando de Guerra: corneta
+	for k in 3:
+		_tone(b, k * 0.14, 0.3, [392.0, 523.3, 659.3][k], [392.0, 523.3, 659.3][k], 0.25, "square", 4.0, 0.02)
+	_add("comando", b)
+	await _maybe_yield()
+	b = _buf(0.5)  # Olhar da Coruja: pio
+	_tone(b, 0, 0.18, 700, 560, 0.3, "sine", 6.0, 0.02)
+	_tone(b, 0.22, 0.25, 640, 500, 0.3, "sine", 5.0, 0.02)
+	_add("coruja", b)
+	await _maybe_yield()
+	b = _buf(1.2)  # Falange de Atenas: lança fincada + escudos
+	_noise(b, 0, 0.06, 0.6, 40.0, 0.85)
+	_tone(b, 0, 0.3, 140, 70, 0.6, "sine", 8.0)
+	for k in 4:
+		_tone(b, 0.25 + k * 0.12, 0.3, 880, 880, 0.15, "sine", 9.0)
+	_add("falange", b)
+	await _maybe_yield()
 	# --- Combate ---
 	b = _buf(0.14)
 	_noise(b, 0, 0.08, 0.5, 30.0, 0.2)

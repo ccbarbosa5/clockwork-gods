@@ -65,7 +65,39 @@ const EFFECTS := ["dano", "cura", "escudo", "controle", "mobilidade"]
 ##   battle_support  suporte que avança junto e causa dano
 const STYLES := ["frontline", "backline_dps", "backline_support", "dive", "flank", "battle_support"]
 
-const HERO_ORDER := ["talos", "artemis", "asclepio"]
+## Todos os heróis (ordem da galeria).
+const HERO_ORDER := ["talos", "artemis", "asclepio", "hercules", "zeus", "atena"]
+## Cada time tem um herói de cada função, nesta ordem (posição = tecla da ultimate).
+const ROLE_ORDER := ["Tanque", "Dano", "Suporte"]
+const DEFAULT_TEAM := ["talos", "artemis", "asclepio"]
+
+
+## Heróis de uma função, na ordem da galeria.
+static func heroes_of_role(role: String) -> Array:
+	var out: Array = []
+	for hid in HERO_ORDER:
+		if HEROES[hid]["role"] == role:
+			out.append(hid)
+	return out
+
+
+## Time válido: 3 heróis, um de cada função, na ordem de ROLE_ORDER.
+static func valid_team(team: Array) -> bool:
+	if team.size() != ROLE_ORDER.size():
+		return false
+	for i in team.size():
+		if not HEROES.has(team[i]) or HEROES[team[i]]["role"] != ROLE_ORDER[i]:
+			return false
+	return true
+
+
+## Time sorteado (um herói por função).
+static func random_team() -> Array:
+	var out: Array = []
+	for role in ROLE_ORDER:
+		var opts := heroes_of_role(role)
+		out.append(opts[randi() % opts.size()])
+	return out
 
 ## Textos (nome, epíteto, bio, frase) ficam em i18n/textos.csv (HERO_<ID>_*).
 const HEROES := {
@@ -73,7 +105,32 @@ const HEROES := {
 		"role": "Tanque", "origin": "lenda",
 		"hp": 650.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
 		"radius": 22.0, "color": Color(0.96, 0.6, 0.2), "style": "frontline",
+		"splash": 0.5,  # golpe atinge 50% em inimigos a até 45 px do alvo
 		"ult": "furia", "cards": ["muralha", "investida", "valvula"],
+	},
+	"hercules": {
+		"role": "Tanque", "origin": "semideus",
+		"hp": 560.0, "speed": 80.0, "range": 58.0, "dmg": 30.0, "cd": 1.0,
+		"radius": 21.0, "color": Color(0.96, 0.6, 0.2), "style": "dive",
+		"ult": "trabalho", "cards": ["nemeia", "pele", "corrente"],
+	},
+	"zeus": {
+		"role": "Dano", "origin": "deus",
+		"hp": 260.0, "speed": 92.0, "range": 220.0, "dmg": 14.0, "cd": 0.7,
+		"radius": 16.0, "color": Color(0.72, 0.45, 1.0), "style": "flank",
+		# Ataque básico: raio instantâneo que salta para 1 inimigo a até 90 px (7 de dano).
+		"basic": "chain", "chain_dmg": 7.0, "chain_range": 90.0,
+		"ult": "olimpo", "cards": ["raios", "nuvem", "aguia"],
+	},
+	"atena": {
+		"role": "Suporte", "origin": "deusa",
+		"hp": 320.0, "speed": 88.0, "range": 180.0, "dmg": 16.0, "cd": 0.8,
+		"radius": 17.0, "color": Color(0.33, 0.85, 0.45), "style": "battle_support",
+		"proj_speed": 700.0, "basic": "spear",
+		# Passiva Escudo de Palas: cada acerto do básico dá 10 de escudo ao aliado
+		# mais ferido a até 220 px (acumula até 60, dura 4 s).
+		"pallas": {"amount": 10.0, "max": 60.0, "range": 220.0, "time": 4.0},
+		"ult": "falange", "cards": ["egide", "comando", "coruja"],
 	},
 	"artemis": {
 		"role": "Dano", "origin": "deusa",
@@ -121,7 +178,35 @@ const ABILITIES := {
 		"range": 0.0, "radius": 0.0},
 	"segunda": {"id": "segunda", "effect": "cura", "hero": "asclepio", "cost": 0, "target": "self", "ult": true,
 		"range": 0.0, "radius": 240.0},
+	# Hércules
+	"nemeia": {"id": "nemeia", "effect": "mobilidade", "hero": "hercules", "cost": 3, "target": "point",
+		"range": 300.0, "radius": 75.0},
+	"pele": {"id": "pele", "effect": "escudo", "hero": "hercules", "cost": 2, "target": "self",
+		"range": 0.0, "radius": 0.0},
+	"corrente": {"id": "corrente", "effect": "controle", "hero": "hercules", "cost": 3, "target": "point",
+		"range": 330.0, "radius": 0.0},
+	"trabalho": {"id": "trabalho", "effect": "controle", "hero": "hercules", "cost": 0, "target": "self", "ult": true,
+		"range": 90.0, "radius": 0.0},
+	# Zeus
+	"raios": {"id": "raios", "effect": "dano", "hero": "zeus", "cost": 3, "target": "point",
+		"range": 280.0, "radius": 150.0},
+	"nuvem": {"id": "nuvem", "effect": "controle", "hero": "zeus", "cost": 3, "target": "point",
+		"range": 450.0, "radius": 100.0},
+	"aguia": {"id": "aguia", "effect": "mobilidade", "hero": "zeus", "cost": 2, "target": "point",
+		"range": 200.0, "radius": 0.0},
+	"olimpo": {"id": "olimpo", "effect": "dano", "hero": "zeus", "cost": 0, "target": "self", "ult": true,
+		"range": 0.0, "radius": 350.0},
+	# Atena
+	"egide": {"id": "egide", "effect": "escudo", "hero": "atena", "cost": 3, "target": "point",
+		"range": 300.0, "radius": 100.0},
+	"comando": {"id": "comando", "effect": "mobilidade", "hero": "atena", "cost": 3, "target": "self",
+		"range": 0.0, "radius": 200.0},
+	"coruja": {"id": "coruja", "effect": "controle", "hero": "atena", "cost": 2, "target": "point",
+		"range": 400.0, "radius": 0.0},
+	"falange": {"id": "falange", "effect": "escudo", "hero": "atena", "cost": 0, "target": "self", "ult": true,
+		"range": 0.0, "radius": 180.0},
 }
+
 
 const ULT_KEYS := ["Q", "W", "E"]
 const BEHAVIOR_KEYS := ["Z", "X", "C"]

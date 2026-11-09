@@ -37,7 +37,7 @@ func think(dt: float) -> void:
 		return
 
 	# As habilidades são armadas apenas quando o herói já vê um bom momento.
-	for hid in Data.HERO_ORDER:
+	for hid in game.teams[team]:
 		if cmd.can_ult(hid) == "":
 			var h = game.get_hero(team, hid)
 			if h.decide(Data.HEROES[hid]["ult"], false) != null:

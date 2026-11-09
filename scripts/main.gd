@@ -12,6 +12,7 @@ const MenuScript = preload("res://scripts/menu.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 const GalleryScript = preload("res://scripts/gallery.gd")
 const T = preload("res://scripts/i18n.gd")
+const Data = preload("res://scripts/data.gd")
 
 var game: Node2D = null
 var menu: Node2D = null
@@ -76,6 +77,9 @@ func _close_gallery() -> void:
 
 
 func _on_start(opts: Dictionary) -> void:
+	if opts.has("team") and not opts.has("teams"):
+		# Seu time vem do menu; o bot sorteia um herói por função.
+		opts["teams"] = [opts["team"], Data.random_team()]
 	last_opts = opts
 	if game != null:
 		game.queue_free()

@@ -155,7 +155,7 @@ func deck_ok(c) -> bool:
 	all.append_array(c.queue)
 	all.sort()
 	var expected: Array = []
-	for hid in Data.HERO_ORDER:
+	for hid in c.game.teams[c.team]:
 		expected.append_array(Data.HEROES[hid]["cards"])
 	expected.sort()
 	return all == expected
@@ -163,6 +163,16 @@ func deck_ok(c) -> bool:
 
 func done(g) -> void:
 	g.free()
+
+
+## Time padrão com `hid` no lugar do herói da mesma função.
+func team_with(hid: String) -> Array:
+	var t: Array = Data.DEFAULT_TEAM.duplicate()
+	t[Data.ROLE_ORDER.find(Data.HEROES[hid]["role"])] = hid
+	return t
+
+
+const NEW_TEAM := ["hercules", "zeus", "atena"]
 
 
 # ---------------------------------------------------------------------------
@@ -308,19 +318,21 @@ func test_armed_ability_fires_immediately_when_good() -> void:
 
 func test_every_ability_can_be_cast() -> void:
 	for ab in Data.ABILITIES.keys():
-		var g := new_game()
+		var g := new_game({"teams": [team_with(Data.ABILITIES[ab]["hero"]), Data.DEFAULT_TEAM]})
 		var h = hero(g, 0, Data.ABILITIES[ab]["hero"])
 		check(g.cast(h, ab, h.position + Vector2(100, 0)), "cast falhou: " + ab)
 		done(g)
 
 
 func test_every_ability_decides_when_forced() -> void:
-	var g := new_game()
-	pin_all_far(g)
-	for ab in Data.ABILITIES.keys():
-		var h = hero(g, 0, Data.ABILITIES[ab]["hero"])
-		check(h.decide(ab, true) != null, "decide forçado deveria sempre retornar alvo: " + ab)
-	done(g)
+	for team in [Data.DEFAULT_TEAM, NEW_TEAM]:
+		var g := new_game({"teams": [team, Data.DEFAULT_TEAM]})
+		pin_all_far(g)
+		for hid in team:
+			var h = hero(g, 0, hid)
+			for ab in Data.HEROES[hid]["cards"] + [Data.HEROES[hid]["ult"]]:
+				check(h.decide(ab, true) != null, "decide forçado deveria sempre retornar alvo: " + ab)
+		done(g)
 
 
 # ---------------------------------------------------------------------------
@@ -876,6 +888,8 @@ func _all_art_paths() -> Array:
 		paths.append(Art.HERO_SPRITE % hid)
 		paths.append(Art.HERO_PORTRAIT % hid)
 		paths.append(Art.HERO_FULL % hid)
+	paths.append(Art.LOGO)
+	paths.append(Art.ICON_STORE)
 	for ab in Data.ABILITIES.keys():
 		paths.append(Art.ICON % ab)
 	for role in Data.ROLE_COLORS.keys():
@@ -977,11 +991,11 @@ func test_art_draw_with_images_in_memory() -> void:
 ## áreas, armadilha armada e disparada, Chuva de Prata, Muralha, auras,
 ## estados, soco, feixe de cura, fumaça e sinais de cura.
 func _fx_scene() -> Node2D:
-	var g := new_game()
+	var g := new_game({"teams": [Data.DEFAULT_TEAM, NEW_TEAM]})
 	var t = hero(g, 0, "talos")
 	var a = hero(g, 0, "artemis")
 	var s = hero(g, 0, "asclepio")
-	var e = hero(g, 1, "talos")
+	var e = hero(g, 1, "zeus")
 	pin(t, Vector2(600, 300))
 	pin(a, Vector2(520, 220))
 	pin(s, Vector2(520, 380))
@@ -997,16 +1011,46 @@ func _fx_scene() -> Node2D:
 	g.add_puff(Vector2(640, 200), Color.WHITE)
 	t.shield_hp = 100.0
 	t.shield_t = 5.0
+	t.shield_src = s
 	a.root_t = 2.0
 	a.poison_t = 3.0
 	e.stun_t = 2.0
 	t.swing_t = 0.15
 	s.heal_target = a
 	s.heal_beam_t = 0.3
+	_fx_scene_new(g)
 	for h in g.heroes:
 		h.queue_redraw()
 	g.queue_redraw()
 	return g
+
+
+## Efeitos do pacote 3 (time vermelho = Hércules, Zeus, Atena).
+func _fx_scene_new(g) -> void:
+	var hc = hero(g, 1, "hercules")
+	var z = hero(g, 1, "zeus")
+	var at = hero(g, 1, "atena")
+	pin(hc, Vector2(820, 420))
+	pin(at, Vector2(980, 330))
+	var t = hero(g, 0, "talos")
+	g.cast(hc, "pele", hc.position)
+	g.cast(hc, "corrente", t.position)
+	g.cast(z, "raios", t.position)
+	g.cast(z, "nuvem", Vector2(560, 300))
+	g.cast(z, "aguia", z.position + Vector2(-50, 0))
+	g.cast(z, "olimpo", z.position)
+	g.cast(at, "egide", at.position)
+	g.cast(at, "comando", at.position)
+	g.cast(at, "coruja", t.position)
+	g.cast(at, "falange", at.position)
+	g.cast(hc, "nemeia", hc.position + Vector2(-100, 0))
+	g.spawn_projectile(at, at.position, Vector2(-700, 0), 16.0, 5.0, "spear", Color.WHITE)
+	g.fx.append({"type": "img", "img": "trabalho_impacto", "pos": Vector2(700, 480), "r": 30.0, "col": Color.WHITE, "t": 0.5, "max": 0.5})
+	g.fx.append({"type": "strike", "pos": Vector2(640, 420), "r": 8.0, "col": Data.GOLD, "t": 0.25, "max": 0.25, "seed": 1.0})
+	g._burst(Vector2(400, 420), 75.0, Color.WHITE, 0.5, "nemeia_queda")
+	z.shield_hp = 40.0
+	z.shield_t = 4.0
+	z.shield_src = at
 
 
 func test_art_effects_without_images_draw_by_code() -> void:
@@ -1045,6 +1089,8 @@ func test_art_every_effect_image_is_used() -> void:
 
 ## Tamanho de fonte esperado de cada imagem (assets/README.md).
 const ART_SOURCE_SIZES := {
+	"heroes/hercules_full": Vector2i(512, 768), "heroes/zeus_full": Vector2i(512, 768), "heroes/atena_full": Vector2i(512, 768),
+	"ui/logo": Vector2i(1200, 400), "store/icon": Vector2i(512, 512),
 	"heroes/talos_full": Vector2i(512, 768), "heroes/artemis_full": Vector2i(512, 768), "heroes/asclepio_full": Vector2i(512, 768),
 	"map/arena_floor": Vector2i(2560, 1040), "map/pillar_large": Vector2i(160, 160), "map/pillar_small": Vector2i(112, 112),
 	"map/control_point": Vector2i(512, 512), "map/spawn_base": Vector2i(384, 384),
@@ -1067,7 +1113,7 @@ func test_art_delivered_images_are_valid() -> void:
 	for p in _all_art_paths():
 		known[p] = true
 	var found := 0
-	for sub in ["heroes", "icons", "cards", "fx", "map"]:
+	for sub in ["heroes", "icons", "cards", "fx", "map", "ui", "store"]:
 		var dir := DirAccess.open("res://assets/" + sub)
 		if dir == null:
 			continue
@@ -1541,7 +1587,7 @@ func test_menu_language_button() -> void:
 	var Menu = load("res://scripts/menu.gd")
 	var m: Node2D = Menu.new()
 	var lr: Rect2 = m.lang_rect()
-	for r in [m.play_rect(), m.help_rect(), m.heroes_rect()]:
+	for r in [m.play_rect(), m.help_rect(), m.heroes_rect(), m.team_rect(0), m.team_rect(2)]:
 		check(not lr.intersects(r), "botão de idioma não cobre outros botões")
 	check(lr.end.x <= 1280 and lr.position.y >= 0, "botão de idioma dentro da tela")
 	check(UI_lang_at(lr, Vector2(lr.position.x + 2, lr.get_center().y)) == "pt" and UI_lang_at(lr, Vector2(lr.end.x - 2, lr.get_center().y)) == "en", "metades PT e EN")
@@ -1638,3 +1684,291 @@ func test_ability_popups_do_not_overlap() -> void:
 			var d: float = lay[i]["pos"].distance_to(lay[j]["pos"])
 			check(d >= lay[i]["r"] + lay[j]["r"], "selos %d e %d sobrepostos (%.0f px)" % [i, j, d])
 	done(g)
+
+
+
+# ---------------------------------------------------------------------------
+# Pacote 3: times por função, Hércules, Zeus e Atena
+
+func test_teams_one_hero_per_role() -> void:
+	check(Data.valid_team(Data.DEFAULT_TEAM) and Data.valid_team(NEW_TEAM), "times padrão e novo válidos")
+	check(not Data.valid_team(["talos", "hercules", "atena"]), "dois tanques não é um time válido")
+	for i in 20:
+		check(Data.valid_team(Data.random_team()), "time sorteado válido")
+	var g := new_game({"teams": [NEW_TEAM, Data.DEFAULT_TEAM]})
+	check(hero(g, 0, "zeus") != null and hero(g, 0, "talos") == null, "time azul montado com a composição pedida")
+	check(deck_ok(g.commanders[0]) and deck_ok(g.commanders[1]), "deck de 9 cartas dos heróis do próprio time")
+	check(g.team_hero(0, 2).hid == "atena", "posição 2 é o suporte")
+	var c = g.commanders[0]
+	hero(g, 0, "zeus").ult = 100.0
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_W
+	ev.pressed = true
+	g.hud._input(ev)
+	check(hero(g, 0, "zeus").has_armed("olimpo"), "tecla W arma a ultimate do herói de dano do time")
+	check(c.ults_used == 1, "ultimate usada")
+	done(g)
+	var bad := new_game({"teams": [["talos", "talos", "talos"], Data.DEFAULT_TEAM]})
+	check(bad.teams[0] == Data.DEFAULT_TEAM, "time inválido cai para o padrão")
+	done(bad)
+
+
+func test_menu_team_picker_cycles_role() -> void:
+	var Menu = load("res://scripts/menu.gd")
+	var m: Node2D = Menu.new()
+	m.cycle_team(0)
+	check(m.team[0] == "hercules", "tanque troca para Hércules")
+	m.cycle_team(0)
+	check(m.team[0] == "talos", "e volta para Talos")
+	m.cycle_team(1)
+	m.cycle_team(2)
+	check(m.start_opts()["team"] == ["talos", "zeus", "atena"], "time vai para a partida")
+	for i in 3:
+		for r in [m.play_rect(), m.help_rect(), m.heroes_rect(), m.vol_rect(2)]:
+			check(not m.team_rect(i).intersects(r), "botão do time %d não cobre outro botão" % i)
+	m.free()
+
+
+func _duel(team0: Array, team1 := Data.DEFAULT_TEAM) -> Node2D:
+	var g := new_game({"teams": [team0, team1]})
+	pin_all_far(g)
+	return g
+
+
+func test_hercules_basic_has_no_splash_talos_has() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	var e1 = hero(g, 1, "talos")
+	var e2 = hero(g, 1, "artemis")
+	pin(hc, Vector2(600, 300)); pin(e1, Vector2(650, 300)); pin(e2, Vector2(665, 330))
+	hc.stun_t = 0.0
+	hc.target = e1
+	hc.attack_cd = 0.0
+	hc._try_attack()
+	check(e1.hp == e1.max_hp - 30.0 and e2.hp == e2.max_hp, "Hércules: 30 no alvo, nada em volta")
+	done(g)
+
+
+func test_pele_do_leao_halves_damage_and_blocks_control() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	pin(hc, Vector2(600, 300))
+	hc.stun_t = 0.0
+	g.cast(hc, "pele", hc.position)
+	g.deal_damage(hero(g, 1, "artemis"), hc, 100.0, false)
+	check(absf(hc.hp - (hc.max_hp - 50.0)) < 0.01, "recebe 50%% do dano (vida %.0f)" % hc.hp)
+	check(hc.stats["mitigated"] >= 50.0, "dano evitado conta como mitigado")
+	hc.apply_stun(1.0); hc.apply_root(1.0); hc.apply_knock(Vector2(300, 0), 0.3)
+	check(hc.stun_t <= 0.0 and hc.root_t <= 0.0 and hc.knock_t <= 0.0, "imune a atordoar, prender e empurrar")
+	step(g, 3.1)
+	hc.apply_stun(1.0)
+	check(hc.stun_t > 0.0, "depois de 3 s volta a ser atordoado")
+	done(g)
+
+
+func test_corrente_pulls_enemy_and_stuns() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	var e = hero(g, 1, "artemis")
+	pin(hc, Vector2(400, 300)); pin(e, Vector2(650, 300))
+	g.cast(hc, "corrente", e.position)
+	step(g, 0.3)
+	check(e.hp <= e.max_hp - 25.0, "25 de dano")
+	step(g, 0.3)
+	var pulled: float = 650.0 - e.position.x
+	check(pulled > 120.0 and pulled <= 152.0, "puxado ~150 px (foi %.0f)" % pulled)
+	done(g)
+
+
+func test_corrente_pull_stops_at_pillar() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	var e = hero(g, 1, "artemis")
+	# Coluna de raio 20 em (330, 300): o alvo atrás dela bate e para.
+	pin(hc, Vector2(150, 300)); e.position = Vector2(395, 300); e.stun_t = 0.0
+	g._projectile_hit({"src": hc, "dmg": 25.0, "kind": "chain"}, e)
+	step(g, 0.4)
+	check(e.position.x >= 330.0 + 20.0 + e.radius - 1.0, "colunas param o puxão (x %.0f)" % e.position.x)
+	check(e.knock_t <= 0.0, "puxão terminou ao bater")
+	done(g)
+
+
+func test_trabalho_throws_toward_own_base() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	var e = hero(g, 1, "artemis")
+	pin(hc, Vector2(640, 470)); pin(e, Vector2(700, 470))
+	e.stun_t = 0.0
+	g.cast(hc, "trabalho", hc.position)
+	check(e.hp == e.max_hp - 90.0, "90 de dano")
+	step(g, 0.45)
+	check(e.position.x < 700.0 - 150.0, "arremessado para o lado do time do Hércules (x %.0f)" % e.position.x)
+	check(e.stun_t > 0.8, "atordoado ao cair")
+	done(g)
+
+
+func test_nemeia_leaps_over_pillar_and_slows() -> void:
+	var g := _duel(team_with("hercules"))
+	var hc = hero(g, 0, "hercules")
+	var e = hero(g, 1, "artemis")
+	# Coluna de raio 34 em (250, 215) bem no caminho.
+	pin(hc, Vector2(120, 215)); hc.stun_t = 0.0
+	pin(e, Vector2(390, 215)); e.stun_t = 0.0
+	g.cast(hc, "nemeia", Vector2(390, 215))
+	var crossed := false
+	for i in 30:
+		g._step(1.0 / 60.0)
+		if hc.leaping and hc.position.distance_to(Vector2(250, 215)) < 34.0:
+			crossed = true
+	check(crossed, "passa por cima da coluna")
+	check(not hc.leaping and hc.position.x > 300.0, "caiu do outro lado (x %.0f)" % hc.position.x)
+	check(e.hp <= e.max_hp - 40.0 and e.slow_amt >= 0.3, "40 de dano e lentidão ao cair")
+	done(g)
+
+
+func test_raios_chain_four_targets_not_blocked() -> void:
+	var g := _duel(team_with("zeus"), NEW_TEAM)
+	var z = hero(g, 0, "zeus")
+	var t = hero(g, 0, "talos")
+	pin(z, Vector2(400, 300)); pin(t, Vector2(450, 300))
+	g.cast(t, "muralha", Vector2(700, 300))
+	var hc = hero(g, 1, "hercules"); var ez = hero(g, 1, "zeus"); var at = hero(g, 1, "atena")
+	pin(hc, Vector2(600, 300)); pin(ez, Vector2(700, 300)); pin(at, Vector2(800, 300))
+	g.cast(ez, "egide", ez.position)
+	g.cast(z, "raios", hc.position)
+	check(hc.hp == hc.max_hp - 60.0, "1º alvo 60")
+	check(ez.hp == ez.max_hp - 45.0, "2º alvo 45 (Égide não bloqueia)")
+	check(at.hp == at.max_hp - 34.0, "3º alvo 34")
+	done(g)
+
+
+func test_nuvem_strikes_after_one_second() -> void:
+	var g := _duel(team_with("zeus"))
+	var z = hero(g, 0, "zeus")
+	var e = hero(g, 1, "talos")
+	pin(z, Vector2(400, 300)); pin(e, Vector2(700, 300)); e.stun_t = 0.0
+	g.cast(z, "nuvem", e.position)
+	step(g, 0.9)
+	check(e.hp == e.max_hp, "nada antes de 1 s")
+	step(g, 0.2)
+	check(e.hp == e.max_hp - 50.0 and e.stun_t > 0.5, "50 de dano e atordoa depois de 1 s")
+	done(g)
+
+
+func test_aguia_empowers_next_basic() -> void:
+	var g := _duel(team_with("zeus"), NEW_TEAM)
+	var z = hero(g, 0, "zeus")
+	pin(z, Vector2(400, 300)); z.stun_t = 0.0
+	var a = hero(g, 1, "hercules"); var b = hero(g, 1, "zeus"); var c = hero(g, 1, "atena")
+	pin(a, Vector2(560, 300)); pin(b, Vector2(620, 300)); pin(c, Vector2(680, 300))
+	g.cast(z, "aguia", Vector2(380, 300))
+	check(z.empower_t > 0.0, "ataque fortalecido por 3 s")
+	g.zeus_basic(z, a)
+	check(a.hp == a.max_hp - 44.0, "14 + 30 no alvo (veio %.0f)" % (a.max_hp - a.hp))
+	check(b.hp == b.max_hp - 7.0 and c.hp == c.max_hp - 7.0, "salta para 2 inimigos")
+	g.zeus_basic(z, a)
+	check(c.hp == c.max_hp - 7.0, "o seguinte volta ao normal (1 salto)")
+	done(g)
+
+
+func test_olimpo_eight_strikes_follow_zeus() -> void:
+	var g := _duel(team_with("zeus"))
+	var z = hero(g, 0, "zeus")
+	pin(z, Vector2(500, 300))
+	var e = hero(g, 1, "talos")
+	pin(e, Vector2(700, 300))
+	g.cast(z, "olimpo", z.position)
+	step(g, 4.2)
+	check(absf((e.max_hp - e.hp) - 240.0) < 0.1, "8 raios de 30 no único inimigo (%.0f)" % (e.max_hp - e.hp))
+	done(g)
+
+
+func test_egide_blocks_projectiles_from_outside_only() -> void:
+	var g := _duel(team_with("atena"))
+	var at = hero(g, 0, "atena")
+	var e = hero(g, 1, "artemis")
+	pin(at, Vector2(500, 300)); pin(e, Vector2(800, 300))
+	g.cast(at, "egide", at.position)
+	g.spawn_projectile(e, Vector2(700, 300), Vector2(-900, 0), 20.0, 5.0, "basic", Color.WHITE)
+	step(g, 0.4)
+	check(at.hp == at.max_hp, "tiro de fora parou na cúpula")
+	check(g.domes[0]["hp"] == 380.0, "cúpula absorveu 20")
+	# Inimigo dentro da cúpula atira: passa.
+	e.position = Vector2(540, 300)
+	g.spawn_projectile(e, Vector2(530, 300), Vector2(-900, 0), 20.0, 5.0, "basic", Color.WHITE)
+	step(g, 0.1)
+	check(at.hp < at.max_hp, "tiro de dentro não é bloqueado")
+	done(g)
+
+
+func test_comando_and_coruja_modify_damage() -> void:
+	var g := _duel(team_with("atena"))
+	var at = hero(g, 0, "atena")
+	var a = hero(g, 0, "artemis")
+	var e = hero(g, 1, "talos")
+	pin(at, Vector2(500, 300)); pin(a, Vector2(540, 300)); pin(e, Vector2(800, 300))
+	g.cast(at, "comando", at.position)
+	check(a.buff_t > 0.0, "aliado próximo recebe Comando")
+	g.deal_damage(a, e, 100.0, false)
+	check(absf(e.hp - (e.max_hp - 120.0)) < 0.01, "+20% de dano causado")
+	g.cast(at, "coruja", e.position)
+	check(e.mark_t > 0.0 and e.slow_amt >= 0.2, "marcado e lento")
+	var before: float = e.hp
+	g.deal_damage(hero(g, 0, "talos") if hero(g, 0, "talos") else at, e, 100.0, false)
+	check(absf((before - e.hp) - 120.0) < 0.01, "+20%% de dano recebido (%.0f)" % (before - e.hp))
+	done(g)
+
+
+func test_falange_shield_once_and_attack_speed() -> void:
+	var g := _duel(team_with("atena"))
+	var at = hero(g, 0, "atena")
+	var t = hero(g, 0, "talos")
+	var e = hero(g, 1, "talos")
+	pin(at, Vector2(500, 300)); pin(t, Vector2(560, 300)); pin(e, Vector2(600, 330))
+	g.cast(at, "falange", at.position)
+	step(g, 0.1)
+	check(t.shield_hp == 100.0 and t.phalanx_t > 0.0, "aliado dentro: 100 de escudo e ataque mais rápido")
+	t.shield_hp = 0.0
+	step(g, 0.5)
+	check(t.shield_hp == 0.0, "o escudo é dado uma vez só")
+	check(e.slow_amt >= 0.3, "inimigo dentro fica lento")
+	done(g)
+
+
+func test_pallas_passive_shields_most_injured() -> void:
+	var g := _duel(team_with("atena"))
+	var at = hero(g, 0, "atena")
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	pin(at, Vector2(500, 300)); pin(t, Vector2(560, 300)); pin(a, Vector2(520, 360))
+	a.hp = 100.0
+	for i in 8:
+		g.pallas_shield(at)
+	check(a.shield_hp == 60.0 and t.shield_hp == 0.0, "10 por acerto no mais ferido, até 60")
+	done(g)
+
+
+func test_zeus_basic_is_instant_and_jumps() -> void:
+	var g := _duel(team_with("zeus"), NEW_TEAM)
+	var z = hero(g, 0, "zeus")
+	var a = hero(g, 1, "hercules"); var b = hero(g, 1, "zeus")
+	pin(z, Vector2(400, 300)); z.stun_t = 0.0
+	pin(a, Vector2(580, 300)); pin(b, Vector2(640, 300))
+	pin(hero(g, 1, "atena"), Vector2(1100, 500))
+	z.target = a
+	z.attack_cd = 0.0
+	z._try_attack()
+	check(g.projectiles.is_empty(), "não cria projétil")
+	check(a.hp == a.max_hp - 14.0 and b.hp == b.max_hp - 7.0, "14 no alvo e 7 no salto")
+	done(g)
+
+
+
+func test_ult_names_fit_under_meter() -> void:
+	# Nome de toda ultimate cabe em 92 px (passo de 98 px entre medidores), em PT e EN.
+	var f := ThemeDB.fallback_font
+	for hid in Data.HERO_ORDER:
+		for l in T.LANGS:
+			var n := T.in_lang("AB_%s_NAME" % String(Data.HEROES[hid]["ult"]).to_upper(), l)
+			var size: int = HudScript.fit_size(n, HudScript.ULT_LABEL_W, 10, 7)
+			check(f.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= HudScript.ULT_LABEL_W, "nome da ultimate não cabe: %s (%s)" % [n, l])

@@ -45,6 +45,18 @@ func card_rect(i: int) -> Rect2:
 	return r
 
 
+## Largura máxima do nome da ultimate embaixo do medidor (passo de 98 px).
+const ULT_LABEL_W := 92.0
+
+
+## Maior tamanho de fonte (de `big` até `small`) em que o texto cabe em `w`.
+static func fit_size(s: String, w: float, big: int, small: int) -> int:
+	var size := big
+	while size > small and UI.font().get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > w:
+		size -= 1
+	return size
+
+
 func ult_center(i: int) -> Vector2:
 	return Vector2(58 + i * 98, 668)
 
@@ -181,7 +193,7 @@ func _input(event: InputEvent) -> void:
 				return
 		for j in 3:
 			if m.distance_to(ult_center(j)) <= 30.0:
-				_ult(Data.HERO_ORDER[j])
+				_ult(game.teams[cmd.team][j])
 				return
 		for k in 3:
 			if beh_rect(k).has_point(m):
@@ -193,9 +205,9 @@ func _input(event: InputEvent) -> void:
 			KEY_2: _play(1)
 			KEY_3: _play(2)
 			KEY_4: _play(3)
-			KEY_Q: _ult(Data.HERO_ORDER[0])
-			KEY_W: _ult(Data.HERO_ORDER[1])
-			KEY_E: _ult(Data.HERO_ORDER[2])
+			KEY_Q: _ult(game.teams[cmd.team][0])
+			KEY_W: _ult(game.teams[cmd.team][1])
+			KEY_E: _ult(game.teams[cmd.team][2])
 			KEY_Z: _behavior(Data.BEHAVIORS[0])
 			KEY_X: _behavior(Data.BEHAVIORS[1])
 			KEY_C: _behavior(Data.BEHAVIORS[2])
@@ -336,7 +348,7 @@ func _draw_panel() -> void:
 
 	# Heróis e ultimates
 	for i in 3:
-		var hid: String = Data.HERO_ORDER[i]
+		var hid: String = game.teams[cmd.team][i]
 		var h = game.get_hero(cmd.team, hid)
 		var c := ult_center(i)
 		var rc: Color = h.role_color()
@@ -372,7 +384,8 @@ func _draw_panel() -> void:
 			UI.ability_icon(self, ult_ab, c + Vector2(0, -4), 9.0, Color(1, 1, 1, 0.35 if not ready else 0.9))
 			UI.text_c(self, c + Vector2(0, 17), h.ability_ready_text() if h.alive else "—", 10 if ready else 11, Color.WHITE, 3)
 		UI.text_c(self, c + Vector2(-20, -18), Data.ULT_KEYS[i], 10, Color(1, 1, 1, 0.6), 2)
-		UI.text_c(self, Vector2(c.x, 712), T.ab_name(h.def["ult"]), 10, Color(Data.GOLD, 0.8))
+		var uname := T.ab_name(h.def["ult"])
+		UI.text_c(self, Vector2(c.x, 712), uname, fit_size(uname, ULT_LABEL_W, 10, 7), Color(Data.GOLD, 0.8))
 		if not h.alive:
 			draw_circle(c, 30.0, Color(0, 0, 0, 0.65))
 			UI.text_c(self, c + Vector2(0, 5), T.tf("HUD_RESPAWN", [int(ceil(h.respawn_t))]), 15, Color(1, 0.5, 0.4), 3)
@@ -532,7 +545,7 @@ func _draw_next_tip() -> void:
 
 
 func _draw_ult_tip(i: int) -> void:
-	var hid: String = Data.HERO_ORDER[i]
+	var hid: String = game.teams[cmd.team][i]
 	var h = game.get_hero(cmd.team, hid)
 	var ult: String = h.def["ult"]
 	var ab: Dictionary = Data.ABILITIES[ult]
@@ -629,7 +642,7 @@ func _draw_end() -> void:
 		for i in heads.size():
 			UI.text_c(self, Vector2(cols[i], y), heads[i], 11, Color(1, 1, 1, 0.5))
 		y += 20.0
-		for hid in Data.HERO_ORDER:
+		for hid in game.teams[t]:
 			var h = game.get_hero(t, hid)
 			var st: Dictionary = h.stats
 			var vals := [T.hero_name(hid), "%d / %d" % [st["kills"], st["deaths"]], str(int(st["damage"])), str(int(st["healing"])), str(int(st["mitigated"]))]

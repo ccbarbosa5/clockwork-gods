@@ -4,6 +4,7 @@ extends Node2D
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
 const T = preload("res://scripts/i18n.gd")
+const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
 signal start(opts: Dictionary)
@@ -13,16 +14,15 @@ const DIFFS := ["easy", "normal", "hard"]
 
 var difficulty := "normal"
 var behavior := "balanced"
+## Seu time: um herói por função (Tanque, Dano, Suporte).
+var team: Array = Data.DEFAULT_TEAM.duplicate()
 var show_help := false
 var t := 0.0
 
 
 ## Versão lida do projeto (BUG-013: o menu mostrava uma versão fixa e antiga).
 static func version_label() -> String:
-	var names := []
-	for hid in Data.HERO_ORDER:
-		names.append(T.hero_name(hid))
-	return T.tf("MENU_VERSION", [ProjectSettings.get_setting("application/config/version", "?")] + names)
+	return T.tf("MENU_VERSION", [ProjectSettings.get_setting("application/config/version", "?"), Data.HERO_ORDER.size()])
 
 
 ## Nome do jogo (marca: igual em todos os idiomas), lido do projeto.
@@ -63,6 +63,20 @@ func beh_rect(i: int) -> Rect2:
 	return Rect2(450 + i * 130, 410, 120, 38)
 
 
+## Botão do herói da função i no seu time (clique troca pelo próximo da função).
+func team_rect(i: int) -> Rect2:
+	return Rect2(450 + i * 130, 606, 120, 36)
+
+
+func cycle_team(i: int) -> void:
+	var opts: Array = Data.heroes_of_role(Data.ROLE_ORDER[i])
+	team[i] = opts[(opts.find(team[i]) + 1) % opts.size()]
+
+
+func start_opts() -> Dictionary:
+	return {"difficulty": difficulty, "behavior": behavior, "team": team.duplicate()}
+
+
 func _process(delta: float) -> void:
 	t += delta
 	queue_redraw()
@@ -92,7 +106,7 @@ func _input(event: InputEvent) -> void:
 		if play_rect().has_point(m):
 			if a != null:
 				a.play("card")
-			start.emit({"difficulty": difficulty, "behavior": behavior})
+			start.emit(start_opts())
 		elif help_rect().has_point(m):
 			show_help = true
 		elif heroes_rect().has_point(m):
@@ -100,6 +114,9 @@ func _input(event: InputEvent) -> void:
 			open_gallery.emit()
 			return
 		for i in 3:
+			if team_rect(i).has_point(m):
+				cycle_team(i)
+				if a != null: a.play("click")
 			if diff_rect(i).has_point(m):
 				difficulty = DIFFS[i]
 				if a != null: a.play("click")
@@ -111,7 +128,7 @@ func _input(event: InputEvent) -> void:
 			if show_help:
 				show_help = false
 			else:
-				start.emit({"difficulty": difficulty, "behavior": behavior})
+				start.emit(start_opts())
 		elif event.keycode == KEY_ESCAPE:
 			show_help = false
 		elif event.keycode == KEY_L:
@@ -128,8 +145,12 @@ func _draw() -> void:
 	UI.gear(self, Vector2(1180, 640), 70.0, 9, Color(Data.GOLD, 0.06), t * 0.3)
 	UI.gear(self, Vector2(640, 110), 130.0, 16, Color(Data.GOLD, 0.05), t * 0.12)
 
-	UI.text_c(self, Vector2(640, 175), game_title(), 80, Data.GOLD, 10)
-	UI.text_c(self, Vector2(640, 250), T.t("MENU_TAGLINE"), 16, Color(1, 1, 1, 0.75), 2)
+	var logo := Art.tex(Art.LOGO)
+	if logo != null:
+		Art.draw_centered(self, logo, Vector2(640, 150), Art.LOGO_SIZE)
+	else:
+		UI.text_c(self, Vector2(640, 175), game_title(), 80, Data.GOLD, 10)
+	UI.text_c(self, Vector2(640, 262), T.t("MENU_TAGLINE"), 16, Color(1, 1, 1, 0.75), 2)
 	UI.lang_toggle(self, lang_rect(), get_global_mouse_position())
 
 	UI.text_c(self, Vector2(640, 318), T.t("MENU_DIFFICULTY"), 14, Color(1, 1, 1, 0.6))
@@ -157,6 +178,14 @@ func _draw() -> void:
 	UI.panel(self, gr, Color(Data.BRONZE, 0.3) if gr.has_point(get_global_mouse_position()) else Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
 	UI.text_c(self, gr.get_center() + Vector2(0, 5), T.t("MENU_HEROES"), 14, Color.WHITE)
 
+	UI.text_c(self, Vector2(640, 598), T.t("MENU_TEAM"), 13, Color(1, 1, 1, 0.6))
+	var mouse := get_global_mouse_position()
+	for i in 3:
+		var tr := team_rect(i)
+		var rc: Color = Data.ROLE_COLORS[Data.ROLE_ORDER[i]]
+		UI.panel(self, tr, Color(rc, 0.28 if tr.has_point(mouse) else 0.18), rc, 2.0)
+		UI.text_c(self, tr.get_center() + Vector2(0, 2), T.hero_name(team[i]), 14, Color.WHITE, 2)
+		UI.text_c(self, tr.get_center() + Vector2(0, 14), "‹ " + T.role_name(Data.ROLE_ORDER[i]) + " ›", 9, rc.lightened(0.3))
 	UI.text_c(self, Vector2(640, 700), version_label(), 12, Color(1, 1, 1, 0.35))
 	_draw_audio()
 

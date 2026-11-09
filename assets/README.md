@@ -19,6 +19,13 @@ Tamanhos na tela são para a base 1280×720.
 | `talos_full.png` | 512×768 | 340×510 | Galeria de heróis: corpo inteiro, de frente, fundo transparente, pés perto da base da imagem (sombra elíptica desenhada pelo código). Sem o arquivo, a galeria usa o retrato ampliado (círculo de 300 px) |
 | `artemis_full.png` | 512×768 | 340×510 | Idem |
 | `asclepio_full.png` | 512×768 | 340×510 | Idem |
+| `hercules_top.png` | 256×256 | 60×60 | Pacote 3. Como os outros sprites (virado para a direita, anel do time a 80%) |
+| `zeus_top.png` | 256×256 | 47×47 | Idem |
+| `atena_top.png` | 256×256 | 50×50 | Idem |
+| `hercules_portrait.png`, `zeus_portrait.png`, `atena_portrait.png` | 256×256 | círculo de 50 px (medidor) e 88 px (galeria) | Idem aos outros retratos |
+| `hercules_full.png`, `zeus_full.png`, `atena_full.png` | 512×768 | 340×510 | Galeria; sem o arquivo, retrato ampliado |
+
+Sem sprite, o herói é desenhado por código com o emblema do objeto-assinatura (claude/regras-de-herois.md): clava (Hércules), raio (Zeus), escudo com lança (Atena).
 
 Com sprite, o triângulo de direção e o emblema sobre o corpo não são desenhados.
 Anel do time, sombra, barra de vida, nome, selos e estados continuam por código, sem girar.
@@ -29,13 +36,22 @@ podem passar para fora até a borda da imagem.
 O retrato também é coberto pelas bordas do medidor: a porcentagem fica sobre a base
 (faixa inferior de ~10 px) e o selo da ultimate no canto inferior direito.
 
+## ui/ e store/
+
+| Arquivo | Fonte | Na tela | Observação |
+| --- | --- | --- | --- |
+| `ui/logo.png` | 1200×400 | 540×180 no menu (centro em 640, 150) | Substitui o título em texto; sem o arquivo, volta o texto |
+| `store/icon.png` | 512×512 | ícone do projeto | Aba do navegador e export web (config/icon do project.godot) |
+
 ## icons/
 
 256×256, um por habilidade. Desenhados no mesmo tamanho do ícone por código
 (carta 24 px, próxima carta 18 px, medidor 18 px, selos e registro lateral 8 a 20 px).
 
 `muralha.png`, `investida.png`, `valvula.png`, `furia.png`, `disparo.png`, `armadilha.png`,
-`salto.png`, `chuva.png`, `sopro.png`, `veneno.png`, `engrenagem.png`, `segunda.png`
+`salto.png`, `chuva.png`, `sopro.png`, `veneno.png`, `engrenagem.png`, `segunda.png`,
+`nemeia.png`, `pele.png`, `corrente.png`, `trabalho.png`, `raios.png`, `nuvem.png`, `aguia.png`, `olimpo.png`,
+`egide.png`, `comando.png`, `coruja.png`, `falange.png`
 
 ## cards/
 
@@ -132,3 +148,28 @@ O rastro de avanço não tem arquivo: com sprite, usa cópias translúcidas do p
 Para ligar um efeito novo: `Art.draw_fx(ci, "nome", centro, tamanho, escala, alfa, giro)` devolve
 false sem a imagem, e aí o código desenha como hoje. Todo nome novo vai em `Art.FX_EFFECTS`
 (`scripts/art.gd`) e nesta lista; os testes conferem as duas coisas.
+
+### Pacote 3 (Hércules, Zeus, Atena)
+
+Sem o arquivo, cada efeito continua desenhado por código. Tamanho na tela em escala 1 (base 1280×720); sugestão de fonte: 2× ou mais.
+
+| Arquivo | Na tela | Uso |
+| --- | --- | --- |
+| `nemeia_queda.png` | 150×150 | Área de queda do Salto de Nemeia (raio 75); cresce e some em 0,5 s. Laranja-bronze, poeira |
+| `pele_juba.png` | 72×72 (Talos; escala pelo raio do herói) | Aura da Pele do Leão: juba dourada em volta, centro vazio. Gira devagar |
+| `corrente_elo.png` | faixa de 8 px de espessura | Corrente de Cérbero: elos de bronze repetidos do Hércules até o gancho (como o feixe de cura) |
+| `corrente_gancho.png` | 20×20 | Ponta da corrente: gancho de três pontas, apontando para a direita |
+| `trabalho_impacto.png` | 60×60 | Impacto do Décimo Terceiro Trabalho onde o alvo cai: rachaduras curtas |
+| `raio_cadeia.png` | faixa de 6 a 12 px | Raio dourado entre alvos (básico do Zeus e Corrente de Raios); repete na horizontal |
+| `nuvem_area.png` | 200×200 | Nuvem de Tempestade (raio 100): nuvem cinza-clara com borda dourada, vista de cima |
+| `raio_queda.png` | 28×140 (vertical) | Raio que cai do céu (Nuvem e Fúria do Olimpo); a base fica no alvo |
+| `olimpo_area.png` | 700×700 | Fúria do Olimpo (raio 350) em volta do Zeus: céu escurecido, bem transparente (desenhado a 35%) |
+| `aguia_pena.png` | 12×12 | Penas douradas do Voo da Águia (partícula) |
+| `egide_cupula.png` | 200×200 | Égide (raio 100): cúpula de prata translúcida com a Medusa em relevo |
+| `comando_area.png` | 400×400 | Onda do Comando de Guerra (raio 200), verde-oliva |
+| `comando_aura.png` | 72×72 (escala pelo raio) | Aliado sob o Comando: setas prateadas girando, centro vazio |
+| `coruja_olho.png` | 20×12 | Olho dourado acima do inimigo marcado pelo Olhar da Coruja |
+| `coruja_voo.png` | 24×24 | Coruja de latão voando da Atena até o alvo (aponta para a direita) |
+| `falange_area.png` | 360×360 | Falange de Atenas (raio 180): anel de escudos de prata na borda, lança no centro |
+| `escudo_palas.png` | 68×68 (escala pelo raio) | Escudo dado pela Atena (Palas e Falange): anel de prata, centro vazio |
+| `lanca_projetil.png` | 34×8 | Lança arremessada (básico da Atena), apontando para a direita |
