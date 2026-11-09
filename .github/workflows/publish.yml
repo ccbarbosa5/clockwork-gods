@@ -9,7 +9,7 @@ env:
   GODOT_VERSION: "4.7.2"
   # Destino no itch.io no formato usuario/nome-do-jogo.
   # Pode ser trocado pela variável de repositório ITCH_TARGET.
-  ITCH_TARGET: ${{ vars.ITCH_TARGET || 'ccbarbosa/ichor-clockwork-gods' }}
+  ITCH_TARGET: ${{ vars.ITCH_TARGET || 'ccbarbosa/clockwork-gods' }}
 
 jobs:
   web:
