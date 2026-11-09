@@ -537,8 +537,10 @@ func decide(ab: String, forced: bool):
 				var away: Vector2 = (position - close2.position).normalized()
 				var home: Vector2 = (game.spawn_pos(team) - position).normalized()
 				return position + (away + home * 0.6).normalized() * 200.0
-			if target != null and position.distance_to(target.position) > def["range"] * 1.15:
-				return _toward(target.position, 200.0)
+			# Chegar ao flanco: avança para a faixa lateral, nunca para cima do inimigo.
+			var lane_pos := _formation_pos(game.commanders[team].behavior, _forward())
+			if position.distance_to(lane_pos) > 160.0 and _nearest(_toward(lane_pos, 200.0), enemies, 260.0) == null:
+				return _toward(lane_pos, 200.0)
 			if forced:
 				return _toward(fallback, 200.0)
 		"olimpo":
@@ -848,7 +850,7 @@ func _pick_target(enemies: Array, beh: String):
 				score = d + e.hp * 0.6
 			"flank":
 				# Zeus prefere grupos: o raio salta entre inimigos próximos.
-				score = d + e.hp * 0.6 - 60.0 * (_count_near(enemies, e.position, 120.0) - 1)
+				score = d + e.hp * 0.6 - def.get("group_bias", 60.0) * (_count_near(enemies, e.position, 120.0) - 1)
 			"dive":
 				score = d * 0.5 + e.hp + (400.0 if e.style == "frontline" else 0.0)
 		if score < best_score:
