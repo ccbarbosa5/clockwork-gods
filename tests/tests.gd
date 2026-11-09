@@ -1618,3 +1618,23 @@ func test_readability_names_above_bodies_and_soft_areas() -> void:
 	check(Art.AREA_ALPHA >= 0.35 and Art.AREA_ALPHA <= 0.65, "área grande nem invisível nem opaca (%.2f)" % Art.AREA_ALPHA)
 	check(Art.RAIN_ALPHA >= 0.3 and Art.RAIN_ALPHA <= 0.6, "Chuva de Prata translúcida (%.2f)" % Art.RAIN_ALPHA)
 	done(g)
+
+
+func test_ability_popups_do_not_overlap() -> void:
+	# Quatro habilidades ao mesmo tempo no mesmo grupo: os selos não se sobrepõem.
+	var g := new_game()
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	var s = hero(g, 0, "asclepio")
+	pin(t, Vector2(600, 300)); pin(a, Vector2(612, 296)); pin(s, Vector2(590, 310))
+	g.cast(t, "valvula", t.position)
+	g.cast(s, "sopro", s.position)
+	g.cast(a, "salto", a.position)
+	g.cast(t, "furia", t.position)
+	var lay: Array = g.popup_layout()
+	check(lay.size() == 4, "quatro selos (veio %d)" % lay.size())
+	for i in lay.size():
+		for j in range(i + 1, lay.size()):
+			var d: float = lay[i]["pos"].distance_to(lay[j]["pos"])
+			check(d >= lay[i]["r"] + lay[j]["r"], "selos %d e %d sobrepostos (%.0f px)" % [i, j, d])
+	done(g)
