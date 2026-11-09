@@ -27,7 +27,39 @@ const PROJECTILES := {
 	"basic": {"fx": "tiro_basico", "size": Vector2(12, 6), "tip": 4.0},
 }
 
+## Efeitos de imagem única ligados por código (fx/<nome>.png), com o tamanho
+## na tela em escala 1 (px, base 1280×720). Lista oficial: assets/README.md.
+const FX_EFFECTS := {
+	# Áreas no chão (diâmetro da área)
+	"furia_area": Vector2(420, 420),
+	"valvula_area": Vector2(380, 380),
+	"sopro_area": Vector2(420, 420),
+	"segunda_area": Vector2(480, 480),
+	"chuva_area": Vector2(340, 340),
+	# Objetos no chão
+	"armadilha_aberta": Vector2(44, 44),
+	"armadilha_fechada": Vector2(44, 44),
+	# Presa ao Talos, convexa para a frente (direita)
+	"muralha_arco": Vector2(96, 48),
+	# Partículas
+	"fumaca": Vector2(26, 26),
+	"chuva_flecha": Vector2(12, 12),
+	"cura_mais": Vector2(14, 14),
+	"veneno_bolha": Vector2(5, 5),
+	"atordoado_estrela": Vector2(8, 8),
+	# Auras e estados (tamanho do Talos; escala pelo raio do herói)
+	"aura_valvula": Vector2(64, 64),
+	"aura_engrenagem": Vector2(72, 72),
+	"aura_segunda": Vector2(76, 76),
+	"aura_raiz": Vector2(64, 64),
+	# Ataque e movimento
+	"soco_arco": Vector2(64, 32),
+	"feixe_cura": Vector2(64, 6),
+}
+
 static var _cache := {}
+## Nomes de efeito desenhados por imagem (usado pelos testes).
+static var drawn_names := {}
 static var _ability_ids := {}
 ## Quantas imagens foram desenhadas (usado pelos testes).
 static var drawn := 0
@@ -105,7 +137,34 @@ static func draw_fx(ci: CanvasItem, name: String, c: Vector2, size: Vector2, sca
 	var t := fx(name)
 	if t == null:
 		return false
+	drawn_names[name] = true
 	draw_centered(ci, t, c, size * scale, rot, Color(tint, tint.a * alpha))
+	return true
+
+
+## Faixa com textura repetida de `a` até `b` (feixe de cura). A textura é
+## desenhada na horizontal e repetida ao longo do comprimento. Retorna false
+## se não houver imagem.
+static func draw_beam(ci: CanvasItem, name: String, a: Vector2, b: Vector2, thickness: float, tint := Color.WHITE) -> bool:
+	var t := fx(name)
+	if t == null:
+		return false
+	drawn += 1
+	drawn_names[name] = true
+	var v := b - a
+	var length := v.length()
+	if length < 1.0:
+		return true
+	# Repete a textura mantendo a proporção dela na espessura pedida.
+	var tile_w: float = t.get_width() * thickness / maxf(1.0, t.get_height())
+	ci.draw_set_transform(a, v.angle(), Vector2.ONE)
+	var x := 0.0
+	while x < length:
+		var w := minf(tile_w, length - x)
+		var src := Rect2(0, 0, t.get_width() * w / tile_w, t.get_height())
+		ci.draw_texture_rect_region(t, Rect2(x, -thickness * 0.5, w, thickness), src, tint)
+		x += tile_w
+	ci.draw_set_transform_matrix(Transform2D.IDENTITY)
 	return true
 
 

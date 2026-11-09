@@ -706,8 +706,14 @@ func _draw() -> void:
 	# Rastro de investida/salto
 	if dash_t > 0.0:
 		var back := -dash_vel.normalized()
+		var spr := Art.hero_sprite(hid)
 		for k in 3:
-			draw_circle(back * (14.0 + k * 14.0), radius * (0.9 - k * 0.2), Color(hc, 0.3 - k * 0.08))
+			if spr != null:
+				# Com sprite: rastro de cópias translúcidas do próprio herói.
+				var px0: float = Art.HERO_SPRITE_PX.get(hid, (radius + 3.0) * 2.0 / 0.8)
+				Art.draw_centered(self, spr, back * (14.0 + k * 14.0), Vector2(px0, px0) * (0.95 - k * 0.1), sprite_angle, Color(1, 1, 1, 0.3 - k * 0.08))
+			else:
+				draw_circle(back * (14.0 + k * 14.0), radius * (0.9 - k * 0.2), Color(hc, 0.3 - k * 0.08))
 	if haste_t > 0.0:
 		var a0 := facing.angle() + PI
 		draw_arc(Vector2.ZERO, radius + 12.0, a0 - 0.8, a0 + 0.8, 14, Color(rc.lightened(0.4), 0.7), 3.0, true)
@@ -716,12 +722,16 @@ func _draw() -> void:
 	# Feixe de cura
 	if heal_beam_t > 0.0 and heal_target != null and is_instance_valid(heal_target) and heal_target.alive and heal_target != self:
 		var tp: Vector2 = heal_target.position - position
-		draw_line(Vector2.ZERO, tp, Color(0.45, 1.0, 0.6, 0.7), 4.0, true)
-		draw_line(Vector2.ZERO, tp, Color(1, 1, 1, 0.6), 1.5, true)
+		if not Art.draw_beam(self, "feixe_cura", Vector2.ZERO, tp, 6.0):
+			draw_line(Vector2.ZERO, tp, Color(0.45, 1.0, 0.6, 0.7), 4.0, true)
+			draw_line(Vector2.ZERO, tp, Color(1, 1, 1, 0.6), 1.5, true)
 
 	# Sombra e corpo
 	draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.35))
-	if undying_t > 0.0:
+	var aura_k := radius / 22.0  # auras são feitas no tamanho do Talos (raio 22)
+	if undying_t > 0.0 and Art.draw_fx(self, "aura_segunda", Vector2.ZERO, Art.FX_EFFECTS["aura_segunda"], aura_k, 0.9, t * 1.5):
+		pass
+	elif undying_t > 0.0:
 		draw_circle(Vector2.ZERO, radius + 12.0, Color(1.0, 0.85, 0.3, 0.3))
 		for k in 8:
 			var ang := t * 1.5 + k * TAU / 8.0
@@ -751,33 +761,39 @@ func _draw() -> void:
 	# Golpe corpo a corpo
 	if swing_t > 0.0:
 		var a := facing.angle()
-		draw_arc(Vector2.ZERO, radius + 18.0, a - 0.9, a + 0.9, 12, Color(1, 0.9, 0.6, 0.8), 4.0, true)
+		var sk := (radius + 18.0) / 40.0
+		if not Art.draw_fx(self, "soco_arco", facing * (radius + 12.0), Art.FX_EFFECTS["soco_arco"], sk, swing_t / 0.18, a):
+			draw_arc(Vector2.ZERO, radius + 18.0, a - 0.9, a + 0.9, 12, Color(1, 0.9, 0.6, 0.8), 4.0, true)
 
 	# Muralha de Bronze
 	if wall_t > 0.0:
 		var a2 := facing.angle()
 		var alpha := clampf(wall_hp / 450.0, 0.3, 1.0)
-		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1.0, 0.6, 0.2, alpha * 0.35), 16.0, true)
-		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(0.95, 0.65, 0.25, alpha), 7.0, true)
-		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1, 1, 0.8, alpha * 0.8), 2.0, true)
-		for k in 5:
-			var ra := a2 - 0.8 + k * 0.4
-			draw_circle(Vector2(cos(ra), sin(ra)) * 44.0, 2.0, Color(0.4, 0.25, 0.1, alpha))
+		if Art.draw_fx(self, "muralha_arco", facing * 44.0, Art.FX_EFFECTS["muralha_arco"], 1.0, alpha, a2):
+			pass
+		else:
+			_draw_wall_code(a2, alpha)
 
 	# Estados
-	if dr_t > 0.0:
+	if dr_t > 0.0 and Art.draw_fx(self, "aura_valvula", Vector2.ZERO, Art.FX_EFFECTS["aura_valvula"], aura_k, 0.85, t * 1.0):
+		pass
+	elif dr_t > 0.0:
 		# Válvula de Pressão: vapor girando
 		for k in 4:
 			var ang3 := t * 2.2 + k * TAU / 4.0
 			draw_circle(Vector2(cos(ang3), sin(ang3)) * (radius + 6.0), 4.0, Color(1, 1, 1, 0.35))
 		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(1.0, 0.65, 0.3, 0.8), 2.0)
-	if shield_hp > 0.0:
+	if shield_hp > 0.0 and Art.draw_fx(self, "aura_engrenagem", Vector2.ZERO, Art.FX_EFFECTS["aura_engrenagem"], aura_k, 0.95, -t * 1.8):
+		pass
+	elif shield_hp > 0.0:
 		# Engrenagem Vital: engrenagens orbitando
 		UI.ring(self, Vector2.ZERO, radius + 8.0, Color(0.6, 1.0, 0.8, 0.8), 2.5)
 		for k in 3:
 			var ang4 := -t * 1.8 + k * TAU / 3.0
 			UI.gear(self, Vector2(cos(ang4), sin(ang4)) * (radius + 9.0), 5.0, 6, Color(0.7, 1.0, 0.85), t * 4.0)
-	if root_t > 0.0:
+	if root_t > 0.0 and Art.draw_fx(self, "aura_raiz", Vector2(0, 4), Art.FX_EFFECTS["aura_raiz"], aura_k):
+		pass
+	elif root_t > 0.0:
 		UI.ring(self, Vector2(0, 4), radius + 4.0, Color(0.55, 0.4, 0.2, 1.0), 4.0)
 		for k in 4:
 			var ang5 := k * TAU / 4.0 + 0.4
@@ -787,11 +803,15 @@ func _draw() -> void:
 	if poison_t > 0.0:
 		for i in 4:
 			var ph := fmod(t * 1.2 + i * 0.25, 1.0)
-			draw_circle(Vector2(sin(i * 2.1) * radius * 0.7, -ph * (radius + 10.0)), 2.5 * (1.0 - ph) + 1.0, Color(0.5, 1.0, 0.3, 1.0 - ph))
+			var bp := Vector2(sin(i * 2.1) * radius * 0.7, -ph * (radius + 10.0))
+			if not Art.draw_fx(self, "veneno_bolha", bp, Art.FX_EFFECTS["veneno_bolha"], 1.6 - ph, 1.0 - ph):
+				draw_circle(bp, 2.5 * (1.0 - ph) + 1.0, Color(0.5, 1.0, 0.3, 1.0 - ph))
 	if stun_t > 0.0:
 		for i in 3:
 			var ang2: float = t * 5.0 + i * TAU / 3.0
-			draw_circle(Vector2(cos(ang2) * 12.0, -radius - 20.0 + sin(ang2) * 4.0), 3.0, Color(1, 0.95, 0.3))
+			var sp := Vector2(cos(ang2) * 12.0, -radius - 20.0 + sin(ang2) * 4.0)
+			if not Art.draw_fx(self, "atordoado_estrela", sp, Art.FX_EFFECTS["atordoado_estrela"], 1.0, 1.0, t * 4.0):
+				draw_circle(sp, 3.0, Color(1, 0.95, 0.3))
 
 	# Barra de vida
 	var bw := 46.0
@@ -813,3 +833,13 @@ func _draw() -> void:
 		draw_arc(c, 12.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 20, Color(1, 1, 1, 0.8), 2.0, true)
 
 	UI.text_c(self, Vector2(0, radius + 16.0), def["name"], 11, Color(1, 1, 1, 0.85), 3)
+
+
+## Muralha de Bronze desenhada por código (sem imagem).
+func _draw_wall_code(a2: float, alpha: float) -> void:
+	draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1.0, 0.6, 0.2, alpha * 0.35), 16.0, true)
+	draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(0.95, 0.65, 0.25, alpha), 7.0, true)
+	draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1, 1, 0.8, alpha * 0.8), 2.0, true)
+	for k in 5:
+		var ra := a2 - 0.8 + k * 0.4
+		draw_circle(Vector2(cos(ra), sin(ra)) * 44.0, 2.0, Color(0.4, 0.25, 0.1, alpha))

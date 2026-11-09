@@ -527,6 +527,7 @@ func _update_traps(dt: float) -> void:
 					var src = tr["src"] if is_instance_valid(tr["src"]) else null
 					deal_damage(src, h, 30.0)
 					_burst(tr["pos"], 36.0, Color(0.85, 0.65, 0.3), 0.4)
+					fx.append({"type": "img", "img": "armadilha_fechada", "pos": tr["pos"], "r": 22.0, "col": Color.WHITE, "t": 0.6, "max": 0.6})
 					used = true
 					break
 		if not used and tr["life"] > 0.0:
@@ -592,7 +593,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					a.dr_t = 4.0
 					a.dr_amt = 0.4
 					a.dr_src = h
-			_burst(h.position, 190.0, Color(1.0, 0.65, 0.3), 0.5)
+			_burst(h.position, 190.0, Color(1.0, 0.65, 0.3), 0.5, "valvula_area")
 			for k in 14:
 				var ang := randf() * TAU
 				add_puff(h.position + Vector2(cos(ang), sin(ang)) * randf_range(30.0, 170.0), Color(1, 1, 1))
@@ -602,8 +603,8 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					deal_damage(h, e, 60.0)
 					if e.alive:
 						e.stun_t = maxf(e.stun_t, 1.6)
-			_burst(h.position, 210.0, Color(1.0, 0.6, 0.2), 0.7)
-			fx.append({"type": "cracks", "pos": h.position, "r": 210.0, "col": Color(1.0, 0.55, 0.15), "t": 0.9, "max": 0.9, "seed": randf() * TAU})
+			_burst(h.position, 210.0, Color(1.0, 0.6, 0.2), 0.7, "furia_area")
+			fx.append({"type": "cracks", "img": "furia_area", "pos": h.position, "r": 210.0, "col": Color(1.0, 0.55, 0.15), "t": 0.9, "max": 0.9, "seed": randf() * TAU})
 		"disparo":
 			h.facing = dir
 			spawn_projectile(h, h.position + dir * 20.0, dir * 1100.0, 90.0, 8.0, "pierce", Color(0.85, 0.95, 1.0), true, 0.85)
@@ -641,7 +642,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			for a in allies:
 				if a.position.distance_to(h.position) <= 210.0:
 					heal(h, a, 120.0)
-			_burst(h.position, 210.0, Color(0.5, 1.0, 0.6), 0.6)
+			_burst(h.position, 210.0, Color(0.5, 1.0, 0.6), 0.6, "sopro_area")
 			for k in 10:
 				var ang2 := randf() * TAU
 				fx.append({"type": "plus", "pos": h.position + Vector2(cos(ang2), sin(ang2)) * randf_range(10.0, 190.0), "r": 7.0, "col": Color(0.55, 1.0, 0.6), "t": 0.9, "max": 0.9})
@@ -665,8 +666,8 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 				if a.position.distance_to(h.position) <= 240.0:
 					a.undying_t = 3.0
 					heal(h, a, 40.0)
-			_burst(h.position, 240.0, Color(1.0, 0.85, 0.3), 0.7)
-			fx.append({"type": "rays", "pos": h.position, "r": 240.0, "col": Color(1.0, 0.85, 0.3), "t": 1.0, "max": 1.0, "seed": randf() * TAU})
+			_burst(h.position, 240.0, Color(1.0, 0.85, 0.3), 0.7, "segunda_area")
+			fx.append({"type": "rays", "img": "segunda_area", "pos": h.position, "r": 240.0, "col": Color(1.0, 0.85, 0.3), "t": 1.0, "max": 1.0, "seed": randf() * TAU})
 		_:
 			return false
 	var abd: Dictionary = Data.ABILITIES[ab]
@@ -704,8 +705,13 @@ func _clamp_range(from: Vector2, to: Vector2, r: float) -> Vector2:
 
 # ---------------------------------------------------------------------------
 # Efeitos visuais
-func _burst(pos: Vector2, r: float, col: Color, t: float) -> void:
-	fx.append({"type": "ring", "pos": pos, "r": r, "col": col, "t": t, "max": t})
+## Anel que cresce e some. Com `img`, usa a imagem fx/<img>.png (se existir)
+## no tamanho da área, crescendo, sumindo e girando devagar.
+func _burst(pos: Vector2, r: float, col: Color, t: float, img := "") -> void:
+	var f := {"type": "ring", "pos": pos, "r": r, "col": col, "t": t, "max": t}
+	if img != "":
+		f["img"] = img
+	fx.append(f)
 
 
 func add_puff(pos: Vector2, col: Color) -> void:
@@ -775,6 +781,9 @@ func _draw() -> void:
 	for tr in traps:
 		var tc: Color = Data.TEAM_COLORS[tr["team"]]
 		var a := 0.35 if tr["arm"] > 0.0 else 0.8
+		if Art.draw_fx(self, "armadilha_aberta", tr["pos"], Art.FX_EFFECTS["armadilha_aberta"], 1.0, a):
+			UI.ring(self, tr["pos"], 23.0, Color(tc, a), 2.0)  # cor do time continua visível
+			continue
 		UI.ring(self, tr["pos"], 22.0, Color(tc, a), 2.0)
 		for k in 6:
 			var ang := TAU * k / 6.0
@@ -783,15 +792,20 @@ func _draw() -> void:
 	# Chuvas
 	for r in rains:
 		var rc: Color = Data.TEAM_COLORS[r["team"]]
-		draw_circle(r["pos"], r["r"], Color(rc, 0.12))
-		UI.ring(self, r["pos"], r["r"], Color(0.85, 0.9, 1.0, 0.6), 2.0)
+		var rain_size := Vector2(r["r"], r["r"]) * 2.0
+		if not Art.draw_fx(self, "chuva_area", r["pos"], rain_size, 1.0, 0.9, time * 0.3):
+			draw_circle(r["pos"], r["r"], Color(rc, 0.12))
+			UI.ring(self, r["pos"], r["r"], Color(0.85, 0.9, 1.0, 0.6), 2.0)
+		else:
+			UI.ring(self, r["pos"], r["r"], Color(rc, 0.5), 2.0)  # cor do time continua visível
 		for k in 14:
 			var sd: float = float(k) * 12.9898 + floor(time * 8.0) * 3.7
 			var ox: float = sin(sd) * r["r"] * 0.9
 			var oy: float = cos(sd * 1.3) * r["r"] * 0.9
 			var p: Vector2 = r["pos"] + Vector2(ox, oy)
 			if p.distance_to(r["pos"]) < r["r"]:
-				draw_line(p + Vector2(-4, -12), p, Color(0.9, 0.95, 1.0, 0.85), 2.0)
+				if not Art.draw_fx(self, "chuva_flecha", p + Vector2(-2, -6), Art.FX_EFFECTS["chuva_flecha"], 1.0, 0.95, Vector2(4, 12).angle()):
+					draw_line(p + Vector2(-4, -12), p, Color(0.9, 0.95, 1.0, 0.85), 2.0)
 
 	# Projéteis
 	for p2 in projectiles:
@@ -824,25 +838,38 @@ func _draw() -> void:
 		var fc: Color = f["col"]
 		match f["type"]:
 			"puff":
+				if Art.draw_fx(self, "fumaca", f["pos"] + Vector2(0, -10.0 * k2), Vector2(f["r"], f["r"]) * 2.0, 0.5 + 0.8 * k2, 0.6 * (1.0 - k2), k2 * 1.5, fc):
+					continue
 				draw_circle(f["pos"] + Vector2(0, -10.0 * k2), f["r"] * (0.5 + 0.8 * k2), Color(fc, 0.45 * (1.0 - k2)))
 			"plus":
 				var pp: Vector2 = f["pos"] + Vector2(0, -26.0 * k2)
+				if Art.draw_fx(self, "cura_mais", pp, Art.FX_EFFECTS["cura_mais"], 1.0, 1.0 - k2):
+					continue
 				var sz: float = f["r"]
 				draw_rect(Rect2(pp - Vector2(sz * 0.3, sz), Vector2(sz * 0.6, sz * 2.0)), Color(fc, 1.0 - k2))
 				draw_rect(Rect2(pp - Vector2(sz, sz * 0.3), Vector2(sz * 2.0, sz * 0.6)), Color(fc, 1.0 - k2))
 			"cracks":
+				if Art.fx(f["img"]) != null:
+					continue  # a imagem da área já traz as rachaduras
 				for k in 10:
 					var ang: float = f["seed"] + k * TAU / 10.0
 					var len: float = f["r"] * minf(1.0, k2 * 3.0) * (0.6 + 0.4 * sin(k * 7.3))
 					var mid := Vector2(cos(ang + 0.15), sin(ang + 0.15)) * len * 0.5
 					draw_polyline(PackedVector2Array([f["pos"], f["pos"] + mid, f["pos"] + Vector2(cos(ang), sin(ang)) * len]), Color(fc, 1.0 - k2), 3.0, true)
 			"rays":
+				if Art.fx(f["img"]) != null:
+					continue  # a imagem da área já traz os raios
 				for k in 16:
 					var ang2: float = f["seed"] + k * TAU / 16.0
 					var r0: float = f["r"] * 0.2
 					var r1: float = f["r"] * (0.4 + 0.6 * minf(1.0, k2 * 2.0))
 					draw_line(f["pos"] + Vector2(cos(ang2), sin(ang2)) * r0, f["pos"] + Vector2(cos(ang2), sin(ang2)) * r1, Color(fc, 0.8 * (1.0 - k2)), 3.0, true)
+			"img":
+				if not Art.draw_fx(self, f["img"], f["pos"], Art.FX_EFFECTS.get(f["img"], Vector2(44, 44)), 1.0, 1.0 - k2):
+					UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
 			_:
+				if f.has("img") and Art.draw_fx(self, f["img"], f["pos"], Vector2(f["r"], f["r"]) * 2.0, 0.3 + 0.7 * k2, 1.0 - k2, k2 * 0.5):
+					continue
 				UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
 
 	# Renascimento
