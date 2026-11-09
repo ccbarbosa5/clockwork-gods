@@ -4,7 +4,7 @@ Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você 
 
 **Protótipo**: modo Controle contra bot, versão web, em português e inglês.
 
-O jogo se chamava "Ichor: Clockwork Gods". O nome do repositório e da página no itch.io ainda é o antigo.
+O jogo se chamava "Ichor: Clockwork Gods". Página: https://ccbarbosa.itch.io/clockwork-gods
 
 ## Como jogar
 
@@ -74,5 +74,5 @@ Configuração (uma vez):
 2. Gere uma chave em *itch.io → Settings → API keys*.
 3. No GitHub, em *Settings → Secrets and variables → Actions*:
    - Secret `BUTLER_API_KEY` com a chave do itch.
-   - Variável `ITCH_TARGET` com `seu-usuario-itch/nome-do-jogo` (padrão: `ccbarbosa/ichor-clockwork-gods`).
+   - Variável `ITCH_TARGET` com `seu-usuario-itch/nome-do-jogo` (padrão: `ccbarbosa/clockwork-gods`).
 4. Depois do primeiro envio, na página do jogo no itch, marque o arquivo `html5` como *This file will be played in the browser* e defina o tamanho 1280 × 720.
