@@ -1,5 +1,5 @@
 extends Node2D
-## Herói autônomo: atributos, estados, IA e desenho.
+## Herói autônomo: atributos, estados, IA de formação, cartas armadas e desenho.
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
@@ -8,6 +8,7 @@ var game
 var team := 0
 var hid := ""
 var def := {}
+var style := "frontline"
 var hp := 100.0
 var max_hp := 100.0
 var radius := 16.0
@@ -47,6 +48,11 @@ var knock_t := 0.0
 var wall_t := 0.0
 var wall_hp := 0.0
 
+## Habilidades armadas aguardando o melhor momento: [{ab, t, ult}]
+var armed: Array = []
+var cast_gap := 0.0
+var puff_t := 0.0
+
 var ult := 0.0
 var hit_flash := 0.0
 var heal_target = null
@@ -63,6 +69,7 @@ func setup(g, t: int, id: String, idx: int) -> void:
 	hid = id
 	slot_index = idx
 	def = Data.HEROES[id]
+	style = def.get("style", "frontline")
 	max_hp = def["hp"]
 	hp = max_hp
 	radius = def["radius"]
@@ -80,6 +87,7 @@ func clear_status() -> void:
 	heal_red_t = 0.0; dash_t = 0.0; knock_t = 0.0
 	wall_t = 0.0; wall_hp = 0.0
 	target = null; heal_target = null; retreating = false
+	armed = []
 
 
 func add_charge(v: float) -> void:
@@ -89,6 +97,30 @@ func add_charge(v: float) -> void:
 
 func ability_ready_text() -> String:
 	return "PRONTO" if ult >= 100.0 else str(int(ult)) + "%"
+
+
+func role_color() -> Color:
+	return Data.ROLE_COLORS[def["role"]]
+
+
+func is_backline() -> bool:
+	return style == "backline_dps" or style == "backline_support" or style == "flank"
+
+
+func is_healer() -> bool:
+	return def.has("heal")
+
+
+## Arma uma habilidade: o herói a usa sozinho no melhor momento.
+func arm(ab: String, is_ult: bool) -> void:
+	armed.append({"ab": ab, "t": Data.ARM_TIME, "ult": is_ult})
+
+
+func has_armed(ab: String) -> bool:
+	for a in armed:
+		if a["ab"] == ab:
+			return true
+	return false
 
 
 # --------------------------------------------------------------------------
@@ -112,6 +144,7 @@ func tick(dt: float) -> void:
 	heal_beam_t -= dt
 	swing_t -= dt
 	wall_t -= dt
+	cast_gap -= dt
 	if shield_t <= 0.0:
 		shield_hp = 0.0
 	if wall_hp <= 0.0:
@@ -131,15 +164,23 @@ func tick(dt: float) -> void:
 	if position.distance_to(game.spawn_pos(team)) < game.SPAWN_R:
 		hp = minf(max_hp, hp + Data.SPAWN_REGEN * dt)
 
+	for a in armed:
+		a["t"] -= dt
+
 	if dash_t > 0.0:
 		dash_t -= dt
 		position += dash_vel * dt
+		puff_t -= dt
+		if puff_t <= 0.0:
+			puff_t = 0.03
+			game.add_puff(position, Color(1, 0.95, 0.85) if dash_damage else role_color().lightened(0.3))
 		if dash_damage:
 			game.dash_hits(self)
 	elif knock_t > 0.0:
 		knock_t -= dt
 		position += knock_vel * dt
 	elif stun_t <= 0.0:
+		_update_armed()
 		var move := _think(dt)
 		if root_t > 0.0:
 			move = Vector2.ZERO
@@ -150,11 +191,182 @@ func tick(dt: float) -> void:
 
 
 # --------------------------------------------------------------------------
-# IA
+# Cartas armadas: escolher momento e alvo
+func _update_armed() -> void:
+	if armed.is_empty() or cast_gap > 0.0 or dash_t > 0.0:
+		return
+	for i in armed.size():
+		var a: Dictionary = armed[i]
+		var tp = decide(a["ab"], a["t"] <= 0.0)
+		if tp != null:
+			armed.remove_at(i)
+			game.cast(self, a["ab"], tp)
+			cast_gap = 0.3
+			return
+
+
+func _forward() -> float:
+	return 1.0 if team == 0 else -1.0
+
+
+func _ahead(dist: float) -> Vector2:
+	return position + Vector2(_forward() * dist, 0.0)
+
+
+func _nearest(from: Vector2, list: Array, max_d: float):
+	var best = null
+	var bd := max_d
+	for e in list:
+		var d: float = from.distance_to(e.position)
+		if d < bd:
+			bd = d
+			best = e
+	return best
+
+
+func _lead(e) -> Vector2:
+	return e.position + e.facing * e.speed * 0.15
+
+
+## Decide se é um bom momento para a habilidade e onde mirar.
+## Retorna a posição-alvo ou null para esperar. Com `forced`, sempre retorna.
+func decide(ab: String, forced: bool):
+	var enemies: Array = game.alive_heroes(1 - team)
+	var allies: Array = game.alive_heroes(team)
+	var near = _nearest(position, enemies, 99999.0)
+	var fallback: Vector2 = near.position if near != null else _ahead(150.0)
+	match ab:
+		"muralha":
+			for e in enemies:
+				if e.def["range"] > 150.0 and position.distance_to(e.position) < 450.0:
+					return e.position
+			if near != null and position.distance_to(near.position) < 250.0:
+				return near.position
+		"investida":
+			var best = null
+			var bs := INF
+			for e in enemies:
+				var d: float = position.distance_to(e.position)
+				if d < 250.0:
+					var sc: float = d + e.hp * 0.3
+					if sc < bs:
+						bs = sc
+						best = e
+			if best != null:
+				return _lead(best)
+		"valvula":
+			var c := 0
+			for a in allies:
+				if a.position.distance_to(position) <= 190.0:
+					c += 1
+			var threat = _nearest(position, enemies, 350.0)
+			if threat != null and (c >= 2 or hp / max_hp < 0.6):
+				return position
+			if forced:
+				return position
+		"furia":
+			var n := 0
+			var weak := false
+			for e in enemies:
+				if e.position.distance_to(position) < 200.0:
+					n += 1
+					if e.hp / e.max_hp < 0.35:
+						weak = true
+			if n >= 2 or (n >= 1 and weak):
+				return position
+			if forced:
+				return position
+		"disparo":
+			var best2 = null
+			var bc := 0
+			for e in enemies:
+				if position.distance_to(e.position) > 700.0:
+					continue
+				var dir: Vector2 = (e.position - position).normalized()
+				var c2 := 0
+				for o in enemies:
+					var v: Vector2 = o.position - position
+					if v.dot(dir) > 0.0 and absf(v.cross(dir)) < 32.0:
+						c2 += 1
+				if c2 > bc:
+					bc = c2
+					best2 = e
+			if best2 != null:
+				return _lead(best2)
+		"armadilha":
+			var n2 = _nearest(position, enemies, 320.0)
+			if n2 != null:
+				return _lead(n2)
+			if forced:
+				return game.CENTER + Vector2(-_forward() * 20.0, randf_range(-40.0, 40.0))
+		"salto":
+			var close = _nearest(position, enemies, 160.0)
+			if close != null or (hp / max_hp < 0.5 and _nearest(position, enemies, 300.0) != null):
+				return position
+			if forced:
+				return position
+		"chuva":
+			var bestc = null
+			var cc := 1
+			for e in enemies:
+				if e.position.distance_to(position) > 650.0:
+					continue
+				var c3 := 0
+				var sum := Vector2.ZERO
+				for o in enemies:
+					if o.position.distance_to(e.position) < 160.0:
+						c3 += 1
+						sum += o.position
+				if c3 > cc:
+					cc = c3
+					bestc = sum / float(c3)
+			if bestc != null:
+				return bestc
+			for e in enemies:
+				if e.position.distance_to(position) < 600.0 and (game.in_point(e.position) or e.hp / e.max_hp < 0.4):
+					return e.position
+			if forced:
+				return fallback if near != null and position.distance_to(near.position) < 650.0 else game.CENTER
+		"sopro":
+			var missing := 0.0
+			for a in allies:
+				if a.position.distance_to(position) <= 210.0:
+					missing += a.max_hp - a.hp
+			if missing >= 90.0 or forced:
+				return position
+		"veneno":
+			var n3 = _nearest(position, enemies, 500.0)
+			if n3 != null:
+				return _lead(n3)
+		"engrenagem":
+			var low = null
+			var lf := 0.7
+			for a in allies:
+				var f: float = a.hp / a.max_hp
+				if f < lf and _nearest(a.position, enemies, 450.0) != null:
+					lf = f
+					low = a
+			if low != null:
+				return low.position
+			if forced:
+				var tank = game.get_hero(team, "talos")
+				return tank.position if tank != null and tank.alive else position
+		"segunda":
+			for a in allies:
+				if a.position.distance_to(position) < 240.0 and a.hp / a.max_hp < 0.35:
+					return position
+			if forced:
+				return position
+	if forced:
+		return fallback
+	return null
+
+
+# --------------------------------------------------------------------------
+# IA de movimento e formação
 func _think(dt: float) -> Vector2:
 	var beh: String = game.commanders[team].behavior
-	var side := -1.0 if team == 0 else 1.0
-	var forward := -side
+	var forward := _forward()
 	var enemies: Array = game.alive_heroes(1 - team)
 	var hpf := hp / max_hp
 	var th: float = {"aggressive": 0.15, "balanced": 0.3, "defensive": 0.35}[beh]
@@ -163,7 +375,7 @@ func _think(dt: float) -> Vector2:
 	if retreating and hpf > 0.8:
 		retreating = false
 
-	if hid == "asclepio":
+	if is_healer():
 		_support_heal(dt)
 
 	target = _pick_target(enemies, beh)
@@ -171,69 +383,146 @@ func _think(dt: float) -> Vector2:
 		var to: Vector2 = target.position - position
 		if to.length() > 0.1:
 			facing = to.normalized()
+	elif not retreating:
+		facing = facing.lerp(Vector2(forward, 0.0), 0.05).normalized()
 	_try_attack()
 
 	if retreating:
 		var dest: Vector2 = game.spawn_pos(team)
-		if hid != "asclepio":
-			var sup = game.get_hero(team, "asclepio")
-			if sup != null and sup.alive and not sup.retreating:
-				dest = sup.position + Vector2(side * 50.0, 0.0)
+		if not is_healer():
+			var sup = _team_healer()
+			if sup != null and not sup.retreating:
+				dest = sup.position - Vector2(forward * 50.0, 0.0)
 		if target != null and position.distance_to(target.position) < 120.0:
 			return _kite(target.position)
 		return _go(dest, 25.0)
 
-	if not game.point_unlocked():
-		var stage: Vector2 = game.CENTER + Vector2(side * (game.POINT_R + 70.0 + slot_index * 35.0), (slot_index - 1) * 60.0)
-		return _go(stage, 10.0)
+	var form := _formation_pos(beh, forward)
 
-	if hid == "asclepio":
-		var ht = heal_target
-		if ht == null or ht == self:
-			var tank = game.get_hero(team, "talos")
-			if tank != null and tank.alive:
-				ht = tank
+	# Suporte: acompanha quem precisa de cura, sem passar à frente do tanque.
+	if style == "backline_support":
 		if target != null and position.distance_to(target.position) < 110.0:
 			return _kite(target.position)
-		if ht != null and ht != self:
-			var d: float = ht.position.distance_to(position)
-			if d > 150.0:
-				return _steer(ht.position - Vector2(forward * 60.0, 0.0))
-			return _strafe() * 0.4
-		return _go(_anchor(beh, forward), 12.0)
+		var ht = heal_target
+		if ht != null and ht != self and ht.position.distance_to(position) > 160.0:
+			return _steer(_clamp_behind_front(ht.position - Vector2(forward * 60.0, 0.0), beh))
+		return _hold(form)
 
 	if target != null:
 		var d: float = position.distance_to(target.position)
-		var desired: float = def["range"] * 0.85
-		if hid == "talos":
-			desired = def["range"] * 0.6
-		if hid == "artemis" and d < 150.0:
-			return _kite(target.position)
-		if d > desired:
-			return _steer(target.position)
-		return _strafe() * 0.5
+		match style:
+			"frontline", "dive":
+				if d > def["range"] * 0.6:
+					return _steer(target.position)
+				return _strafe() * 0.5
+			"battle_support":
+				if d > def["range"] * 0.7:
+					return _steer(_clamp_behind_front(target.position, beh))
+				return _strafe() * 0.5
+			"flank":
+				if d < 150.0:
+					return _kite(target.position)
+				if d > def["range"] * 0.85:
+					var lane := -150.0 if position.y < game.CENTER.y else 150.0
+					var wp: Vector2 = target.position + Vector2(0.0, lane)
+					if position.distance_to(wp) > 80.0 and d > def["range"] * 1.2:
+						return _steer(wp)
+					return _steer(target.position)
+				return _strafe() * 0.5
+			_:
+				# backline_dps: atira de trás, recua se encostarem.
+				if d < 150.0:
+					return _kite(target.position)
+				if d > def["range"] * 0.85:
+					var chase := _clamp_behind_front(target.position, beh)
+					if chase.distance_to(position) < 12.0:
+						return _strafe() * 0.5
+					return _steer(chase)
+				return _strafe() * 0.5
 
-	return _go(_anchor(beh, forward), 12.0)
+	return _hold(form)
 
 
-func _anchor(beh: String, forward: float) -> Vector2:
+## Posição na formação, conforme o estilo do herói.
+func _formation_pos(beh: String, forward: float) -> Vector2:
 	var c: Vector2 = game.CENTER
-	match hid:
-		"talos":
-			var dx: float = {"aggressive": 150.0, "balanced": 20.0, "defensive": 0.0}[beh]
-			return c + Vector2(forward * dx, 0.0)
-		"artemis":
-			var dx2: float = {"aggressive": 70.0, "balanced": -95.0, "defensive": -55.0}[beh]
-			return c + Vector2(forward * dx2, -45.0)
-		_:
-			var tank = game.get_hero(team, "talos")
-			if tank != null and tank.alive:
-				return tank.position + Vector2(-forward * 85.0, 40.0)
-			return c + Vector2(-forward * 120.0, 40.0)
+	var front: Vector2
+	if not game.point_unlocked():
+		front = c - Vector2(forward * (game.POINT_R + 45.0), 0.0)
+	else:
+		var dx: float = {"aggressive": 150.0, "balanced": 20.0, "defensive": 0.0}[beh]
+		front = c + Vector2(forward * dx, 0.0)
+	if style == "frontline" or style == "dive":
+		# Não avança sozinho: espera o grupo se ele ficou muito atrás.
+		var others: Array = []
+		for a in game.alive_heroes(team):
+			if a != self and not a.retreating:
+				others.append(a)
+		if not others.is_empty():
+			var nearest_d := INF
+			for a in others:
+				nearest_d = minf(nearest_d, a.position.distance_to(position))
+			var ahead_of_group := true
+			for a in others:
+				if (a.position.x - position.x) * forward > 0.0:
+					ahead_of_group = false
+			if nearest_d > 280.0 and ahead_of_group and beh != "aggressive":
+				return position
+		return front
+	var lead = _team_front()
+	var lead_pos: Vector2 = lead.position if lead != null else front
+	match style:
+		"backline_dps":
+			var back := 40.0 if beh == "aggressive" else 90.0
+			return lead_pos - Vector2(forward * back, 55.0)
+		"backline_support":
+			return lead_pos - Vector2(forward * 120.0, -50.0)
+		"battle_support":
+			return lead_pos - Vector2(forward * 50.0, -35.0)
+		"flank":
+			var lane := -170.0 if slot_index % 2 == 0 else 170.0
+			return Vector2(c.x + forward * 40.0, c.y + lane)
+	return front
+
+
+## Impede heróis de trás de passarem à frente do tanque.
+func _clamp_behind_front(p: Vector2, beh: String) -> Vector2:
+	if not is_backline() or style == "flank":
+		return p
+	var forward := _forward()
+	var lead = _team_front()
+	var limit_x: float
+	if lead != null:
+		limit_x = lead.position.x + forward * 30.0
+	elif beh == "aggressive":
+		return p
+	else:
+		limit_x = game.CENTER.x + forward * 60.0
+	if (p.x - limit_x) * forward > 0.0:
+		p.x = limit_x
+	return p
+
+
+func _team_front():
+	for a in game.alive_heroes(team):
+		if a != self and (a.style == "frontline" or a.style == "dive") and not a.retreating:
+			return a
+	return null
+
+
+func _team_healer():
+	for a in game.alive_heroes(team):
+		if a != self and a.is_healer():
+			return a
+	return null
 
 
 func _pick_target(enemies: Array, beh: String):
 	var aggro: float = {"aggressive": 560.0, "balanced": 400.0, "defensive": 320.0}[beh]
+	if not game.point_unlocked():
+		aggro = 300.0
+	if style == "dive":
+		aggro += 150.0
 	var leash: float = {"aggressive": 99999.0, "balanced": game.POINT_R + 380.0, "defensive": game.POINT_R + 220.0}[beh]
 	var best = null
 	var best_score := INF
@@ -247,8 +536,11 @@ func _pick_target(enemies: Array, beh: String):
 		if e.position.distance_to(game.spawn_pos(e.team)) < game.SPAWN_R + 10.0 and not in_range:
 			continue
 		var score := d
-		if hid == "artemis":
-			score = d + e.hp * 0.6
+		match style:
+			"backline_dps", "flank":
+				score = d + e.hp * 0.6
+			"dive":
+				score = d * 0.5 + e.hp + (400.0 if e.style == "frontline" else 0.0)
 		if score < best_score:
 			best_score = score
 			best = e
@@ -258,13 +550,13 @@ func _pick_target(enemies: Array, beh: String):
 func _try_attack() -> void:
 	if target == null or attack_cd > 0.0 or stun_t > 0.0 or dash_t > 0.0:
 		return
-	if hid == "asclepio" and heal_target != null and heal_target.position.distance_to(position) <= def["heal_range"]:
+	if style == "backline_support" and heal_target != null and heal_target.position.distance_to(position) <= def["heal_range"]:
 		return
 	var d: float = position.distance_to(target.position) - target.radius
 	if d > def["range"]:
 		return
 	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0))
-	if hid == "talos":
+	if def["range"] < 100.0:
 		swing_t = 0.18
 		game.deal_damage(self, target, def["dmg"])
 		for e in game.alive_heroes(1 - team):
@@ -272,7 +564,7 @@ func _try_attack() -> void:
 				game.deal_damage(self, e, def["dmg"] * 0.5)
 	else:
 		var dir: Vector2 = (target.position - position).normalized()
-		var col: Color = Color(0.85, 0.9, 1.0) if hid == "artemis" else Color(0.5, 1.0, 0.65)
+		var col: Color = role_color().lightened(0.45)
 		game.spawn_projectile(self, position + dir * (radius + 4.0), dir * def["proj_speed"], def["dmg"], 5.0, "basic", col)
 
 
@@ -306,6 +598,15 @@ func _kite(from: Vector2) -> Vector2:
 
 func _strafe() -> Vector2:
 	return Vector2(0.0, sin(game.time * 1.3 + strafe_phase))
+
+
+## Vai até a posição e, ao chegar, continua se movimentando levemente.
+func _hold(dest: Vector2) -> Vector2:
+	var d := position.distance_to(dest)
+	if d < 14.0:
+		var t: float = game.time
+		return Vector2(0.3 * sin(t * 0.9 + strafe_phase), 0.55 * sin(t * 1.4 + strafe_phase * 1.7))
+	return _steer(dest) * minf(1.0, d / 40.0)
 
 
 func _go(dest: Vector2, tol: float) -> Vector2:
@@ -342,12 +643,20 @@ func _draw() -> void:
 		return
 	var tc: Color = Data.TEAM_COLORS[team]
 	var hc: Color = def["color"]
+	var rc := role_color()
+	var t: float = game.time
 	if hit_flash > 0.0:
 		hc = hc.lerp(Color.WHITE, 0.6)
 
 	# Rastro de investida/salto
 	if dash_t > 0.0:
-		draw_line(Vector2.ZERO, -dash_vel.normalized() * 40.0, Color(1, 1, 1, 0.35), radius * 1.4)
+		var back := -dash_vel.normalized()
+		for k in 3:
+			draw_circle(back * (14.0 + k * 14.0), radius * (0.9 - k * 0.2), Color(hc, 0.3 - k * 0.08))
+	if haste_t > 0.0:
+		var a0 := facing.angle() + PI
+		draw_arc(Vector2.ZERO, radius + 12.0, a0 - 0.8, a0 + 0.8, 14, Color(rc.lightened(0.4), 0.7), 3.0, true)
+		draw_arc(Vector2.ZERO, radius + 18.0, a0 - 0.6, a0 + 0.6, 12, Color(rc.lightened(0.4), 0.4), 2.0, true)
 
 	# Feixe de cura
 	if heal_beam_t > 0.0 and heal_target != null and is_instance_valid(heal_target) and heal_target.alive and heal_target != self:
@@ -358,13 +667,16 @@ func _draw() -> void:
 	# Sombra e corpo
 	draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.35))
 	if undying_t > 0.0:
-		draw_circle(Vector2.ZERO, radius + 10.0, Color(1.0, 0.85, 0.3, 0.35))
+		draw_circle(Vector2.ZERO, radius + 12.0, Color(1.0, 0.85, 0.3, 0.3))
+		for k in 8:
+			var ang := t * 1.5 + k * TAU / 8.0
+			draw_line(Vector2(cos(ang), sin(ang)) * (radius + 6.0), Vector2(cos(ang), sin(ang)) * (radius + 16.0), Color(1, 0.9, 0.4, 0.8), 2.0, true)
 	if ult >= 100.0:
-		var pulse := 0.5 + 0.5 * sin(game.time * 6.0)
+		var pulse := 0.5 + 0.5 * sin(t * 6.0)
 		UI.ring(self, Vector2.ZERO, radius + 7.0, Color(Data.GOLD, 0.4 + 0.5 * pulse), 2.0)
 	draw_circle(Vector2.ZERO, radius + 3.0, tc)
 	draw_circle(Vector2.ZERO, radius, hc)
-	_draw_glyph()
+	UI.hero_glyph(self, hid, Vector2.ZERO, radius * 0.5, Color(0.1, 0.07, 0.05, 0.9))
 
 	# Indicador de direção
 	var tip := facing * (radius + 9.0)
@@ -376,30 +688,45 @@ func _draw() -> void:
 		var a := facing.angle()
 		draw_arc(Vector2.ZERO, radius + 18.0, a - 0.9, a + 0.9, 12, Color(1, 0.9, 0.6, 0.8), 4.0, true)
 
-	# Muralha
+	# Muralha de Bronze
 	if wall_t > 0.0:
 		var a2 := facing.angle()
-		var alpha := clampf(wall_hp / 450.0, 0.25, 1.0)
-		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(0.95, 0.7, 0.3, alpha), 7.0, true)
-		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1, 1, 0.8, alpha * 0.7), 2.0, true)
+		var alpha := clampf(wall_hp / 450.0, 0.3, 1.0)
+		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1.0, 0.6, 0.2, alpha * 0.35), 16.0, true)
+		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(0.95, 0.65, 0.25, alpha), 7.0, true)
+		draw_arc(Vector2.ZERO, 44.0, a2 - 1.0, a2 + 1.0, 18, Color(1, 1, 0.8, alpha * 0.8), 2.0, true)
+		for k in 5:
+			var ra := a2 - 0.8 + k * 0.4
+			draw_circle(Vector2(cos(ra), sin(ra)) * 44.0, 2.0, Color(0.4, 0.25, 0.1, alpha))
 
 	# Estados
 	if dr_t > 0.0:
-		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(0.85, 0.65, 0.35, 0.9), 2.0)
+		# Válvula de Pressão: vapor girando
+		for k in 4:
+			var ang3 := t * 2.2 + k * TAU / 4.0
+			draw_circle(Vector2(cos(ang3), sin(ang3)) * (radius + 6.0), 4.0, Color(1, 1, 1, 0.35))
+		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(1.0, 0.65, 0.3, 0.8), 2.0)
 	if shield_hp > 0.0:
-		UI.ring(self, Vector2.ZERO, radius + 8.0, Color(0.6, 1.0, 0.8, 0.9), 3.0)
+		# Engrenagem Vital: engrenagens orbitando
+		UI.ring(self, Vector2.ZERO, radius + 8.0, Color(0.6, 1.0, 0.8, 0.8), 2.5)
+		for k in 3:
+			var ang4 := -t * 1.8 + k * TAU / 3.0
+			UI.gear(self, Vector2(cos(ang4), sin(ang4)) * (radius + 9.0), 5.0, 6, Color(0.7, 1.0, 0.85), t * 4.0)
 	if root_t > 0.0:
 		UI.ring(self, Vector2(0, 4), radius + 4.0, Color(0.55, 0.4, 0.2, 1.0), 4.0)
+		for k in 4:
+			var ang5 := k * TAU / 4.0 + 0.4
+			draw_line(Vector2(cos(ang5), sin(ang5)) * (radius + 1.0), Vector2(cos(ang5), sin(ang5)) * (radius + 10.0), Color(0.6, 0.45, 0.25), 3.0)
 	if slow_t > 0.0:
 		UI.ring(self, Vector2.ZERO, radius + 1.0, Color(0.5, 0.7, 1.0, 0.7), 2.0)
 	if poison_t > 0.0:
-		for i in 3:
-			var ang: float = game.time * 2.0 + i * TAU / 3.0
-			draw_circle(Vector2(cos(ang), sin(ang)) * (radius - 4.0), 2.5, Color(0.5, 1.0, 0.3))
+		for i in 4:
+			var ph := fmod(t * 1.2 + i * 0.25, 1.0)
+			draw_circle(Vector2(sin(i * 2.1) * radius * 0.7, -ph * (radius + 10.0)), 2.5 * (1.0 - ph) + 1.0, Color(0.5, 1.0, 0.3, 1.0 - ph))
 	if stun_t > 0.0:
 		for i in 3:
-			var ang2: float = game.time * 5.0 + i * TAU / 3.0
-			draw_circle(Vector2(cos(ang2) * 12.0, -radius - 18.0 + sin(ang2) * 4.0), 3.0, Color(1, 0.95, 0.3))
+			var ang2: float = t * 5.0 + i * TAU / 3.0
+			draw_circle(Vector2(cos(ang2) * 12.0, -radius - 20.0 + sin(ang2) * 4.0), 3.0, Color(1, 0.95, 0.3))
 
 	# Barra de vida
 	var bw := 46.0
@@ -408,21 +735,16 @@ func _draw() -> void:
 	draw_rect(Rect2(-bw * 0.5, by, bw * clampf(hp / max_hp, 0.0, 1.0), 5), tc.lerp(Color.WHITE, 0.15))
 	if shield_hp > 0.0:
 		draw_rect(Rect2(-bw * 0.5, by - 4, bw * clampf(shield_hp / max_hp, 0.0, 1.0), 3), Color(0.7, 1.0, 0.85))
+
+	# Habilidades armadas (aguardando o momento)
+	var n := armed.size()
+	for i in n:
+		var a3: Dictionary = armed[i]
+		var c := Vector2((i - (n - 1) * 0.5) * 22.0, by - 16.0)
+		var ab: Dictionary = Data.ABILITIES[a3["ab"]]
+		var pulse2 := 0.75 + 0.25 * sin(t * 8.0)
+		UI.badge(self, c, 9.0, ab, rc, pulse2, a3["ult"])
+		var frac := clampf(a3["t"] / Data.ARM_TIME, 0.0, 1.0)
+		draw_arc(c, 12.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 20, Color(1, 1, 1, 0.8), 2.0, true)
+
 	UI.text_c(self, Vector2(0, radius + 16.0), def["name"], 11, Color(1, 1, 1, 0.85), 3)
-
-
-func _draw_glyph() -> void:
-	var dark := Color(0.12, 0.09, 0.07, 0.9)
-	match hid:
-		"talos":
-			var s := radius * 0.5
-			draw_colored_polygon(PackedVector2Array([
-				Vector2(-s, -s), Vector2(s, -s), Vector2(s, s * 0.3), Vector2(0, s * 1.2), Vector2(-s, s * 0.3)]), dark)
-		"artemis":
-			var s2 := radius * 0.6
-			draw_line(Vector2(-s2, s2), Vector2(s2, -s2), dark, 3.0)
-			draw_colored_polygon(PackedVector2Array([Vector2(s2 + 2, -s2 - 2), Vector2(s2 - 6, -s2), Vector2(s2, -s2 + 6)]), dark)
-		_:
-			var s3 := radius * 0.55
-			draw_rect(Rect2(-s3 * 0.3, -s3, s3 * 0.6, s3 * 2.0), dark)
-			draw_rect(Rect2(-s3, -s3 * 0.3, s3 * 2.0, s3 * 0.6), dark)

@@ -1,5 +1,6 @@
 extends Node2D
 ## Interface do jogador: cartas, Ícor, ultimates, comportamento e placar.
+## Clicar numa carta basta: o herói usa a habilidade sozinho no melhor momento.
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
@@ -10,14 +11,11 @@ const NEXT_RECT := Rect2(872, 604, 78, 90)
 
 var game
 var cmd
-var selected := -1
-var selected_ult := ""
-var press_slot := -1
-var press_pos := Vector2.ZERO
-var dragging := false
 var msg := ""
 var msg_t := 0.0
 var hover := -1
+var pressed := -1
+var press_t := 0.0
 
 
 func setup(g) -> void:
@@ -25,15 +23,17 @@ func setup(g) -> void:
 	cmd = g.commanders[g.player_team]
 
 
-func card_rect(i: int) -> Rect2:
-	var r := Rect2(350 + i * 128, 576, 120, 118)
-	if i == selected or i == hover:
-		r.position.y -= 8
-	return r
-
-
 func base_card_rect(i: int) -> Rect2:
 	return Rect2(350 + i * 128, 576, 120, 118)
+
+
+func card_rect(i: int) -> Rect2:
+	var r := base_card_rect(i)
+	if i == hover:
+		r.position.y -= 8
+	if i == pressed and press_t > 0.0:
+		r.position.y += 3
+	return r
 
 
 func ult_center(i: int) -> Vector2:
@@ -55,11 +55,12 @@ func _player_controls() -> bool:
 # ---------------------------------------------------------------------------
 func _process(delta: float) -> void:
 	msg_t -= delta
+	press_t -= delta
 	var m := get_global_mouse_position()
 	hover = -1
 	if not game.ended:
 		for i in 4:
-			if base_card_rect(i).has_point(m):
+			if base_card_rect(i).has_point(m) and cmd.hand[i] != "":
 				hover = i
 	queue_redraw()
 
@@ -73,142 +74,65 @@ func _input(event: InputEvent) -> void:
 			elif end_button(1).has_point(m):
 				game.request.emit("menu")
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_P:
-			game.paused = not game.paused
-			return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
+		game.paused = not game.paused
+		return
 	if game.paused or not _player_controls():
 		return
 
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			_cancel()
-		elif event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed:
-				_on_press(m)
-			else:
-				_on_release(m)
-	elif event is InputEventMouseMotion:
-		if press_slot >= 0 and not dragging and m.distance_to(press_pos) > 12.0:
-			if cmd.can_play(press_slot) == "":
-				dragging = true
-				selected = press_slot
-				selected_ult = ""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		for i in 4:
+			if base_card_rect(i).has_point(m):
+				_play(i)
+				return
+		for j in 3:
+			if m.distance_to(ult_center(j)) <= 30.0:
+				_ult(Data.HERO_ORDER[j])
+				return
+		for k in 3:
+			if beh_rect(k).has_point(m):
+				_behavior(Data.BEHAVIORS[k])
+				return
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
-			KEY_1: _click_card(0)
-			KEY_2: _click_card(1)
-			KEY_3: _click_card(2)
-			KEY_4: _click_card(3)
-			KEY_Q: _try_ult(Data.HERO_ORDER[0])
-			KEY_W: _try_ult(Data.HERO_ORDER[1])
-			KEY_E: _try_ult(Data.HERO_ORDER[2])
-			KEY_Z: _try_behavior(Data.BEHAVIORS[0])
-			KEY_X: _try_behavior(Data.BEHAVIORS[1])
-			KEY_C: _try_behavior(Data.BEHAVIORS[2])
-			KEY_ESCAPE: _cancel()
-
-
-func _on_press(m: Vector2) -> void:
-	for i in 4:
-		if base_card_rect(i).has_point(m):
-			press_slot = i
-			press_pos = m
-			dragging = false
-			return
-	for j in 3:
-		if m.distance_to(ult_center(j)) <= 30.0:
-			_try_ult(Data.HERO_ORDER[j])
-			return
-	for k in 3:
-		if beh_rect(k).has_point(m):
-			_try_behavior(Data.BEHAVIORS[k])
-			return
-	if game.in_arena(m):
-		if selected >= 0:
-			_cast_card(selected, m)
-		elif selected_ult != "":
-			_cast_ult(m)
-
-
-func _on_release(m: Vector2) -> void:
-	if press_slot < 0:
-		return
-	var slot := press_slot
-	press_slot = -1
-	if dragging:
-		dragging = false
-		if game.in_arena(m):
-			_cast_card(slot, m)
-		else:
-			selected = -1
-	else:
-		_click_card(slot)
-
-
-func _cancel() -> void:
-	selected = -1
-	selected_ult = ""
-	press_slot = -1
-	dragging = false
+			KEY_1: _play(0)
+			KEY_2: _play(1)
+			KEY_3: _play(2)
+			KEY_4: _play(3)
+			KEY_Q: _ult(Data.HERO_ORDER[0])
+			KEY_W: _ult(Data.HERO_ORDER[1])
+			KEY_E: _ult(Data.HERO_ORDER[2])
+			KEY_Z: _behavior(Data.BEHAVIORS[0])
+			KEY_X: _behavior(Data.BEHAVIORS[1])
+			KEY_C: _behavior(Data.BEHAVIORS[2])
 
 
 func _flash(reason: String) -> void:
-	var texts := {"icor": "Ícor insuficiente", "morto": "Herói abatido", "atordoado": "Herói atordoado",
+	var texts := {"icor": "Ícor insuficiente", "morto": "Herói abatido", "armada": "Ultimate já armada",
 		"carga": "Ultimate ainda carregando", "vazio": "Sem carta neste espaço", "cd": "Aguarde para trocar o comportamento"}
 	msg = texts.get(reason, reason)
 	msg_t = 1.4
 
 
-func _click_card(i: int) -> void:
-	if selected == i:
-		_cancel()
-		return
+func _play(i: int) -> void:
 	var reason: String = cmd.can_play(i)
 	if reason != "":
 		_flash(reason)
 		return
-	var ab: Dictionary = Data.ABILITIES[cmd.hand[i]]
-	if ab["target"] == "self":
-		var h = cmd.card_hero(cmd.hand[i])
-		cmd.play(i, h.position)
-		_cancel()
-	else:
-		selected = i
-		selected_ult = ""
+	pressed = i
+	press_t = 0.12
+	cmd.play(i)
 
 
-func _cast_card(i: int, m: Vector2) -> void:
-	var reason: String = cmd.can_play(i)
-	if reason != "":
-		_flash(reason)
-		_cancel()
-		return
-	cmd.play(i, m)
-	_cancel()
-
-
-func _try_ult(hid: String) -> void:
+func _ult(hid: String) -> void:
 	var reason: String = cmd.can_ult(hid)
 	if reason != "":
 		_flash(reason)
 		return
-	var ab: Dictionary = Data.ABILITIES[Data.HEROES[hid]["ult"]]
-	if ab["target"] == "self":
-		var h = game.get_hero(cmd.team, hid)
-		cmd.use_ult(hid, h.position)
-		_cancel()
-	else:
-		selected_ult = hid
-		selected = -1
+	cmd.use_ult(hid)
 
 
-func _cast_ult(m: Vector2) -> void:
-	cmd.use_ult(selected_ult, m)
-	selected_ult = ""
-
-
-func _try_behavior(b: String) -> void:
+func _behavior(b: String) -> void:
 	if b == cmd.behavior:
 		return
 	if not cmd.set_behavior(b):
@@ -219,72 +143,18 @@ func _try_behavior(b: String) -> void:
 # Desenho
 func _draw() -> void:
 	game.draw_overlay(self)
-	_draw_targeting()
 	_draw_top()
 	_draw_panel()
+	if hover >= 0:
+		_draw_tooltip(hover)
 	if msg_t > 0.0:
 		UI.text_c(self, Vector2(640, 548), msg, 18, Color(1, 0.5, 0.4, clampf(msg_t, 0.0, 1.0)), 4)
-	if dragging and selected >= 0 and cmd.hand[selected] != "":
-		var m := get_global_mouse_position()
-		if not game.in_arena(m):
-			_draw_card(Rect2(m - Vector2(60, 59), Vector2(120, 118)), cmd.hand[selected], true, 0.8)
 	if game.paused and not game.ended:
 		draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.55))
 		UI.text_c(self, Vector2(640, 330), "PAUSADO", 44, Data.GOLD, 6)
 		UI.text_c(self, Vector2(640, 370), "Pressione P para continuar", 18, Color.WHITE, 3)
 	if game.ended:
 		_draw_end()
-
-
-func _caster():
-	if selected >= 0 and cmd.hand[selected] != "":
-		return cmd.card_hero(cmd.hand[selected])
-	if selected_ult != "":
-		return game.get_hero(cmd.team, selected_ult)
-	return null
-
-
-func _draw_targeting() -> void:
-	var h = _caster()
-	if h == null or not h.alive:
-		return
-	var ab_id: String = cmd.hand[selected] if selected >= 0 else Data.HEROES[selected_ult]["ult"]
-	var ab: Dictionary = Data.ABILITIES[ab_id]
-	var m := get_global_mouse_position()
-	var tc: Color = Data.TEAM_COLORS[cmd.team]
-	UI.ring(self, h.position, h.radius + 12.0, Color(Data.GOLD, 0.9), 3.0)
-	if not game.in_arena(m):
-		return
-	var target := m
-	if ab["range"] > 0.0:
-		UI.ring(self, h.position, ab["range"], Color(tc, 0.35), 2.0)
-		var v: Vector2 = m - h.position
-		if v.length() > ab["range"]:
-			target = h.position + v.normalized() * ab["range"]
-	match ab_id:
-		"muralha", "disparo", "veneno", "investida":
-			var dir: Vector2 = (m - h.position).normalized()
-			var length := 260.0 if ab_id == "investida" else 420.0
-			if ab_id == "muralha":
-				length = 70.0
-			draw_line(h.position, h.position + dir * length, Color(Data.GOLD, 0.7), 4.0, true)
-			draw_circle(h.position + dir * length, 6.0, Color(Data.GOLD, 0.9))
-		"engrenagem":
-			var best = null
-			var bd := INF
-			for a in game.alive_heroes(cmd.team):
-				var d: float = a.position.distance_to(m)
-				if d < bd:
-					bd = d
-					best = a
-			if best != null:
-				UI.ring(self, best.position, best.radius + 10.0, Color(0.6, 1.0, 0.8, 0.9), 3.0)
-		_:
-			pass
-	if ab["radius"] > 0.0 and ab["target"] == "point":
-		draw_circle(target, ab["radius"], Color(tc, 0.18))
-		UI.ring(self, target, ab["radius"], Color(Data.GOLD, 0.8), 2.0)
-	UI.text_c(self, m + Vector2(0, -22), ab["name"], 13, Color.WHITE, 3)
 
 
 func _draw_top() -> void:
@@ -333,56 +203,56 @@ func _draw_panel() -> void:
 		var hid: String = Data.HERO_ORDER[i]
 		var h = game.get_hero(cmd.team, hid)
 		var c := ult_center(i)
-		var hc: Color = h.def["color"]
-		UI.text_c(self, Vector2(c.x, 582), h.def["name"], 13, Color.WHITE)
-		UI.text_c(self, Vector2(c.x, 596), h.def["role"], 10, Color(1, 1, 1, 0.55))
+		var rc: Color = h.role_color()
+		UI.hero_glyph(self, hid, Vector2(c.x - 34, 578), 5.0, rc)
+		UI.text_c(self, Vector2(c.x + 4, 583), h.def["name"], 13, Color.WHITE)
+		UI.text_c(self, Vector2(c.x, 597), h.def["role"], 10, rc)
 		var hb := Rect2(c.x - 40, 602, 80, 6)
 		draw_rect(hb, Color(0, 0, 0, 0.7))
 		draw_rect(Rect2(hb.position, Vector2(hb.size.x * (h.hp / h.max_hp if h.alive else 0.0), hb.size.y)), Data.TEAM_COLORS[cmd.team])
+		# Habilidades armadas deste herói
+		var n: int = h.armed.size()
+		for k in n:
+			var ab: Dictionary = Data.ABILITIES[h.armed[k]["ab"]]
+			UI.badge(self, Vector2(c.x + 30 - k * 16, 624), 6.5, ab, rc, 0.95, h.armed[k]["ult"])
 		draw_circle(c, 30.0, Color(0.05, 0.04, 0.03))
-		draw_circle(c, 25.0, Color(hc, 0.25))
+		draw_circle(c, 25.0, Color(rc, 0.22))
 		var ready: bool = h.ult >= 100.0 and h.alive
 		draw_arc(c, 28.0, -PI * 0.5, -PI * 0.5 + TAU * h.ult / 100.0, 40, Data.GOLD if ready else Color(Data.GOLD, 0.6), 4.0, true)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(game.time * 6.0)
 			draw_circle(c, 25.0, Color(Data.GOLD, 0.25 + 0.3 * pulse))
-		UI.text_c(self, c + Vector2(0, 5), h.ability_ready_text() if h.alive else "—", 12 if ready else 13, Color.WHITE, 3)
-		UI.text_c(self, c + Vector2(0, -12), Data.ULT_KEYS[i], 10, Color(1, 1, 1, 0.6))
-		var ult_name: String = Data.ABILITIES[h.def["ult"]]["name"]
-		UI.text_c(self, Vector2(c.x, 712), ult_name, 10, Color(Data.GOLD, 0.8))
+		var ult_ab: Dictionary = Data.ABILITIES[h.def["ult"]]
+		UI.effect_icon(self, ult_ab["effect"], c + Vector2(0, -4), 9.0, Color(1, 1, 1, 0.35 if not ready else 0.9))
+		UI.text_c(self, c + Vector2(0, 17), h.ability_ready_text() if h.alive else "—", 10 if ready else 11, Color.WHITE, 3)
+		UI.text_c(self, c + Vector2(-20, -18), Data.ULT_KEYS[i], 10, Color(1, 1, 1, 0.6), 2)
+		UI.text_c(self, Vector2(c.x, 712), ult_ab["name"], 10, Color(Data.GOLD, 0.8))
 		if not h.alive:
-			draw_circle(c, 30.0, Color(0, 0, 0, 0.6))
+			draw_circle(c, 30.0, Color(0, 0, 0, 0.65))
 			UI.text_c(self, c + Vector2(0, 5), "%d s" % int(ceil(h.respawn_t)), 15, Color(1, 0.5, 0.4), 3)
 
 	# Cartas
 	for i in 4:
 		var card: String = cmd.hand[i]
-		var r := card_rect(i)
 		if card == "":
-			draw_rect(base_card_rect(i), Color(1, 1, 1, 0.04))
-			draw_rect(base_card_rect(i), Color(1, 1, 1, 0.15), false, 1.0)
-			UI.text_c(self, base_card_rect(i).get_center() + Vector2(0, 5), "—", 14, Color(1, 1, 1, 0.3))
+			var br := base_card_rect(i)
+			draw_rect(br, Color(1, 1, 1, 0.04))
+			draw_rect(br, Color(1, 1, 1, 0.15), false, 1.0)
+			UI.text_c(self, br.get_center() + Vector2(0, 5), "—", 14, Color(1, 1, 1, 0.3))
 			continue
-		_draw_card(r, card, i == selected, 1.0)
-		UI.text_r(self, r.end + Vector2(-5, -5), str(i + 1), 10, Color(1, 1, 1, 0.5))
-		var reason: String = cmd.can_play(i)
-		if reason == "icor":
+		var r := card_rect(i)
+		_draw_card(r, card, i == hover)
+		UI.text_r(self, r.end + Vector2(-5, -5), str(i + 1), 10, Color(1, 1, 1, 0.55))
+		if cmd.can_play(i) == "icor":
 			var cost: float = Data.ABILITIES[card]["cost"]
 			var f := clampf(cmd.ichor / cost, 0.0, 1.0)
 			draw_rect(Rect2(r.position, Vector2(r.size.x, r.size.y * (1.0 - f))), Color(0, 0, 0, 0.6))
-		elif reason == "atordoado":
-			draw_rect(r, Color(0, 0, 0, 0.6))
-			UI.text_c(self, r.get_center(), "ATORDOADO", 11, Color(1, 0.9, 0.3), 3)
 
 	# Próxima carta
 	UI.text_c(self, Vector2(NEXT_RECT.get_center().x, 596), "Próxima", 10, Color(1, 1, 1, 0.6))
 	var nxt: String = cmd.next_card()
 	if nxt != "":
-		var ab: Dictionary = Data.ABILITIES[nxt]
-		var hc2: Color = Data.HEROES[ab["hero"]]["color"]
-		UI.panel(self, NEXT_RECT, hc2.darkened(0.7), Color(hc2, 0.6), 1.5)
-		_gem(NEXT_RECT.position + Vector2(NEXT_RECT.size.x * 0.5, 14), ab["cost"], 9.0)
-		UI.text_box(self, Rect2(NEXT_RECT.position.x + 4, NEXT_RECT.position.y + 28, NEXT_RECT.size.x - 8, 58), ab["name"], 11, Color.WHITE)
+		_draw_card_mini(NEXT_RECT, nxt)
 	else:
 		draw_rect(NEXT_RECT, Color(1, 1, 1, 0.12), false, 1.0)
 
@@ -410,26 +280,66 @@ func _draw_panel() -> void:
 		UI.text_c(self, r2.get_center() + Vector2(0, 15), Data.BEHAVIOR_KEYS[k], 9, Color(1, 1, 1, 0.5))
 	if cmd.behavior_cd > 0.0:
 		UI.text_c(self, Vector2(1128, 676), "Nova troca em %d s" % int(ceil(cmd.behavior_cd)), 11, Color(1, 1, 1, 0.6))
-	UI.text_c(self, Vector2(1128, 702), "P pausa · botão direito cancela", 10, Color(1, 1, 1, 0.4))
+	UI.text_c(self, Vector2(1128, 702), "Clique na carta: o herói usa no melhor momento", 10, Color(1, 1, 1, 0.4))
 
 
 func _gem(c: Vector2, cost: int, r: float) -> void:
 	var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0)])
 	draw_colored_polygon(pts, Data.GOLD)
+	draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(0.3, 0.18, 0.05), 1.5)
 	UI.text_c(self, c + Vector2(0, r * 0.45), str(cost), int(r * 1.3), Color(0.15, 0.08, 0.02))
 
 
-func _draw_card(r: Rect2, card: String, sel: bool, alpha: float) -> void:
+## Carta: faixa e moldura na cor da função, emblema do herói, ícone grande do efeito.
+func _draw_card(r: Rect2, card: String, hov: bool) -> void:
 	var ab: Dictionary = Data.ABILITIES[card]
 	var hd: Dictionary = Data.HEROES[ab["hero"]]
-	var hc: Color = hd["color"]
-	draw_rect(Rect2(r.position + Vector2(3, 4), r.size), Color(0, 0, 0, 0.4 * alpha))
-	UI.panel(self, r, Color(hc.darkened(0.72), alpha), Color(Data.GOLD, alpha) if sel else Color(hc, 0.7 * alpha), 3.0 if sel else 2.0)
-	draw_rect(Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, 26)), Color(hc, 0.25 * alpha))
-	UI.text_c(self, Vector2(r.get_center().x + 8, r.position.y + 15), hd["name"].to_upper(), 9, Color(hc.lightened(0.3), alpha))
-	UI.text_box(self, Rect2(r.position.x + 6, r.position.y + 28, r.size.x - 12, 34), ab["name"], 12, Color(1, 1, 1, alpha))
-	UI.text_box(self, Rect2(r.position.x + 6, r.position.y + 62, r.size.x - 12, 54), ab["desc"], 9, Color(1, 1, 1, 0.75 * alpha))
-	_gem(r.position + Vector2(13, 14), ab["cost"], 11.0)
+	var rc: Color = Data.ROLE_COLORS[hd["role"]]
+	draw_rect(Rect2(r.position + Vector2(3, 4), r.size), Color(0, 0, 0, 0.4))
+	draw_rect(r, rc.darkened(0.78))
+	# Faixa superior com o herói
+	var head := Rect2(r.position, Vector2(r.size.x, 24))
+	draw_rect(head, rc.darkened(0.15))
+	UI.hero_glyph(self, ab["hero"], head.position + Vector2(r.size.x - 14, 12), 5.5, Color(0.1, 0.06, 0.03))
+	UI.text_c(self, Vector2(r.get_center().x + 4, head.position.y + 16), hd["name"].to_upper(), 10, Color(0.1, 0.06, 0.03))
+	# Ícone do efeito
+	var ic := Vector2(r.get_center().x, r.position.y + 54)
+	draw_circle(ic, 20.0, rc.darkened(0.45))
+	UI.ring(self, ic, 20.0, Color(rc, 0.9), 2.0)
+	UI.effect_icon(self, ab["effect"], ic, 12.0, Color.WHITE)
+	# Nome e resumo
+	UI.text_box(self, Rect2(r.position.x + 4, r.position.y + 76, r.size.x - 8, 30), ab["name"], 11, Color.WHITE)
+	UI.text_c(self, Vector2(r.get_center().x, r.end.y - 6), ab["short"], 9, Color(rc.lightened(0.35), 0.95))
+	draw_rect(r, Data.GOLD if hov else Color(rc, 0.9), false, 3.0 if hov else 2.0)
+	_gem(r.position + Vector2(13, 13), ab["cost"], 11.0)
+
+
+func _draw_card_mini(r: Rect2, card: String) -> void:
+	var ab: Dictionary = Data.ABILITIES[card]
+	var rc: Color = Data.ROLE_COLORS[Data.HEROES[ab["hero"]]["role"]]
+	draw_rect(r, rc.darkened(0.78))
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 8)), rc.darkened(0.15))
+	var ic := Vector2(r.get_center().x, r.position.y + 36)
+	draw_circle(ic, 15.0, rc.darkened(0.45))
+	UI.effect_icon(self, ab["effect"], ic, 9.0, Color.WHITE)
+	UI.text_box(self, Rect2(r.position.x + 3, r.position.y + 54, r.size.x - 6, 34), ab["name"], 9, Color(1, 1, 1, 0.85))
+	draw_rect(r, Color(rc, 0.7), false, 1.5)
+	_gem(r.position + Vector2(10, 12), ab["cost"], 8.0)
+
+
+func _draw_tooltip(i: int) -> void:
+	var card: String = cmd.hand[i]
+	if card == "":
+		return
+	var ab: Dictionary = Data.ABILITIES[card]
+	var hd: Dictionary = Data.HEROES[ab["hero"]]
+	var rc: Color = Data.ROLE_COLORS[hd["role"]]
+	var br := base_card_rect(i)
+	var r := Rect2(br.get_center().x - 120, br.position.y - 104, 240, 92)
+	UI.panel(self, r, Color(0.08, 0.06, 0.05, 0.96), rc, 2.0)
+	UI.text_l(self, r.position + Vector2(10, 20), ab["name"], 14, Color.WHITE)
+	UI.text_l(self, r.position + Vector2(10, 37), "%s · %s · %s" % [hd["name"], hd["role"], Data.EFFECT_NAMES[ab["effect"]]], 11, rc.lightened(0.3))
+	UI.text_box(self, Rect2(r.position.x + 8, r.position.y + 42, r.size.x - 16, 46), ab["desc"], 11, Color(1, 1, 1, 0.85))
 
 
 func _draw_end() -> void:

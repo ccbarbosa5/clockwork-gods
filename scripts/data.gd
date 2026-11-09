@@ -35,26 +35,42 @@ const TEAM_NAMES := ["Azul", "Vermelho"]
 const GOLD := Color(0.95, 0.76, 0.31)
 const BRONZE := Color(0.78, 0.54, 0.23)
 
+## Cartas armadas: o herói usa a habilidade no melhor momento em até ARM_TIME segundos.
+const ARM_TIME := 5.0
+
+## Cores por função (não conflitam com azul/vermelho dos times).
+const ROLE_COLORS := {"Tanque": Color(0.96, 0.6, 0.2), "Dano": Color(0.72, 0.45, 1.0), "Suporte": Color(0.33, 0.85, 0.45)}
+
+## Tipos de efeito das habilidades (ícone na carta e no mapa).
+const EFFECT_NAMES := {"dano": "Dano", "cura": "Cura", "escudo": "Proteção", "controle": "Controle", "mobilidade": "Mobilidade"}
+
+## Estilos de posicionamento da IA. Os padrões de cada função são frontline,
+## backline_dps e backline_support. Estilos para heróis futuros:
+##   dive            tanque que mergulha na linha de trás inimiga
+##   flank           dano que contorna pelas laterais
+##   battle_support  suporte que avança junto e causa dano
+const STYLES := ["frontline", "backline_dps", "backline_support", "dive", "flank", "battle_support"]
+
 const HERO_ORDER := ["talos", "artemis", "asclepio"]
 
 const HEROES := {
 	"talos": {
 		"name": "Talos", "role": "Tanque", "origin": "lenda",
 		"hp": 650.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
-		"radius": 22.0, "color": Color(0.78, 0.54, 0.23),
+		"radius": 22.0, "color": Color(0.96, 0.6, 0.2), "style": "frontline",
 		"ult": "furia", "cards": ["muralha", "investida", "valvula"],
 	},
 	"artemis": {
 		"name": "Ártemis", "role": "Dano", "origin": "deusa",
 		"hp": 250.0, "speed": 96.0, "range": 300.0, "dmg": 18.0, "cd": 0.55,
-		"radius": 15.0, "color": Color(0.74, 0.80, 0.92),
+		"radius": 15.0, "color": Color(0.72, 0.45, 1.0), "style": "backline_dps",
 		"proj_speed": 900.0,
 		"ult": "chuva", "cards": ["disparo", "armadilha", "salto"],
 	},
 	"asclepio": {
 		"name": "Asclépio", "role": "Suporte", "origin": "semideus",
 		"hp": 280.0, "speed": 90.0, "range": 230.0, "dmg": 10.0, "cd": 0.75,
-		"radius": 16.0, "color": Color(0.37, 0.79, 0.54),
+		"radius": 16.0, "color": Color(0.33, 0.85, 0.45), "style": "backline_support",
 		"proj_speed": 620.0, "heal": 15.0, "heal_range": 260.0,
 		"ult": "segunda", "cards": ["sopro", "veneno", "engrenagem"],
 	},
@@ -63,42 +79,42 @@ const HEROES := {
 ## target: "self" (age na hora), "point" (escolhe local), "ally" (escolhe aliado)
 const ABILITIES := {
 	# Talos
-	"muralha": {"hero": "talos", "name": "Muralha de Bronze", "cost": 3, "target": "point",
+	"muralha": {"effect": "escudo", "short": "Bloqueia tiros", "hero": "talos", "name": "Muralha de Bronze", "cost": 3, "target": "point",
 		"range": 0.0, "radius": 0.0,
 		"desc": "Escudo frontal que bloqueia projéteis por 4 s."},
-	"investida": {"hero": "talos", "name": "Investida a Vapor", "cost": 4, "target": "point",
+	"investida": {"effect": "mobilidade", "short": "Avança e atordoa", "hero": "talos", "name": "Investida a Vapor", "cost": 4, "target": "point",
 		"range": 260.0, "radius": 0.0,
 		"desc": "Avança em linha, causa 45 de dano e atordoa."},
-	"valvula": {"hero": "talos", "name": "Válvula de Pressão", "cost": 2, "target": "self",
+	"valvula": {"effect": "escudo", "short": "-40% dano no grupo", "hero": "talos", "name": "Válvula de Pressão", "cost": 2, "target": "self",
 		"range": 0.0, "radius": 190.0,
 		"desc": "Aliados próximos recebem 40% menos dano por 4 s."},
-	"furia": {"hero": "talos", "name": "Fúria da Forja", "cost": 0, "target": "self", "ult": true,
+	"furia": {"effect": "controle", "short": "Atordoa em área", "hero": "talos", "name": "Fúria da Forja", "cost": 0, "target": "self", "ult": true,
 		"range": 0.0, "radius": 210.0,
 		"desc": "Golpe no chão: 60 de dano e atordoa em área."},
 	# Ártemis
-	"disparo": {"hero": "artemis", "name": "Disparo Perfurante", "cost": 3, "target": "point",
+	"disparo": {"effect": "dano", "short": "Tiro perfurante", "hero": "artemis", "name": "Disparo Perfurante", "cost": 3, "target": "point",
 		"range": 0.0, "radius": 0.0,
 		"desc": "Tiro que atravessa inimigos causando 90 de dano."},
-	"armadilha": {"hero": "artemis", "name": "Armadilha de Caça", "cost": 2, "target": "point",
+	"armadilha": {"effect": "controle", "short": "Prende inimigo", "hero": "artemis", "name": "Armadilha de Caça", "cost": 2, "target": "point",
 		"range": 380.0, "radius": 34.0,
 		"desc": "Prende o primeiro inimigo por 1,8 s e causa 30."},
-	"salto": {"hero": "artemis", "name": "Salto Lunar", "cost": 3, "target": "self",
+	"salto": {"effect": "mobilidade", "short": "Recua e acelera", "hero": "artemis", "name": "Salto Lunar", "cost": 3, "target": "self",
 		"range": 0.0, "radius": 0.0,
 		"desc": "Recua e ganha 60% de velocidade de ataque por 3 s."},
-	"chuva": {"hero": "artemis", "name": "Chuva de Prata", "cost": 0, "target": "point", "ult": true,
+	"chuva": {"effect": "dano", "short": "Dano em área", "hero": "artemis", "name": "Chuva de Prata", "cost": 0, "target": "point", "ult": true,
 		"range": 650.0, "radius": 170.0,
 		"desc": "Chuva de flechas: dano contínuo e lentidão em área."},
 	# Asclépio
-	"sopro": {"hero": "asclepio", "name": "Sopro Restaurador", "cost": 3, "target": "self",
+	"sopro": {"effect": "cura", "short": "Cura em área", "hero": "asclepio", "name": "Sopro Restaurador", "cost": 3, "target": "self",
 		"range": 0.0, "radius": 210.0,
 		"desc": "Cura 120 de vida dos aliados ao redor."},
-	"veneno": {"hero": "asclepio", "name": "Veneno da Serpente", "cost": 2, "target": "point",
+	"veneno": {"effect": "dano", "short": "Veneno, corta cura", "hero": "asclepio", "name": "Veneno da Serpente", "cost": 2, "target": "point",
 		"range": 0.0, "radius": 0.0,
 		"desc": "Dano contínuo e reduz a cura do alvo pela metade."},
-	"engrenagem": {"hero": "asclepio", "name": "Engrenagem Vital", "cost": 4, "target": "ally",
+	"engrenagem": {"effect": "escudo", "short": "Escudo no aliado", "hero": "asclepio", "name": "Engrenagem Vital", "cost": 4, "target": "ally",
 		"range": 0.0, "radius": 0.0,
 		"desc": "Escudo de 150 em um aliado por 5 s."},
-	"segunda": {"hero": "asclepio", "name": "Segunda Chance", "cost": 0, "target": "self", "ult": true,
+	"segunda": {"effect": "cura", "short": "Ninguém morre", "hero": "asclepio", "name": "Segunda Chance", "cost": 0, "target": "self", "ult": true,
 		"range": 0.0, "radius": 240.0,
 		"desc": "Aliados próximos não podem morrer por 3 s."},
 }

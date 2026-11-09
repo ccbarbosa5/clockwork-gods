@@ -37,6 +37,10 @@ var rains: Array = []
 var fx: Array = []
 var texts: Array = []
 var killfeed: Array = []
+var cast_feed: Array = []
+var popups: Array = []
+var flash_t := 0.0
+var flash_col := Color.WHITE
 var announce_text := ""
 var announce_color := Color.WHITE
 var announce_t := 0.0
@@ -190,6 +194,19 @@ func _update_visuals(delta: float) -> void:
 			nk.append(k)
 	killfeed = nk
 	announce_t -= dt
+	flash_t -= dt
+	var nc: Array = []
+	for c in cast_feed:
+		c["t"] -= dt
+		if c["t"] > 0.0:
+			nc.append(c)
+	cast_feed = nc
+	var npop: Array = []
+	for pp in popups:
+		pp["t"] -= dt
+		if pp["t"] > 0.0:
+			npop.append(pp)
+	popups = npop
 
 
 func _separate() -> void:
@@ -359,6 +376,7 @@ func _kill(victim, killer) -> void:
 	victim.visible = false
 	victim.respawn_t = Data.RESPAWN
 	victim.stats["deaths"] += 1
+	commanders[victim.team].refund(victim)
 	victim.clear_status()
 	_burst(victim.position, 40.0, Data.TEAM_COLORS[victim.team], 0.5)
 	var killer_name := "O destino"
@@ -506,6 +524,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			h.facing = dir
 			h.wall_t = 4.0
 			h.wall_hp = 450.0
+			_burst(h.position + dir * 44.0, 40.0, Color(1.0, 0.7, 0.3), 0.4)
 		"investida":
 			h.facing = dir
 			h.dash_vel = dir * (260.0 / 0.35)
@@ -518,7 +537,10 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					a.dr_t = 4.0
 					a.dr_amt = 0.4
 					a.dr_src = h
-			_burst(h.position, 190.0, Color(0.9, 0.7, 0.4), 0.5)
+			_burst(h.position, 190.0, Color(1.0, 0.65, 0.3), 0.5)
+			for k in 14:
+				var ang := randf() * TAU
+				add_puff(h.position + Vector2(cos(ang), sin(ang)) * randf_range(30.0, 170.0), Color(1, 1, 1))
 		"furia":
 			for e in enemies:
 				if e.position.distance_to(h.position) <= 210.0:
@@ -526,6 +548,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					if e.alive:
 						e.stun_t = maxf(e.stun_t, 1.6)
 			_burst(h.position, 210.0, Color(1.0, 0.6, 0.2), 0.7)
+			fx.append({"type": "cracks", "pos": h.position, "r": 210.0, "col": Color(1.0, 0.55, 0.15), "t": 0.9, "max": 0.9, "seed": randf() * TAU})
 		"disparo":
 			h.facing = dir
 			spawn_projectile(h, h.position + dir * 20.0, dir * 1100.0, 90.0, 8.0, "pierce", Color(0.85, 0.95, 1.0), true, 0.85)
@@ -537,6 +560,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 						traps.remove_at(i)
 						break
 			traps.append({"pos": p, "team": h.team, "arm": 0.6, "life": 20.0, "src": h})
+			_burst(p, 30.0, Color(0.85, 0.65, 0.3), 0.4)
 		"salto":
 			var away := Vector2.ZERO
 			var closest = null
@@ -562,7 +586,10 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			for a in allies:
 				if a.position.distance_to(h.position) <= 210.0:
 					heal(h, a, 120.0)
-			_burst(h.position, 210.0, Color(0.5, 1.0, 0.6), 0.5)
+			_burst(h.position, 210.0, Color(0.5, 1.0, 0.6), 0.6)
+			for k in 10:
+				var ang2 := randf() * TAU
+				fx.append({"type": "plus", "pos": h.position + Vector2(cos(ang2), sin(ang2)) * randf_range(10.0, 190.0), "r": 7.0, "col": Color(0.55, 1.0, 0.6), "t": 0.9, "max": 0.9})
 		"veneno":
 			h.facing = dir
 			spawn_projectile(h, h.position + dir * 18.0, dir * 750.0, 15.0, 7.0, "poison", Color(0.55, 1.0, 0.3), false, 1.0)
@@ -584,12 +611,26 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					a.undying_t = 3.0
 					heal(h, a, 40.0)
 			_burst(h.position, 240.0, Color(1.0, 0.85, 0.3), 0.7)
+			fx.append({"type": "rays", "pos": h.position, "r": 240.0, "col": Color(1.0, 0.85, 0.3), "t": 1.0, "max": 1.0, "seed": randf() * TAU})
 		_:
 			return false
 	var abd: Dictionary = Data.ABILITIES[ab]
-	var tag := "ULTIMATE: " if abd.get("ult", false) else ""
-	add_text(h.position + Vector2(0, -h.radius - 34), tag + abd["name"], Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.4), 1.2, 13)
+	var is_ult: bool = abd.get("ult", false)
+	popups.append({"hero": h, "pos": h.position, "ab": ab, "t": 1.6, "max": 1.6, "ult": is_ult})
+	cast_feed.push_front({"t": 6.0, "team": h.team, "hid": h.hid, "ab": ab, "ult": is_ult})
+	if cast_feed.size() > 6:
+		cast_feed.resize(6)
+	if is_ult:
+		var who := "SUA ULTIMATE" if h.team == player_team else "ULTIMATE INIMIGA"
+		announce("%s: %s" % [who, abd["name"]], Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.2), 1.8)
+		flash_t = 0.6
+		flash_col = Data.TEAM_COLORS[h.team]
 	return true
+
+
+## Uma carta foi jogada e a habilidade está armada no herói.
+func on_armed(h, _ab: String) -> void:
+	_burst(h.position, h.radius + 14.0, h.role_color(), 0.3)
 
 
 func _clamp_range(from: Vector2, to: Vector2, r: float) -> Vector2:
@@ -605,7 +646,11 @@ func _clamp_range(from: Vector2, to: Vector2, r: float) -> Vector2:
 # ---------------------------------------------------------------------------
 # Efeitos visuais
 func _burst(pos: Vector2, r: float, col: Color, t: float) -> void:
-	fx.append({"pos": pos, "r": r, "col": col, "t": t, "max": t})
+	fx.append({"type": "ring", "pos": pos, "r": r, "col": col, "t": t, "max": t})
+
+
+func add_puff(pos: Vector2, col: Color) -> void:
+	fx.append({"type": "puff", "pos": pos + Vector2(randf_range(-6, 6), randf_range(-6, 6)), "r": randf_range(10.0, 16.0), "col": col, "t": 0.55, "max": 0.55})
 
 
 func add_text(pos: Vector2, s: String, col: Color, t := 0.8, size := 14) -> void:
@@ -692,14 +737,49 @@ func _draw() -> void:
 	# Projéteis
 	for p2 in projectiles:
 		var v: Vector2 = p2["vel"].normalized()
-		var tail := 8.0 if p2["kind"] == "basic" else 22.0
-		draw_line(p2["pos"] - v * tail, p2["pos"], Color(p2["col"], 0.6), p2["r"], true)
-		draw_circle(p2["pos"], p2["r"] * 0.7, p2["col"])
+		match p2["kind"]:
+			"pierce":
+				draw_line(p2["pos"] - v * 70.0, p2["pos"], Color(0.8, 0.6, 1.0, 0.35), 14.0, true)
+				draw_line(p2["pos"] - v * 60.0, p2["pos"], Color(0.95, 0.9, 1.0, 0.9), 4.0, true)
+				draw_circle(p2["pos"], 6.0, Color.WHITE)
+			"poison":
+				var perp := Vector2(-v.y, v.x)
+				var pts := PackedVector2Array()
+				for k in 8:
+					var back := float(k) * 5.0
+					pts.append(p2["pos"] - v * back + perp * sin(time * 30.0 + k * 0.9) * 5.0)
+				draw_polyline(pts, Color(0.5, 1.0, 0.3, 0.9), 4.0, true)
+				draw_circle(p2["pos"], 5.0, Color(0.7, 1.0, 0.4))
+			_:
+				draw_line(p2["pos"] - v * 8.0, p2["pos"], Color(p2["col"], 0.6), p2["r"], true)
+				draw_circle(p2["pos"], p2["r"] * 0.7, p2["col"])
 
 	# Efeitos
 	for f in fx:
 		var k2: float = 1.0 - f["t"] / f["max"]
-		UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(f["col"], 1.0 - k2), 4.0)
+		var fc: Color = f["col"]
+		match f["type"]:
+			"puff":
+				draw_circle(f["pos"] + Vector2(0, -10.0 * k2), f["r"] * (0.5 + 0.8 * k2), Color(fc, 0.45 * (1.0 - k2)))
+			"plus":
+				var pp: Vector2 = f["pos"] + Vector2(0, -26.0 * k2)
+				var sz: float = f["r"]
+				draw_rect(Rect2(pp - Vector2(sz * 0.3, sz), Vector2(sz * 0.6, sz * 2.0)), Color(fc, 1.0 - k2))
+				draw_rect(Rect2(pp - Vector2(sz, sz * 0.3), Vector2(sz * 2.0, sz * 0.6)), Color(fc, 1.0 - k2))
+			"cracks":
+				for k in 10:
+					var ang: float = f["seed"] + k * TAU / 10.0
+					var len: float = f["r"] * minf(1.0, k2 * 3.0) * (0.6 + 0.4 * sin(k * 7.3))
+					var mid := Vector2(cos(ang + 0.15), sin(ang + 0.15)) * len * 0.5
+					draw_polyline(PackedVector2Array([f["pos"], f["pos"] + mid, f["pos"] + Vector2(cos(ang), sin(ang)) * len]), Color(fc, 1.0 - k2), 3.0, true)
+			"rays":
+				for k in 16:
+					var ang2: float = f["seed"] + k * TAU / 16.0
+					var r0: float = f["r"] * 0.2
+					var r1: float = f["r"] * (0.4 + 0.6 * minf(1.0, k2 * 2.0))
+					draw_line(f["pos"] + Vector2(cos(ang2), sin(ang2)) * r0, f["pos"] + Vector2(cos(ang2), sin(ang2)) * r1, Color(fc, 0.8 * (1.0 - k2)), 3.0, true)
+			_:
+				UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
 
 	# Renascimento
 	for h in heroes:
@@ -709,7 +789,33 @@ func _draw() -> void:
 
 
 func draw_overlay(ci: CanvasItem) -> void:
-	# Chamado pelo HUD para textos acima dos heróis.
+	# Chamado pelo HUD para desenhar acima dos heróis.
+	if flash_t > 0.0:
+		ci.draw_rect(ARENA.grow(-4), Color(flash_col, clampf(flash_t, 0.0, 0.6)), false, 10.0)
+	for pp in popups:
+		var hero = pp["hero"]
+		if is_instance_valid(hero) and hero.alive:
+			pp["pos"] = hero.position
+		var k: float = 1.0 - pp["t"] / pp["max"]
+		var a: float = clampf(pp["t"] / pp["max"] * 2.5, 0.0, 1.0)
+		var abd: Dictionary = Data.ABILITIES[pp["ab"]]
+		var role_col: Color = Data.ROLE_COLORS[Data.HEROES[abd["hero"]]["role"]]
+		var big: bool = pp["ult"]
+		var c: Vector2 = pp["pos"] + Vector2(0, -48.0 - 14.0 * k)
+		UI.badge(ci, c, 17.0 if big else 13.0, abd, role_col, a, big)
+		var tc: Color = Data.TEAM_COLORS[hero.team if is_instance_valid(hero) else 0].lerp(Color.WHITE, 0.45)
+		UI.text_c(ci, c + Vector2(0, (32.0 if big else 27.0)), abd["name"], 14 if big else 12, Color(Data.GOLD if big else tc, a), 4)
+	var fy := 62.0
+	for cf in cast_feed:
+		var fa: float = clampf(cf["t"], 0.0, 1.0)
+		var abd2: Dictionary = Data.ABILITIES[cf["ab"]]
+		var hd: Dictionary = Data.HEROES[cf["hid"]]
+		var rcol: Color = Data.ROLE_COLORS[hd["role"]]
+		UI.badge(ci, Vector2(22, fy - 5), 8.0, abd2, rcol, fa, cf["ult"])
+		var txt: String = "%s · %s" % [hd["name"], abd2["name"]]
+		var col: Color = Data.GOLD if cf["ult"] else Data.TEAM_COLORS[cf["team"]].lerp(Color.WHITE, 0.35)
+		UI.text_l(ci, Vector2(38, fy), txt, 13, Color(col, fa), 3)
+		fy += 20.0
 	for t in texts:
 		var a: float = clampf(t["t"] / t["max"] * 1.5, 0.0, 1.0)
 		UI.text_c(ci, t["pos"], t["s"], t["size"], Color(t["col"], a), 3)

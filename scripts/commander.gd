@@ -89,25 +89,25 @@ func can_play(slot: int) -> String:
 	var h = card_hero(card)
 	if h == null or not h.alive:
 		return "morto"
-	if h.stun_t > 0.0:
-		return "atordoado"
 	if ichor < Data.ABILITIES[card]["cost"]:
 		return "icor"
 	return ""
 
 
-func play(slot: int, tpos: Vector2) -> bool:
+## Joga a carta: gasta o Ícor e arma a habilidade no herói, que escolhe
+## sozinho o alvo e o melhor momento (em até Data.ARM_TIME segundos).
+func play(slot: int) -> bool:
 	if can_play(slot) != "":
 		return false
 	var card: String = hand[slot]
 	var h = card_hero(card)
-	if not game.cast(h, card, tpos):
-		return false
 	ichor -= Data.ABILITIES[card]["cost"]
+	h.arm(card, false)
 	hand[slot] = ""
 	queue.append(card)
 	refill()
 	cards_played += 1
+	game.on_armed(h, card)
 	return true
 
 
@@ -115,22 +115,32 @@ func can_ult(hid: String) -> String:
 	var h = game.get_hero(team, hid)
 	if h == null or not h.alive:
 		return "morto"
+	if h.has_armed(Data.HEROES[hid]["ult"]):
+		return "armada"
 	if h.ult < 100.0:
 		return "carga"
-	if h.stun_t > 0.0:
-		return "atordoado"
 	return ""
 
 
-func use_ult(hid: String, tpos: Vector2) -> bool:
+func use_ult(hid: String) -> bool:
 	if can_ult(hid) != "":
 		return false
 	var h = game.get_hero(team, hid)
-	if game.cast(h, Data.HEROES[hid]["ult"], tpos):
-		h.ult = 0.0
-		ults_used += 1
-		return true
-	return false
+	var ab: String = Data.HEROES[hid]["ult"]
+	h.ult = 0.0
+	h.arm(ab, true)
+	ults_used += 1
+	game.on_armed(h, ab)
+	return true
+
+
+## Herói morreu com habilidades armadas: devolve Ícor e carga de ultimate.
+func refund(h) -> void:
+	for a in h.armed:
+		if a["ult"]:
+			h.ult = 100.0
+		else:
+			add_ichor(Data.ABILITIES[a["ab"]]["cost"])
 
 
 func set_behavior(b: String) -> bool:

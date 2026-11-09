@@ -7,9 +7,9 @@ Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você 
 ## Como jogar
 
 - **Objetivo:** controle o ponto central até chegar a 100% de progresso.
-- **Cartas:** clique numa carta (ou tecla 1 a 4). Se ela pedir alvo, clique no mapa. Também dá para arrastar a carta até o mapa. Botão direito ou Esc cancela.
+- **Cartas:** clique numa carta (ou tecla 1 a 4). O herói guarda a habilidade e usa sozinho no melhor momento, escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta. A cor da carta indica a função: laranja Tanque, roxo Dano, verde Suporte.
 - **Ícor:** recarrega com o tempo (+1 a cada 2,5 s) e com abates. Abater um herói do time que está na frente rende Ícor extra.
-- **Ultimates:** botões redondos (Q, W, E). Carregam com dano, cura, dano mitigado e tempo no ponto. Não custam Ícor.
+- **Ultimates:** botões redondos (Q, W, E), também usadas pelo herói no melhor momento. Carregam com dano, cura, dano mitigado e tempo no ponto. Não custam Ícor.
 - **Comportamento da IA:** Agressivo, Equilibrado ou Defensivo (Z, X, C), com 10 s de recarga entre trocas.
 - **P** pausa a partida.
 
