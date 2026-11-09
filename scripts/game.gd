@@ -3,6 +3,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const Art = preload("res://scripts/art.gd")
 const HeroScript = preload("res://scripts/hero.gd")
 const Commander = preload("res://scripts/commander.gd")
 const Bot = preload("res://scripts/bot.gd")
@@ -795,6 +796,11 @@ func _draw() -> void:
 	# Projéteis
 	for p2 in projectiles:
 		var v: Vector2 = p2["vel"].normalized()
+		# Com imagem: desenhada apontando para o voo. O tiro básico é tingido
+		# com a cor do herói (a imagem deve ser clara/neutra).
+		var tint: Color = p2["col"] if p2["kind"] == "basic" else Color.WHITE
+		if Art.draw_projectile(self, p2["kind"], p2["pos"], v, tint):
+			continue
 		match p2["kind"]:
 			"pierce":
 				draw_line(p2["pos"] - v * 70.0, p2["pos"], Color(0.8, 0.6, 1.0, 0.35), 14.0, true)
