@@ -1086,6 +1086,8 @@ func test_art_delivered_images_are_valid() -> void:
 			if want != Vector2i.ZERO:
 				check(Vector2i(t.get_width(), t.get_height()) == want, "%s tem %dx%d, esperado %dx%d" % [path, t.get_width(), t.get_height(), want.x, want.y])
 			var img := t.get_image()
+			if key == "map/arena_floor":
+				continue  # o piso é opaco de propósito
 			check(img != null and img.detect_alpha() != Image.ALPHA_NONE, "imagem sem transparência: " + path)
 	print("        (imagens entregues conferidas: %d)" % found)
 
@@ -1402,7 +1404,8 @@ func test_i18n_choice_is_saved_and_kept_by_audio() -> void:
 func test_i18n_english_falls_back_to_portuguese() -> void:
 	T.set_lang("en", false)
 	check(T.hero_name("asclepio") == "Asclepius", "nome em inglês na galeria")
-	check(T.t("MENU_PLAY") == "JOGAR CONTRA BOT", "EN vazio cai para o texto em PT")
+	check(T.t("MENU_PLAY") != "JOGAR CONTRA BOT" and T.t("MENU_PLAY") != "MENU_PLAY", "botão Jogar traduzido: " + T.t("MENU_PLAY"))
+	check(ProjectSettings.get_setting("internationalization/locale/fallback") == "pt", "texto sem tradução cai para PT")
 	check(T.origin_name("deusa") == "Goddess", "origem em inglês")
 	T.set_lang("pt", false)
 	check(T.hero_name("asclepio") == "Asclépio", "volta ao PT")
@@ -1577,3 +1580,30 @@ func test_art_map_sizes() -> void:
 	var readme := FileAccess.get_file_as_string("res://assets/README.md")
 	for name in Art.MAP_IMAGES.keys():
 		check(readme.contains(name + ".png"), "assets/README.md deveria listar map/%s.png" % name)
+
+
+func test_music_pauses_with_game() -> void:
+	var a := new_audio()
+	var old = AudioScript.instance
+	AudioScript.instance = a
+	a.music_on = true
+	while not a.generate_music_step(1000.0):
+		pass
+	a.apply_settings()
+	check(a._music_player.playing, "música tocando antes da pausa")
+	var g := new_game()
+	g.hud.set_paused(true)
+	check(a.music_paused and a._music_player.stream_paused, "pausa do menu para a música")
+	g.hud.set_paused(false)
+	check(not a.music_paused and not a._music_player.stream_paused, "continuar volta a música")
+	g.hud._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	check(a._music_player.stream_paused, "pausa automática para a música")
+	g.hud.pause_click(g.hud.pause_button("quit").get_center())
+	g.hud.pause_click(g.hud.confirm_button(0).get_center())
+	check(not a._music_player.stream_paused, "voltar ao menu solta a música")
+	a.toggle_music()
+	a.toggle_music()
+	check(a.music_on, "opção de música intacta")
+	done(g)
+	AudioScript.instance = old
+	a.free()

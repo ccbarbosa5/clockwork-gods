@@ -1,140 +1,140 @@
 ﻿chave,pt,en
-MENU_TAGLINE,Seus heróis lutam sozinhos. Você decide o destino com cartas de habilidade.,
-MENU_DIFFICULTY,Dificuldade do bot,
-DIFF_EASY,Fácil,
-DIFF_NORMAL,Normal,
-DIFF_HARD,Difícil,
-MENU_BEHAVIOR,Comportamento inicial do seu time,
-MENU_PLAY,JOGAR CONTRA BOT,
-MENU_HELP,Como jogar,
-MENU_HEROES,Heróis,
-MENU_VERSION,Protótipo v%s  ·  %s · %s · %s,
-SOUND_LABEL,Som,
-SOUND_HINT,(M para mudo),
-SOUND_MUTED_HINT,(mudo — M),
-MUSIC_ON,Música: ligada,
-MUSIC_OFF,Música: desligada,
-LANG_LABEL,Idioma,
-LANG_PT,PT,
-LANG_EN,EN,
-HELP_TITLE,Como jogar,
-HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,
-HELP_02,"Seus 3 heróis (Talos, Ártemis e Asclépio) andam e atacam sozinhos.",
-HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,
-HELP_04,"   O herói guarda a habilidade e usa sozinho no melhor momento,",
-HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.",
-HELP_06,"   Cor da carta = função (laranja Tanque, roxo Dano, verde Suporte).",
-HELP_07,Ícor: recarrega com o tempo e ao abater inimigos.,
-HELP_08,   Abater um herói do time que está na frente rende Ícor extra.,
-HELP_09,"Ultimates: botões redondos (Q, W, E), também usadas no melhor momento.",
-HELP_10,"   Carregam com dano, cura, mitigação e tempo no ponto. Sem custo de Ícor.",
-HELP_11,"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.",
-HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,
-HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,
-HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.",
-HELP_BACK,Clique para voltar,
-HUD_YOU,VOCÊ,
-HUD_BOT,BOT,
-HUD_OVERTIME,PRORROGAÇÃO,
-HUD_POINT_UNLOCK,Ponto libera em %d s,
-HUD_POINT_CONTESTED,Ponto disputado,
-HUD_POINT_OWNER,Ponto: time %s,
-HUD_POINT_NEUTRAL,Ponto neutro,
-HUD_MUTED,Mudo (M),
-HUD_NEXT,Próxima,
-HUD_ICHOR,%d Ícor,
-HUD_BEHAVIOR,Comportamento da IA,
-HUD_BEH_CD,Nova troca em %d s,
-HUD_FOOTER,Clique na carta: o herói usa no melhor momento · ESC pausa,
-HUD_RESPAWN,%d s,
-ULT_READY,PRONTA,
-FLASH_ICOR,Ícor insuficiente,
-FLASH_MORTO,Herói abatido,
-FLASH_ARMADA,Ultimate já armada,
-FLASH_CARGA,Ultimate ainda carregando,
-FLASH_VAZIO,Sem carta neste espaço,
-FLASH_CD,Aguarde para trocar o comportamento,
-TIP_CARD_KEY,Tecla %d · custa %d Ícor,
-TIP_NEXT,Próxima carta: entra na mão no lugar da que você jogar,
-TIP_ULT_OF,Ultimate de %s,
-TIP_ULT_READY,Pronta!,
-TIP_ULT_CHARGE,Carga: %d%%,
-TIP_ULT_DEAD,Herói abatido: volta em %d s,
-TIP_ULT_KEY,Tecla %s · sem custo de Ícor,
-TIP_ULT_HOW,"Carrega com dano, cura, dano evitado e tempo no ponto.",
-BEH_AGGRESSIVE_DESC,Avança além do ponto e persegue de longe.,
-BEH_BALANCED_DESC,Segura o ponto e persegue com cuidado.,
-BEH_DEFENSIVE_DESC,Fica no ponto e recua mais cedo.,
-TIP_BEH_FRONT,Tanque fica %s à frente do centro do ponto,
-TIP_BEH_FRONT_CENTER,Tanque fica no centro do ponto,
-TIP_BEH_WAIT,Tanque espera o grupo se ficar %s à frente,
-TIP_BEH_NO_WAIT,Tanque não espera o grupo,
-TIP_BEH_DPS,Dano fica %s atrás do tanque,
-TIP_BEH_CHASE,"Persegue inimigos a até %s, até %s do centro do ponto",
-TIP_BEH_CHASE_FREE,"Persegue inimigos a até %s, a qualquer distância do ponto",
-TIP_BEH_RETREAT,Recua com menos de %d%% de vida (volta com %d%%),
-TIP_BEH_KEY,Tecla %s · pode trocar a cada %d s,
-ANN_UNLOCK,O ponto libera em %d s,
-ANN_POINT_OPEN,PONTO LIBERADO!,
-ANN_OVERTIME,PRORROGAÇÃO!,
-ANN_CAPTURED,Ponto capturado pelo time %s,
-ANN_YOUR_ULT,SUA ULTIMATE: %s,
-ANN_ENEMY_ULT,ULTIMATE INIMIGA: %s,
-FEED_FATE,O destino,
-TEXT_ICHOR_GAIN,+%d Ícor,
-END_WIN,VITÓRIA,
-END_LOSS,DERROTA,
-END_DRAW,EMPATE,
-END_SUMMARY,Progresso  %d%%  x  %d%%   ·   Tempo %d:%02d,
-END_COL_HERO,Herói,
-END_COL_KD,Abates/Mortes,
-END_COL_DMG,Dano,
-END_COL_HEAL,Cura,
-END_COL_MIT,Mitigado,
-END_YOUR_TEAM,Seu time,
-END_BOT,Bot,
-END_AGAIN,Jogar novamente,
-END_MENU,Menu,
-PAUSE_TITLE,PAUSADO,
-PAUSE_AUTO,Pausado porque a janela perdeu o foco,
-PAUSE_CONTINUE,Continuar,
-PAUSE_HELP,Como jogar,
-PAUSE_SOUND,Som,
-PAUSE_QUIT,Voltar ao menu principal,
-PAUSE_HINT,ESC ou P para continuar,
-PAUSE_CONFIRM,Sair da partida? O progresso desta partida será perdido.,
-CONFIRM_YES,Sair,
-CONFIRM_NO,Cancelar,
-MUTE_ON,Mudo: sim,
-MUTE_OFF,Mudo: não,
-GAL_TITLE,HERÓIS,
-GAL_BACK,‹ Voltar  (ESC),
-GAL_ATTRS,ATRIBUTOS,
-GAL_ABILITIES,HABILIDADES,
-GAL_HP,Vida,
-GAL_SPEED,Velocidade,
-GAL_RANGE,Alcance,
-GAL_COST,%d Ícor,
-GAL_ULT,Ultimate,
-FMT_METERS,%s m,
-FMT_MPS,%s m/s,
-TEAM_0,Azul,
-TEAM_1,Vermelho,
-ROLE_TANQUE,Tanque,
-ROLE_DANO,Dano,
-ROLE_SUPORTE,Suporte,
+MENU_TAGLINE,Seus heróis lutam sozinhos. Você decide o destino com cartas de habilidade.,Your heroes fight on their own. You decide their fate with ability cards.
+MENU_DIFFICULTY,Dificuldade do bot,Bot difficulty
+DIFF_EASY,Fácil,Easy
+DIFF_NORMAL,Normal,Normal
+DIFF_HARD,Difícil,Hard
+MENU_BEHAVIOR,Comportamento inicial do seu time,Your team's starting behavior
+MENU_PLAY,JOGAR CONTRA BOT,PLAY VS BOT
+MENU_HELP,Como jogar,How to play
+MENU_HEROES,Heróis,Heroes
+MENU_VERSION,Protótipo v%s  ·  %s · %s · %s,Prototype v%s  ·  %s · %s · %s
+SOUND_LABEL,Som,Sound
+SOUND_HINT,(M para mudo),(M to mute)
+SOUND_MUTED_HINT,(mudo — M),(muted — M)
+MUSIC_ON,Música: ligada,Music: on
+MUSIC_OFF,Música: desligada,Music: off
+LANG_LABEL,Idioma,Language
+LANG_PT,PT,PT
+LANG_EN,EN,EN
+HELP_TITLE,Como jogar,How to play
+HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
+HELP_02,"Seus 3 heróis (Talos, Ártemis e Asclépio) andam e atacam sozinhos.","Your 3 heroes (Talos, Artemis and Asclepius) move and attack on their own."
+HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
+HELP_04,"   O herói guarda a habilidade e usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
+HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
+HELP_06,"   Cor da carta = função (laranja Tanque, roxo Dano, verde Suporte).","   Card color = role (orange Tank, purple Damage, green Support)."
+HELP_07,Ícor: recarrega com o tempo e ao abater inimigos.,Ichor: recharges over time and when you take down enemies.
+HELP_08,   Abater um herói do time que está na frente rende Ícor extra.,   Taking down a hero from the leading team gives extra Ichor.
+HELP_09,"Ultimates: botões redondos (Q, W, E), também usadas no melhor momento.","Ultimates: round buttons (Q, W, E), also used at the best moment."
+HELP_10,"   Carregam com dano, cura, mitigação e tempo no ponto. Sem custo de Ícor.","   Charged by damage, healing, mitigation and time on the point. No Ichor cost."
+HELP_11,"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.","AI behavior (Z, X, C): Aggressive, Balanced or Defensive."
+HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,A downed hero respawns in 6 s; their cards return to the deck.
+HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
+HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
+HELP_BACK,Clique para voltar,Click to go back
+HUD_YOU,VOCÊ,YOU
+HUD_BOT,BOT,BOT
+HUD_OVERTIME,PRORROGAÇÃO,OVERTIME
+HUD_POINT_UNLOCK,Ponto libera em %d s,Point unlocks in %d s
+HUD_POINT_CONTESTED,Ponto disputado,Point contested
+HUD_POINT_OWNER,Ponto: time %s,Point: %s team
+HUD_POINT_NEUTRAL,Ponto neutro,Neutral point
+HUD_MUTED,Mudo (M),Muted (M)
+HUD_NEXT,Próxima,Next
+HUD_ICHOR,%d Ícor,%d Ichor
+HUD_BEHAVIOR,Comportamento da IA,AI behavior
+HUD_BEH_CD,Nova troca em %d s,Next switch in %d s
+HUD_FOOTER,Clique na carta: o herói usa no melhor momento · ESC pausa,Click a card: the hero uses it at the best moment · ESC pauses
+HUD_RESPAWN,%d s,%d s
+ULT_READY,PRONTA,READY
+FLASH_ICOR,Ícor insuficiente,Not enough Ichor
+FLASH_MORTO,Herói abatido,Hero down
+FLASH_ARMADA,Ultimate já armada,Ultimate queued
+FLASH_CARGA,Ultimate ainda carregando,Ultimate still charging
+FLASH_VAZIO,Sem carta neste espaço,No card in this slot
+FLASH_CD,Aguarde para trocar o comportamento,Wait to switch behavior
+TIP_CARD_KEY,Tecla %d · custa %d Ícor,Key %d · costs %d Ichor
+TIP_NEXT,Próxima carta: entra na mão no lugar da que você jogar,Next card: replaces the one you play
+TIP_ULT_OF,Ultimate de %s,%s's Ultimate
+TIP_ULT_READY,Pronta!,Ready!
+TIP_ULT_CHARGE,Carga: %d%%,Charge: %d%%
+TIP_ULT_DEAD,Herói abatido: volta em %d s,Hero down: back in %d s
+TIP_ULT_KEY,Tecla %s · sem custo de Ícor,Key %s · no Ichor cost
+TIP_ULT_HOW,"Carrega com dano, cura, dano evitado e tempo no ponto.","Charged by damage, healing, damage prevented and time on the point."
+BEH_AGGRESSIVE_DESC,Avança além do ponto e persegue de longe.,Pushes past the point and chases from afar.
+BEH_BALANCED_DESC,Segura o ponto e persegue com cuidado.,Holds the point and chases carefully.
+BEH_DEFENSIVE_DESC,Fica no ponto e recua mais cedo.,Stays on the point and retreats earlier.
+TIP_BEH_FRONT,Tanque fica %s à frente do centro do ponto,Tank stays %s ahead of the point's center
+TIP_BEH_FRONT_CENTER,Tanque fica no centro do ponto,Tank stays at the point's center
+TIP_BEH_WAIT,Tanque espera o grupo se ficar %s à frente,Tank waits for the group if %s ahead
+TIP_BEH_NO_WAIT,Tanque não espera o grupo,Tank doesn't wait for the group
+TIP_BEH_DPS,Dano fica %s atrás do tanque,Damage stays %s behind the tank
+TIP_BEH_CHASE,"Persegue inimigos a até %s, até %s do centro do ponto","Chases enemies up to %s away, up to %s from the point's center"
+TIP_BEH_CHASE_FREE,"Persegue inimigos a até %s, a qualquer distância do ponto","Chases enemies up to %s away, at any distance from the point"
+TIP_BEH_RETREAT,Recua com menos de %d%% de vida (volta com %d%%),Retreats below %d%% health (returns at %d%%)
+TIP_BEH_KEY,Tecla %s · pode trocar a cada %d s,Key %s · can switch every %d s
+ANN_UNLOCK,O ponto libera em %d s,Point unlocks in %d s
+ANN_POINT_OPEN,PONTO LIBERADO!,POINT UNLOCKED!
+ANN_OVERTIME,PRORROGAÇÃO!,OVERTIME!
+ANN_CAPTURED,Ponto capturado pelo time %s,Point captured by %s team
+ANN_YOUR_ULT,SUA ULTIMATE: %s,YOUR ULTIMATE: %s
+ANN_ENEMY_ULT,ULTIMATE INIMIGA: %s,ENEMY ULTIMATE: %s
+FEED_FATE,O destino,Fate
+TEXT_ICHOR_GAIN,+%d Ícor,+%d Ichor
+END_WIN,VITÓRIA,VICTORY
+END_LOSS,DERROTA,DEFEAT
+END_DRAW,EMPATE,DRAW
+END_SUMMARY,Progresso  %d%%  x  %d%%   ·   Tempo %d:%02d,Progress  %d%%  x  %d%%   ·   Time %d:%02d
+END_COL_HERO,Herói,Hero
+END_COL_KD,Abates/Mortes,Kills/Deaths
+END_COL_DMG,Dano,Damage
+END_COL_HEAL,Cura,Heal
+END_COL_MIT,Mitigado,Mitigated
+END_YOUR_TEAM,Seu time,Your team
+END_BOT,Bot,Bot
+END_AGAIN,Jogar novamente,Play again
+END_MENU,Menu,Menu
+PAUSE_TITLE,PAUSADO,PAUSED
+PAUSE_AUTO,Pausado porque a janela perdeu o foco,Paused because the window lost focus
+PAUSE_CONTINUE,Continuar,Resume
+PAUSE_HELP,Como jogar,How to play
+PAUSE_SOUND,Som,Sound
+PAUSE_QUIT,Voltar ao menu principal,Back to main menu
+PAUSE_HINT,ESC ou P para continuar,ESC or P to resume
+PAUSE_CONFIRM,Sair da partida? O progresso desta partida será perdido.,Leave the match? Progress in this match will be lost.
+CONFIRM_YES,Sair,Leave
+CONFIRM_NO,Cancelar,Cancel
+MUTE_ON,Mudo: sim,Mute: on
+MUTE_OFF,Mudo: não,Mute: off
+GAL_TITLE,HERÓIS,HEROES
+GAL_BACK,‹ Voltar  (ESC),‹ Back  (ESC)
+GAL_ATTRS,ATRIBUTOS,STATS
+GAL_ABILITIES,HABILIDADES,ABILITIES
+GAL_HP,Vida,HP
+GAL_SPEED,Velocidade,Speed
+GAL_RANGE,Alcance,Range
+GAL_COST,%d Ícor,%d Ichor
+GAL_ULT,Ultimate,Ultimate
+FMT_METERS,%s m,%s m
+FMT_MPS,%s m/s,%s m/s
+TEAM_0,Azul,Blue
+TEAM_1,Vermelho,Red
+ROLE_TANQUE,Tanque,Tank
+ROLE_DANO,Dano,Damage
+ROLE_SUPORTE,Suporte,Support
 ORIGIN_DEUS,Deus,God
 ORIGIN_DEUSA,Deusa,Goddess
 ORIGIN_SEMIDEUS,Semideus,Demigod
 ORIGIN_LENDA,Lenda,Legend
-EFFECT_DANO,Dano,
-EFFECT_CURA,Cura,
-EFFECT_ESCUDO,Proteção,
-EFFECT_CONTROLE,Controle,
-EFFECT_MOBILIDADE,Mobilidade,
-BEH_AGGRESSIVE,Agressivo,
-BEH_BALANCED,Equilibrado,
-BEH_DEFENSIVE,Defensivo,
+EFFECT_DANO,Dano,Damage
+EFFECT_CURA,Cura,Heal
+EFFECT_ESCUDO,Proteção,Shield
+EFFECT_CONTROLE,Controle,Control
+EFFECT_MOBILIDADE,Mobilidade,Mobility
+BEH_AGGRESSIVE,Agressivo,Aggressive
+BEH_BALANCED,Equilibrado,Balanced
+BEH_DEFENSIVE,Defensivo,Defensive
 HERO_TALOS_NAME,Talos,Talos
 HERO_TALOS_EPITHET,O Guardião de Bronze,The Bronze Guardian
 HERO_TALOS_BIO,O primeiro autômato de Hefesto. Morreu quando o Ícor vazou de sua única veia e renasceu como o molde de todos os corpos dos Ritos. Hoje guarda o selo dos Titãs como um dia guardou Creta.,Hephaestus's first automaton. He died when the Ichor drained from his single vein and was rebuilt as the mold for every body in the Rites. Now he guards the Titans' seal as he once guarded Crete.
@@ -147,39 +147,39 @@ HERO_ASCLEPIO_NAME,Asclépio,Asclepius
 HERO_ASCLEPIO_EPITHET,O Médico Fulminado,The Thunderstruck Healer
 HERO_ASCLEPIO_BIO,"O médico que Zeus fulminou por ressuscitar os mortos. Hefesto o chamou para cuidar dos corpos e centelhas dos Ritos, onde todos voltam. A ironia o diverte.","The physician Zeus struck down for raising the dead. Hephaestus called him to tend the bodies and sparks of the Rites, where everyone comes back. He enjoys the irony."
 HERO_ASCLEPIO_QUOTE,"Na arena, ninguém morre de verdade. Finalmente uma regra que eu aprovo.","In the arena, no one truly dies. Finally, a rule I approve of."
-AB_MURALHA_NAME,Muralha de Bronze,
-AB_MURALHA_SHORT,Bloqueia tiros,
-AB_MURALHA_DESC,Escudo frontal que bloqueia projéteis por 4 s.,
-AB_INVESTIDA_NAME,Investida a Vapor,
-AB_INVESTIDA_SHORT,Avança e atordoa,
-AB_INVESTIDA_DESC,"Avança em linha, causa 45 de dano e atordoa.",
-AB_VALVULA_NAME,Válvula de Pressão,
-AB_VALVULA_SHORT,-40% dano no grupo,
-AB_VALVULA_DESC,Aliados próximos recebem 40% menos dano por 4 s.,
-AB_FURIA_NAME,Fúria da Forja,
-AB_FURIA_SHORT,Atordoa em área,
-AB_FURIA_DESC,Golpe no chão: 60 de dano e atordoa em área.,
-AB_DISPARO_NAME,Disparo Perfurante,
-AB_DISPARO_SHORT,Tiro perfurante,
-AB_DISPARO_DESC,Tiro que atravessa inimigos causando 90 de dano.,
-AB_ARMADILHA_NAME,Armadilha de Caça,
-AB_ARMADILHA_SHORT,Prende inimigo,
-AB_ARMADILHA_DESC,"Prende o primeiro inimigo por 1,8 s e causa 30.",
-AB_SALTO_NAME,Salto Lunar,
-AB_SALTO_SHORT,Recua e acelera,
-AB_SALTO_DESC,Recua e ganha 60% de velocidade de ataque por 3 s.,
-AB_CHUVA_NAME,Chuva de Prata,
-AB_CHUVA_SHORT,Dano em área,
-AB_CHUVA_DESC,Chuva de flechas: dano contínuo e lentidão em área.,
-AB_SOPRO_NAME,Sopro Restaurador,
-AB_SOPRO_SHORT,Cura em área,
-AB_SOPRO_DESC,Cura 120 de vida dos aliados ao redor.,
-AB_VENENO_NAME,Veneno da Serpente,
-AB_VENENO_SHORT,"Veneno, corta cura",
-AB_VENENO_DESC,Dano contínuo e reduz a cura do alvo pela metade.,
-AB_ENGRENAGEM_NAME,Engrenagem Vital,
-AB_ENGRENAGEM_SHORT,Escudo no aliado,
-AB_ENGRENAGEM_DESC,Escudo de 150 em um aliado por 5 s.,
-AB_SEGUNDA_NAME,Segunda Chance,
-AB_SEGUNDA_SHORT,Ninguém morre,
-AB_SEGUNDA_DESC,Aliados próximos não podem morrer por 3 s.,
+AB_MURALHA_NAME,Muralha de Bronze,Bronze Wall
+AB_MURALHA_SHORT,Bloqueia tiros,Blocks shots
+AB_MURALHA_DESC,Escudo frontal que bloqueia projéteis por 4 s.,Front shield that blocks projectiles for 4 s.
+AB_INVESTIDA_NAME,Investida a Vapor,Steam Charge
+AB_INVESTIDA_SHORT,Avança e atordoa,Charge and stun
+AB_INVESTIDA_DESC,"Avança em linha, causa 45 de dano e atordoa.","Charges in a line, deals 45 damage and stuns."
+AB_VALVULA_NAME,Válvula de Pressão,Pressure Valve
+AB_VALVULA_SHORT,-40% dano no grupo,-40% dmg to group
+AB_VALVULA_DESC,Aliados próximos recebem 40% menos dano por 4 s.,Nearby allies take 40% less damage for 4 s.
+AB_FURIA_NAME,Fúria da Forja,Forge Fury
+AB_FURIA_SHORT,Atordoa em área,Area stun
+AB_FURIA_DESC,Golpe no chão: 60 de dano e atordoa em área.,Ground slam: 60 damage and stuns in an area.
+AB_DISPARO_NAME,Disparo Perfurante,Piercing Shot
+AB_DISPARO_SHORT,Tiro perfurante,Piercing shot
+AB_DISPARO_DESC,Tiro que atravessa inimigos causando 90 de dano.,"Shot that pierces enemies, dealing 90 damage."
+AB_ARMADILHA_NAME,Armadilha de Caça,Hunter's Trap
+AB_ARMADILHA_SHORT,Prende inimigo,Roots an enemy
+AB_ARMADILHA_DESC,"Prende o primeiro inimigo por 1,8 s e causa 30.",Roots the first enemy for 1.8 s and deals 30.
+AB_SALTO_NAME,Salto Lunar,Lunar Leap
+AB_SALTO_SHORT,Recua e acelera,"Leap back, haste"
+AB_SALTO_DESC,Recua e ganha 60% de velocidade de ataque por 3 s.,Leaps back and gains 60% attack speed for 3 s.
+AB_CHUVA_NAME,Chuva de Prata,Silver Rain
+AB_CHUVA_SHORT,Dano em área,Area damage
+AB_CHUVA_DESC,Chuva de flechas: dano contínuo e lentidão em área.,Rain of arrows: damage over time and slow in an area.
+AB_SOPRO_NAME,Sopro Restaurador,Restoring Breath
+AB_SOPRO_SHORT,Cura em área,Area heal
+AB_SOPRO_DESC,Cura 120 de vida dos aliados ao redor.,Heals nearby allies for 120 health.
+AB_VENENO_NAME,Veneno da Serpente,Serpent's Venom
+AB_VENENO_SHORT,"Veneno, corta cura","Poison, cuts heals"
+AB_VENENO_DESC,Dano contínuo e reduz a cura do alvo pela metade.,Damage over time and halves the target's healing.
+AB_ENGRENAGEM_NAME,Engrenagem Vital,Vital Gear
+AB_ENGRENAGEM_SHORT,Escudo no aliado,Ally shield
+AB_ENGRENAGEM_DESC,Escudo de 150 em um aliado por 5 s.,150 shield on one ally for 5 s.
+AB_SEGUNDA_NAME,Segunda Chance,Second Chance
+AB_SEGUNDA_SHORT,Ninguém morre,No one dies
+AB_SEGUNDA_DESC,Aliados próximos não podem morrer por 3 s.,Nearby allies can't die for 3 s.

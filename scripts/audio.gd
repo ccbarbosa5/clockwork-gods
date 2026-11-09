@@ -18,6 +18,8 @@ var sounds := {}
 var volume := 0.8
 var muted := false
 var music_on := true
+## Música parada pela pausa da partida (continua de onde parou).
+var music_paused := false
 var settings_path := "user://settings.cfg"
 
 var _players: Array = []
@@ -103,6 +105,14 @@ func toggle_mute() -> void:
 	save_settings()
 
 
+## Pausa ou retoma a música junto com a partida (não muda a opção salva).
+func pause_music(on: bool) -> void:
+	music_paused = on
+	if _music_player != null:
+		_music_player.stream_paused = on
+	apply_settings()
+
+
 func toggle_music() -> void:
 	music_on = not music_on
 	apply_settings()
@@ -113,6 +123,8 @@ func apply_settings() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.0001)))
 	AudioServer.set_bus_mute(0, muted or volume <= 0.001)
 	if _music_player == null:
+		return
+	if music_paused:
 		return
 	if music_on and music_ready and not _music_player.playing:
 		_music_player.play()
