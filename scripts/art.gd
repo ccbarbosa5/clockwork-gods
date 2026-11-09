@@ -14,6 +14,20 @@ const HERO_FULL := "res://assets/heroes/%s_full.png"
 const ICON := "res://assets/icons/%s.png"
 const CARD_FRAME := "res://assets/cards/frame_%s.png"
 const FX := "res://assets/fx/%s.png"
+const MAP := "res://assets/map/%s.png"
+
+## Imagens do mapa (map/<nome>.png). "fill" = fração da imagem ocupada pelo
+## círculo de jogo (coluna, ponto ou base): o resto é borda, brilho ou detalhe.
+## O piso é desenhado esticado na arena inteira (1280×520).
+const MAP_IMAGES := {
+	"arena_floor": {"src": Vector2i(2560, 1040)},
+	"pillar_large": {"src": Vector2i(160, 160), "fill": 0.85},   # colunas de raio 34 e 28
+	"pillar_small": {"src": Vector2i(112, 112), "fill": 0.85},   # colunas de raio 22 e 20
+	"control_point": {"src": Vector2i(512, 512), "fill": 0.9},   # ponto de raio 95
+	"spawn_base": {"src": Vector2i(384, 384), "fill": 0.9},      # bases de raio 75
+}
+## Colunas com raio a partir deste valor usam pillar_large.
+const PILLAR_LARGE_MIN_R := 28.0
 
 ## Lado da imagem inteira do herói na tela (px, base 1280×720). A imagem-fonte
 ## (256×256) é feita para o anel do time ocupar 80% dela: 2 × (raio + 3) / 0,8.
@@ -67,7 +81,6 @@ const MURALHA_OFFSET := 33.0
 static var _cache := {}
 ## Nomes de efeito desenhados por imagem (usado pelos testes).
 static var drawn_names := {}
-static var _ability_ids := {}
 ## Quantas imagens foram desenhadas (usado pelos testes).
 static var drawn := 0
 
@@ -119,12 +132,44 @@ static func fx(name: String) -> Texture2D:
 	return tex(FX % name)
 
 
+static func map_tex(name: String) -> Texture2D:
+	return tex(MAP % name)
+
+
+static func pillar_name(r: float) -> String:
+	return "pillar_large" if r >= PILLAR_LARGE_MIN_R else "pillar_small"
+
+
+## Lado na tela de uma imagem redonda do mapa para um círculo de jogo de raio r.
+static func map_size(name: String, r: float) -> float:
+	return 2.0 * r / float(MAP_IMAGES[name]["fill"])
+
+
+## Desenha uma imagem do mapa centrada (lado = map_size). false = sem imagem.
+static func draw_map(ci: CanvasItem, name: String, c: Vector2, r: float, rot := 0.0, mod := Color.WHITE) -> bool:
+	var t := map_tex(name)
+	if t == null:
+		return false
+	drawn_names["map/" + name] = true
+	var s := map_size(name, r)
+	draw_centered(ci, t, c, Vector2(s, s), rot, mod)
+	return true
+
+
+## Piso esticado num retângulo. false = sem imagem.
+static func draw_floor(ci: CanvasItem, rect: Rect2) -> bool:
+	var t := map_tex("arena_floor")
+	if t == null:
+		return false
+	drawn += 1
+	drawn_names["map/arena_floor"] = true
+	ci.draw_texture_rect(t, rect, false)
+	return true
+
+
 ## Chave da habilidade (ex.: "muralha") a partir do dicionário dela em Data.ABILITIES.
 static func ability_id(ab: Dictionary) -> String:
-	if _ability_ids.is_empty():
-		for k in Data.ABILITIES.keys():
-			_ability_ids[Data.ABILITIES[k]["name"]] = k
-	return _ability_ids.get(ab.get("name", ""), "")
+	return ab.get("id", "")
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ extends Node2D
 ## Herói autônomo: atributos, estados, IA de formação, cartas armadas e desenho.
 
 const Data = preload("res://scripts/data.gd")
+const T = preload("res://scripts/i18n.gd")
 const UI = preload("res://scripts/ui.gd")
 const Art = preload("res://scripts/art.gd")
 
@@ -100,7 +101,7 @@ func add_charge(v: float) -> void:
 
 
 func ability_ready_text() -> String:
-	return "PRONTO" if ult >= 100.0 else str(int(ult)) + "%"
+	return T.t("ULT_READY") if ult >= 100.0 else str(int(ult)) + "%"
 
 
 func role_color() -> Color:
@@ -386,13 +387,13 @@ func _think(dt: float) -> Vector2:
 	var forward := _forward()
 	var enemies: Array = game.alive_heroes(1 - team)
 	var hpf := hp / max_hp
-	var th: float = {"aggressive": 0.15, "balanced": 0.3, "defensive": 0.35}[beh]
+	var th: float = Data.BEHAVIOR_PARAMS[beh]["retreat"]
 	if game.desperate(team):
 		th = 0.0
 		retreating = false
 	if hpf < th and undying_t <= 0.0:
 		retreating = true
-	if retreating and hpf > 0.8:
+	if retreating and hpf > Data.RETREAT_BACK:
 		retreating = false
 
 	if is_healer():
@@ -492,7 +493,7 @@ func _formation_pos(beh: String, forward: float) -> Vector2:
 	if not game.point_unlocked():
 		front = c - Vector2(forward * (game.POINT_R + 45.0), 0.0)
 	else:
-		var dx: float = {"aggressive": 150.0, "balanced": 20.0, "defensive": 0.0}[beh]
+		var dx: float = Data.BEHAVIOR_PARAMS[beh]["front"]
 		front = c + Vector2(forward * dx, 0.0)
 	if style == "frontline" or style == "dive":
 		# Não avança sozinho: espera o grupo se ele ficou muito atrás.
@@ -508,14 +509,14 @@ func _formation_pos(beh: String, forward: float) -> Vector2:
 			for a in others:
 				if (a.position.x - position.x) * forward > 0.0:
 					ahead_of_group = false
-			if nearest_d > 280.0 and ahead_of_group and beh != "aggressive":
+			if nearest_d > Data.WAIT_GROUP_DIST and ahead_of_group and Data.BEHAVIOR_PARAMS[beh]["wait_group"]:
 				return position
 		return front
 	var lead = _team_front()
 	var lead_pos: Vector2 = lead.position if lead != null else front
 	match style:
 		"backline_dps":
-			var back := 40.0 if beh == "aggressive" else 90.0
+			var back: float = Data.BEHAVIOR_PARAMS[beh]["dps_back"]
 			return lead_pos - Vector2(forward * back, 55.0)
 		"backline_support":
 			return lead_pos - Vector2(forward * 120.0, -50.0)
@@ -560,12 +561,13 @@ func _team_healer():
 
 
 func _pick_target(enemies: Array, beh: String):
-	var aggro: float = {"aggressive": 560.0, "balanced": 400.0, "defensive": 320.0}[beh]
+	var aggro: float = Data.BEHAVIOR_PARAMS[beh]["aggro"]
 	if not game.point_unlocked():
 		aggro = 300.0
 	if style == "dive":
 		aggro += 150.0
-	var leash: float = {"aggressive": 99999.0, "balanced": game.POINT_R + 380.0, "defensive": game.POINT_R + 220.0}[beh]
+	var leash_extra: float = Data.BEHAVIOR_PARAMS[beh]["leash"]
+	var leash: float = 99999.0 if leash_extra < 0.0 else game.POINT_R + leash_extra
 	if game.contest_need(team):
 		leash = minf(leash, game.POINT_R + 110.0)
 	var best = null
@@ -832,7 +834,7 @@ func _draw() -> void:
 		var frac := clampf(a3["t"] / Data.ARM_TIME, 0.0, 1.0)
 		draw_arc(c, 12.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 20, Color(1, 1, 1, 0.8), 2.0, true)
 
-	UI.text_c(self, Vector2(0, radius + 16.0), def["name"], 11, Color(1, 1, 1, 0.85), 3)
+	UI.text_c(self, Vector2(0, radius + 16.0), T.hero_name(hid), 11, Color(1, 1, 1, 0.85), 3)
 
 
 ## Muralha de Bronze desenhada por código (sem imagem).

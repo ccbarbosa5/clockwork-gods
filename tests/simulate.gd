@@ -5,6 +5,7 @@ extends SceneTree
 ## Sai com código 1 se encontrar anomalias ou métricas fora dos limites.
 
 const Data = preload("res://scripts/data.gd")
+const T = preload("res://scripts/i18n.gd")
 const GameScript = preload("res://scripts/game.gd")
 
 const STEP := 1.0 / 60.0
@@ -98,7 +99,7 @@ func _run() -> void:
 	var line := ""
 	for ab in Data.ABILITIES.keys():
 		var n: int = casts.get(ab, 0)
-		line += "%s %d · " % [Data.ABILITIES[ab]["name"], n]
+		line += "%s %d · " % [T.ab_name(ab), n]
 		if n == 0:
 			failed = true
 			_anomaly("habilidade nunca usada: " + ab, "")
@@ -114,7 +115,7 @@ func _run() -> void:
 		var n2: int = casts.get(ab, 0)
 		if n2 > 0 and n2 < avg_cast * 0.25:
 			any_warn = true
-			print("carta pouco usada: %s (%d usos, média %.0f)" % [Data.ABILITIES[ab]["name"], n2, avg_cast])
+			print("carta pouco usada: %s (%d usos, média %.0f)" % [T.ab_name(ab), n2, avg_cast])
 	if not any_warn:
 		print("nenhum")
 

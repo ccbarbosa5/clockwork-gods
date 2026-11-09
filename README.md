@@ -1,8 +1,10 @@
-# Ichor: Clockwork Gods
+# Clockwork Gods
 
 Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você é o Arquiteto do Destino e intervém jogando cartas de habilidade com Ícor, o sangue dourado dos deuses.
 
-**Protótipo v0.1**: modo Controle contra bot, versão web.
+**Protótipo**: modo Controle contra bot, versão web, em português e inglês.
+
+O jogo se chamava "Ichor: Clockwork Gods". O nome do repositório e da página no itch.io ainda é o antigo.
 
 ## Como jogar
 
@@ -11,7 +13,9 @@ Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você 
 - **Ícor:** recarrega com o tempo (+1 a cada 2,5 s) e com abates. Abater um herói do time que está na frente rende Ícor extra.
 - **Ultimates:** botões redondos (Q, W, E), também usadas pelo herói no melhor momento. Carregam com dano, cura, dano mitigado e tempo no ponto. Não custam Ícor.
 - **Comportamento da IA:** Agressivo, Equilibrado ou Defensivo (Z, X, C), com 10 s de recarga entre trocas.
-- **P** pausa a partida. **M** liga e desliga o som (volume e música no menu).
+- **ESC** ou **P** abrem o menu de pausa (continuar, como jogar, som, idioma, voltar ao menu). A partida também pausa sozinha quando a janela ou a aba perde o foco. **M** liga e desliga o som.
+- Passe o mouse sobre cartas, ultimates, próxima carta e comportamentos para ver o que fazem.
+- **Idioma:** botão PT/EN no menu e na pausa. Na primeira vez, o jogo usa português se o navegador estiver em português e inglês nos outros casos.
 
 ## Heróis
 
@@ -21,7 +25,11 @@ Hero shooter tático em 2D com cartas. Seus três heróis lutam sozinhos; você 
 | Ártemis | Dano | Disparo Perfurante, Armadilha de Caça, Salto Lunar | Chuva de Prata |
 | Asclépio | Suporte | Sopro Restaurador, Veneno da Serpente, Engrenagem Vital | Segunda Chance |
 
-Todos os números de balanceamento estão em `scripts/data.gd`.
+Todos os números de balanceamento estão em `scripts/data.gd`. Distâncias e velocidades aparecem para o jogador em metros (1 m = 30 px).
+
+## Textos e idiomas
+
+Todo texto que o jogador vê está em `i18n/textos.csv` (colunas `chave`, `pt`, `en`, UTF-8). O Godot importa o arquivo como tradução; uma célula `en` vazia mostra o texto em português. Textos com `%s` ou `%d` recebem valores do jogo (nomes, números): mantenha esses marcadores na tradução. O teste `test_i18n_no_visible_text_literals_in_code` reprova texto visível escrito direto no código.
 
 ## Rodar localmente
 
@@ -49,8 +57,11 @@ Detalhes em [docs/TESTES.md](docs/TESTES.md). Bugs encontrados e corrigidos fica
 | `scripts/bot.gd` | Decisões do bot |
 | `scripts/hud.gd` | Interface do jogador |
 | `scripts/menu.gd` | Tela inicial |
+| `scripts/gallery.gd` | Galeria de heróis |
+| `scripts/i18n.gd` | Idiomas, metros e atalhos para os textos |
+| `i18n/textos.csv` | Todos os textos do jogo em PT e EN |
 | `scripts/audio.gd` | Sons e música sintetizados por código |
-| `scripts/art.gd` | Imagens (sprites, retratos, ícones, molduras, efeitos) com cache; sem o PNG, desenho por código |
+| `scripts/art.gd` | Imagens (sprites, retratos, ícones, molduras, efeitos, mapa) com cache; sem o PNG, desenho por código |
 | `assets/` | PNGs do jogo (opcionais). Nomes e tamanhos em [assets/README.md](assets/README.md) |
 
 ## Publicação no itch.io

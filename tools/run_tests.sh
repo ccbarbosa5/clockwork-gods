@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Roda o sistema de testes completo do Ichor.
+# Roda o sistema de testes completo do Clockwork Gods.
 #   tools/run_tests.sh               testes + simulação (12 partidas)
 #   tools/run_tests.sh --matches=30  simulação mais longa
 #   tools/run_tests.sh --shots DIR   também salva capturas de tela (precisa de xvfb-run)

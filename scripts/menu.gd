@@ -3,13 +3,13 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const T = preload("res://scripts/i18n.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
 signal start(opts: Dictionary)
 signal open_gallery
 
 const DIFFS := ["easy", "normal", "hard"]
-const DIFF_NAMES := {"easy": "Fácil", "normal": "Normal", "hard": "Difícil"}
 
 var difficulty := "normal"
 var behavior := "balanced"
@@ -19,7 +19,19 @@ var t := 0.0
 
 ## Versão lida do projeto (BUG-013: o menu mostrava uma versão fixa e antiga).
 static func version_label() -> String:
-	return "Protótipo v%s  ·  Talos · Ártemis · Asclépio" % ProjectSettings.get_setting("application/config/version", "?")
+	var names := []
+	for hid in Data.HERO_ORDER:
+		names.append(T.hero_name(hid))
+	return T.tf("MENU_VERSION", [ProjectSettings.get_setting("application/config/version", "?")] + names)
+
+
+## Nome do jogo (marca: igual em todos os idiomas), lido do projeto.
+static func game_title() -> String:
+	return String(ProjectSettings.get_setting("application/config/name", "")).to_upper()
+
+
+func lang_rect() -> Rect2:
+	return Rect2(1160, 20, 96, 32)
 
 
 func vol_rect(i: int) -> Rect2:
@@ -65,6 +77,11 @@ func _input(event: InputEvent) -> void:
 			show_help = false
 			return
 		var a = _audio()
+		var l := UI.lang_at(lang_rect(), m)
+		if l != "":
+			T.set_lang(l)
+			if a != null: a.play("click")
+			return
 		if a != null:
 			if vol_rect(0).has_point(m):
 				a.set_volume(snappedf(a.volume - 0.1, 0.1)); a.play("click"); return
@@ -97,6 +114,8 @@ func _input(event: InputEvent) -> void:
 				start.emit({"difficulty": difficulty, "behavior": behavior})
 		elif event.keycode == KEY_ESCAPE:
 			show_help = false
+		elif event.keycode == KEY_L:
+			T.toggle()
 		elif event.keycode == KEY_M and _audio() != null:
 			_audio().toggle_mute()
 
@@ -109,47 +128,47 @@ func _draw() -> void:
 	UI.gear(self, Vector2(1180, 640), 70.0, 9, Color(Data.GOLD, 0.06), t * 0.3)
 	UI.gear(self, Vector2(640, 110), 130.0, 16, Color(Data.GOLD, 0.05), t * 0.12)
 
-	UI.text_c(self, Vector2(640, 150), "ICHOR", 96, Data.GOLD, 10)
-	UI.text_c(self, Vector2(640, 200), "CLOCKWORK GODS", 26, Data.BRONZE.lightened(0.2), 4)
-	UI.text_c(self, Vector2(640, 250), "Seus heróis lutam sozinhos. Você decide o destino com cartas de habilidade.", 16, Color(1, 1, 1, 0.75), 2)
+	UI.text_c(self, Vector2(640, 175), game_title(), 80, Data.GOLD, 10)
+	UI.text_c(self, Vector2(640, 250), T.t("MENU_TAGLINE"), 16, Color(1, 1, 1, 0.75), 2)
+	UI.lang_toggle(self, lang_rect(), get_global_mouse_position())
 
-	UI.text_c(self, Vector2(640, 318), "Dificuldade do bot", 14, Color(1, 1, 1, 0.6))
+	UI.text_c(self, Vector2(640, 318), T.t("MENU_DIFFICULTY"), 14, Color(1, 1, 1, 0.6))
 	for i in 3:
 		var r := diff_rect(i)
 		var on: bool = DIFFS[i] == difficulty
 		UI.panel(self, r, Color(Data.BRONZE, 0.5) if on else Color(0, 0, 0, 0.4), Data.GOLD if on else Color(Data.BRONZE, 0.5), 2.0)
-		UI.text_c(self, r.get_center() + Vector2(0, 6), DIFF_NAMES[DIFFS[i]], 15, Color.WHITE)
+		UI.text_c(self, r.get_center() + Vector2(0, 6), T.t("DIFF_" + String(DIFFS[i]).to_upper()), 15, Color.WHITE)
 
-	UI.text_c(self, Vector2(640, 398), "Comportamento inicial do seu time", 14, Color(1, 1, 1, 0.6))
+	UI.text_c(self, Vector2(640, 398), T.t("MENU_BEHAVIOR"), 14, Color(1, 1, 1, 0.6))
 	for i in 3:
 		var r2 := beh_rect(i)
 		var on2: bool = Data.BEHAVIORS[i] == behavior
 		UI.panel(self, r2, Color(Data.BRONZE, 0.5) if on2 else Color(0, 0, 0, 0.4), Data.GOLD if on2 else Color(Data.BRONZE, 0.5), 2.0)
-		UI.text_c(self, r2.get_center() + Vector2(0, 6), Data.BEHAVIOR_NAMES[Data.BEHAVIORS[i]], 15, Color.WHITE)
+		UI.text_c(self, r2.get_center() + Vector2(0, 6), T.behavior_name(Data.BEHAVIORS[i]), 15, Color.WHITE)
 
 	var pr := play_rect()
 	var hov := pr.has_point(get_global_mouse_position())
 	UI.panel(self, pr, Color(Data.GOLD, 0.45 if hov else 0.3), Data.GOLD, 3.0)
-	UI.text_c(self, pr.get_center() + Vector2(0, 8), "JOGAR CONTRA BOT", 20, Color.WHITE, 3)
+	UI.text_c(self, pr.get_center() + Vector2(0, 8), T.t("MENU_PLAY"), 20, Color.WHITE, 3)
 	var hr := help_rect()
 	UI.panel(self, hr, Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
-	UI.text_c(self, hr.get_center() + Vector2(0, 5), "Como jogar", 14, Color.WHITE)
+	UI.text_c(self, hr.get_center() + Vector2(0, 5), T.t("MENU_HELP"), 14, Color.WHITE)
 	var gr := heroes_rect()
 	UI.panel(self, gr, Color(Data.BRONZE, 0.3) if gr.has_point(get_global_mouse_position()) else Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
-	UI.text_c(self, gr.get_center() + Vector2(0, 5), "Heróis", 14, Color.WHITE)
+	UI.text_c(self, gr.get_center() + Vector2(0, 5), T.t("MENU_HEROES"), 14, Color.WHITE)
 
 	UI.text_c(self, Vector2(640, 700), version_label(), 12, Color(1, 1, 1, 0.35))
 	_draw_audio()
 
 	if show_help:
-		_draw_help()
+		UI.draw_help(self)
 
 
 func _draw_audio() -> void:
 	var a = _audio()
 	if a == null:
 		return
-	UI.text_l(self, Vector2(40, 652), "Som" + ("  (mudo — M)" if a.muted else "  (M para mudo)"), 12, Color(1, 1, 1, 0.6))
+	UI.text_l(self, Vector2(40, 652), T.t("SOUND_LABEL") + "  " + T.t("SOUND_MUTED_HINT" if a.muted else "SOUND_HINT"), 12, Color(1, 1, 1, 0.6))
 	for i in 3:
 		UI.panel(self, vol_rect(i), Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
 	UI.text_c(self, vol_rect(0).get_center() + Vector2(0, 6), "-", 18, Color.WHITE)
@@ -157,34 +176,4 @@ func _draw_audio() -> void:
 	var bar := Rect2(76, 672, 94, 10)
 	draw_rect(bar, Color(0, 0, 0, 0.6))
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * a.volume, bar.size.y)), Data.GOLD if not a.muted else Color(0.5, 0.5, 0.5))
-	UI.text_c(self, vol_rect(2).get_center() + Vector2(0, 5), "Música: " + ("ligada" if a.music_on else "desligada"), 12, Color.WHITE)
-
-
-func _draw_help() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.8))
-	var r := Rect2(240, 80, 800, 560)
-	UI.panel(self, r, Color(0.1, 0.08, 0.06), Data.BRONZE, 3.0)
-	UI.text_c(self, Vector2(640, 125), "Como jogar", 30, Data.GOLD, 4)
-	var lines := [
-		"Objetivo: controle o ponto central até chegar a 100% de progresso.",
-		"Seus 3 heróis (Talos, Ártemis e Asclépio) andam e atacam sozinhos.",
-		"",
-		"Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).",
-		"   O herói guarda a habilidade e usa sozinho no melhor momento,",
-		"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.",
-		"   Cor da carta = função (laranja Tanque, roxo Dano, verde Suporte).",
-		"Ícor: recarrega com o tempo e ao abater inimigos.",
-		"   Abater um herói do time que está na frente rende Ícor extra.",
-		"",
-		"Ultimates: botões redondos (Q, W, E), também usadas no melhor momento.",
-		"   Carregam com dano, cura, mitigação e tempo no ponto. Sem custo de Ícor.",
-		"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.",
-		"Herói abatido renasce em 6 s; as cartas dele voltam ao deck.",
-		"",
-		"P pausa a partida. M liga e desliga o som.",
-	]
-	var y := 175.0
-	for l in lines:
-		UI.text_l(self, Vector2(290, y), l, 15, Color(1, 1, 1, 0.85))
-		y += 26.0
-	UI.text_c(self, Vector2(640, 625), "Clique para voltar", 13, Color(1, 1, 1, 0.5))
+	UI.text_c(self, vol_rect(2).get_center() + Vector2(0, 5), T.t("MUSIC_ON" if a.music_on else "MUSIC_OFF"), 12, Color.WHITE)

@@ -58,7 +58,7 @@ jobs:
       - name: Guardar build
         uses: actions/upload-artifact@v4
         with:
-          name: ichor-web
+          name: clockwork-gods-web
           path: build/web
 
       - name: Publicar no itch.io

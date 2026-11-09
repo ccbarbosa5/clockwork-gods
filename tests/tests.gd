@@ -8,6 +8,8 @@ const Data = preload("res://scripts/data.gd")
 const GameScript = preload("res://scripts/game.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 const Art = preload("res://scripts/art.gd")
+const T = preload("res://scripts/i18n.gd")
+const HudScript = preload("res://scripts/hud.gd")
 const GalleryScript = preload("res://scripts/gallery.gd")
 const MainScript = preload("res://scripts/main.gd")
 
@@ -775,9 +777,12 @@ func test_bug013_menu_shows_project_version() -> void:
 func test_all_cards_have_visual_data() -> void:
 	for k in Data.ABILITIES.keys():
 		var ab: Dictionary = Data.ABILITIES[k]
-		check(Data.EFFECT_NAMES.has(ab.get("effect", "")), "efeito inválido em " + k)
-		check(ab.get("short", "") != "", "resumo vazio em " + k)
-		check(String(ab["short"]).length() <= 20, "resumo longo demais para a carta em " + k)
+		check(Data.EFFECTS.has(ab.get("effect", "")), "efeito inválido em " + k)
+		check(ab.get("id", "") == k, "id da habilidade diferente da chave em " + k)
+		for l in T.LANGS:
+			var short := T.in_lang("AB_%s_SHORT" % k.to_upper(), l)
+			check(short != "" and short != "AB_%s_SHORT" % k.to_upper(), "resumo vazio em " + k)
+			check(short.length() <= 20, "resumo longo demais para a carta em %s (%s)" % [k, l])
 	for hid in Data.HERO_ORDER:
 		check(Data.ROLE_COLORS.has(Data.HEROES[hid]["role"]), "função sem cor: " + hid)
 		check(Data.STYLES.has(Data.HEROES[hid]["style"]), "estilo inválido: " + hid)
@@ -879,6 +884,8 @@ func _all_art_paths() -> Array:
 		paths.append(Art.FX % Art.PROJECTILES[kind]["fx"])
 	for name in Art.FX_EFFECTS.keys():
 		paths.append(Art.FX % name)
+	for name in Art.MAP_IMAGES.keys():
+		paths.append(Art.MAP % name)
 	return paths
 
 
@@ -1039,6 +1046,8 @@ func test_art_every_effect_image_is_used() -> void:
 ## Tamanho de fonte esperado de cada imagem (assets/README.md).
 const ART_SOURCE_SIZES := {
 	"heroes/talos_full": Vector2i(512, 768), "heroes/artemis_full": Vector2i(512, 768), "heroes/asclepio_full": Vector2i(512, 768),
+	"map/arena_floor": Vector2i(2560, 1040), "map/pillar_large": Vector2i(160, 160), "map/pillar_small": Vector2i(112, 112),
+	"map/control_point": Vector2i(512, 512), "map/spawn_base": Vector2i(384, 384),
 	"heroes": Vector2i(256, 256), "icons": Vector2i(256, 256), "cards": Vector2i(240, 236),
 	"fx/disparo_projetil": Vector2i(256, 64), "fx/veneno_projetil": Vector2i(160, 64), "fx/tiro_basico": Vector2i(64, 32),
 	"fx/furia_area": Vector2i(512, 512), "fx/valvula_area": Vector2i(512, 512), "fx/sopro_area": Vector2i(512, 512),
@@ -1058,7 +1067,7 @@ func test_art_delivered_images_are_valid() -> void:
 	for p in _all_art_paths():
 		known[p] = true
 	var found := 0
-	for sub in ["heroes", "icons", "cards", "fx"]:
+	for sub in ["heroes", "icons", "cards", "fx", "map"]:
 		var dir := DirAccess.open("res://assets/" + sub)
 		if dir == null:
 			continue
@@ -1134,17 +1143,21 @@ func test_gallery_texts_every_hero_both_languages() -> void:
 	var f := ThemeDB.fallback_font
 	var w := GalleryScript.INFO_R - GalleryScript.INFO_X
 	for hid in Data.HERO_ORDER:
-		check(Data.ORIGIN_NAMES.has(Data.HEROES[hid]["origin"]), "origem desconhecida: " + hid)
-		check(Data.ROLE_NAMES.has(Data.HEROES[hid]["role"]), "função sem tradução: " + hid)
-		for l in Data.LANGS:
+		var origin_key := "ORIGIN_" + String(Data.HEROES[hid]["origin"]).to_upper()
+		check(T.in_lang(origin_key, "pt") != origin_key, "origem desconhecida: " + hid)
+		var role_key := "ROLE_" + String(Data.HEROES[hid]["role"]).to_upper()
+		check(T.in_lang(role_key, "pt") != role_key, "função sem texto: " + hid)
+		for l in T.LANGS:
 			for field in ["name", "epithet", "bio", "quote"]:
-				check(Data.hero_text(hid, field, l) != "", "%s sem %s em %s" % [hid, field, l])
-			var bio_h := f.get_multiline_string_size(Data.hero_text(hid, "bio", l), HORIZONTAL_ALIGNMENT_LEFT, w, 15).y
+				var key := "HERO_%s_%s" % [hid.to_upper(), field.to_upper()]
+				var tr := TranslationServer.get_translation_object(l)
+				check(tr != null and String(tr.get_message(key)) != "", "%s sem %s em %s" % [hid, field, l])
+			var bio_h := f.get_multiline_string_size(T.hero_text(hid, "bio", l), HORIZONTAL_ALIGNMENT_LEFT, w, 15).y
 			check(bio_h <= f.get_height(15) * 3 + 1, "bio de %s (%s) passa de 3 linhas" % [hid, l])
-			var q_h := f.get_multiline_string_size("“" + Data.hero_text(hid, "quote", l) + "”", HORIZONTAL_ALIGNMENT_LEFT, w - 10, 16).y
+			var q_h := f.get_multiline_string_size("“" + T.hero_text(hid, "quote", l) + "”", HORIZONTAL_ALIGNMENT_LEFT, w - 10, 16).y
 			check(q_h <= f.get_height(16) * 2 + 1, "frase de %s (%s) passa de 2 linhas" % [hid, l])
-	check(Data.hero_text("talos", "name", "pt") == Data.HEROES["talos"]["name"] and Data.hero_text("asclepio", "name", "pt") == Data.HEROES["asclepio"]["name"], "nome em PT igual ao do jogo")
-	check(Data.hero_text("talos", "quote", "xx") == Data.hero_text("talos", "quote", "pt"), "idioma sem tradução cai para PT")
+	check(T.hero_text("artemis", "name", "en") == "Artemis" and T.hero_text("artemis", "name", "pt") == "Ártemis", "nome por idioma")
+	check(T.hero_text("talos", "quote", "xx") == T.hero_text("talos", "quote", "pt"), "idioma sem tradução cai para PT")
 
 
 func test_gallery_stat_bars_come_from_data() -> void:
@@ -1254,3 +1267,313 @@ func after_draw_check_full() -> void:
 		scene.free()
 		scene = null
 		Art.clear_cache(), "pre": []})
+
+
+# ---------------------------------------------------------------------------
+# Nome, idiomas, metros, dicas, pausa e mapa (pacote 2)
+
+## Textos PT do arquivo de tradução, lidos direto do CSV (chave -> pt).
+func _csv_pt() -> Dictionary:
+	var f := FileAccess.open("res://i18n/textos.csv", FileAccess.READ)
+	var out := {}
+	var head := f.get_csv_line()
+	check(head.size() == 3 and head[1] == "pt" and head[2] == "en" and head[0].ends_with("chave"), "cabeçalho do CSV deveria ser chave,pt,en")
+	while not f.eof_reached():
+		var row := f.get_csv_line()
+		if row.size() < 2 or row[0] == "":
+			continue
+		check(not out.has(row[0]), "chave repetida no CSV: " + row[0])
+		check(row[1] != "", "texto PT vazio: " + row[0])
+		out[row[0]] = row[1]
+	return out
+
+
+func test_project_renamed_clockwork_gods() -> void:
+	check(ProjectSettings.get_setting("application/config/name") == "Clockwork Gods", "nome do projeto deveria ser Clockwork Gods")
+	var Menu = load("res://scripts/menu.gd")
+	check(Menu.game_title() == "CLOCKWORK GODS", "título do menu vem do nome do projeto")
+	var readme := FileAccess.get_file_as_string("res://README.md")
+	check(readme.begins_with("# Clockwork Gods"), "README com o nome novo")
+
+
+func test_i18n_every_key_in_code_exists() -> void:
+	# Toda chave fixa usada no código e toda chave montada a partir dos dados existe no CSV.
+	var pt := _csv_pt()
+	var re := RegEx.create_from_string("T\\.tf?\\(\"([A-Z0-9_]+)\"\\s*[,)]")
+	var used := 0
+	for path in _script_paths():
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			if line.strip_edges().begins_with("#"):
+				continue
+			for m in re.search_all(line):
+				used += 1
+				check(pt.has(m.get_string(1)), "chave sem texto no CSV: %s (%s)" % [m.get_string(1), path])
+	check(used > 60, "deveria achar as chaves usadas no código (achou %d)" % used)
+	var keys: Array = []
+	for k in Data.ABILITIES.keys():
+		for f in ["NAME", "SHORT", "DESC"]:
+			keys.append("AB_%s_%s" % [k.to_upper(), f])
+	for hid in Data.HERO_ORDER:
+		for f in ["NAME", "EPITHET", "BIO", "QUOTE"]:
+			keys.append("HERO_%s_%s" % [hid.to_upper(), f])
+		keys.append("ORIGIN_" + String(Data.HEROES[hid]["origin"]).to_upper())
+	for role in Data.ROLE_COLORS.keys():
+		keys.append("ROLE_" + String(role).to_upper())
+	for e in Data.EFFECTS:
+		keys.append("EFFECT_" + e.to_upper())
+	for b in Data.BEHAVIORS:
+		keys.append("BEH_" + b.to_upper())
+		keys.append("BEH_%s_DESC" % b.to_upper())
+	for d in ["EASY", "NORMAL", "HARD"]:
+		keys.append("DIFF_" + d)
+	for r in ["icor", "morto", "armada", "carga", "vazio", "cd"]:
+		keys.append("FLASH_" + r.to_upper())
+	for l in T.LANGS:
+		keys.append("LANG_" + l.to_upper())
+	keys.append_array(["TEAM_0", "TEAM_1"])
+	for key in UI_HELP_KEYS():
+		keys.append(key)
+	for key in keys:
+		check(pt.has(key), "chave sem texto no CSV: " + key)
+
+
+func UI_HELP_KEYS() -> Array:
+	var out: Array = []
+	for k in load("res://scripts/ui.gd").HELP_LINES:
+		if k != "":
+			out.append(k)
+	return out
+
+
+func _script_paths() -> Array:
+	var out: Array = []
+	for f in DirAccess.get_files_at("res://scripts"):
+		if f.ends_with(".gd"):
+			out.append("res://scripts/" + f)
+	return out
+
+
+func test_i18n_no_visible_text_literals_in_code() -> void:
+	# Nenhum texto visível escrito direto no código: só chaves de tradução.
+	var calls := RegEx.create_from_string("(text_[clr]|text_box|draw_string|draw_multiline_string|announce|add_text|italic_text|_draw_tip|button)\\(")
+	# Literais em sequência (sem pular de um para o outro). Ficam de fora os
+	# identificadores ("role", "continue") e as chaves de tradução ("MUSIC_OFF").
+	var literal := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
+	var ident := RegEx.create_from_string("^([a-z0-9_]+|[A-Z0-9_%sd]+)$")
+	var letters := RegEx.create_from_string("[A-Za-zÀ-ú]{2,}")
+	for path in _script_paths():
+		var n := 0
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			n += 1
+			if line.strip_edges().begins_with("#") or calls.search(line) == null:
+				continue
+			for m in literal.search_all(line):
+				var s := m.get_string(1)
+				if letters.search(s) == null or ident.search(s) != null or s.begins_with("res://"):
+					continue
+				check(false, "texto visível fora do CSV em %s:%d: \"%s\"" % [path.get_file(), n, s])
+
+
+func test_i18n_detect_language() -> void:
+	check(T.detect("pt_BR") == "pt" and T.detect("pt") == "pt" and T.detect("pt-PT") == "pt", "português → PT")
+	check(T.detect("en_US") == "en" and T.detect("es") == "en" and T.detect("fr_FR") == "en" and T.detect("") == "en", "outros → EN")
+
+
+func test_i18n_choice_is_saved_and_kept_by_audio() -> void:
+	var old_path := T.settings_path
+	T.settings_path = "user://test_settings.cfg"
+	DirAccess.remove_absolute(T.settings_path)
+	T.init()
+	check(T.lang() == T.detect(OS.get_locale()), "sem escolha salva usa o idioma do sistema")
+	T.set_lang("en")
+	TranslationServer.set_locale("pt")
+	T.init()
+	check(T.lang() == "en", "a escolha salva vale na próxima abertura")
+	var a := new_audio()
+	a.save_settings()
+	T.init()
+	check(T.lang() == "en", "salvar o som não apaga o idioma")
+	a.free()
+	T.set_lang("pt")
+	T.settings_path = old_path
+	TranslationServer.set_locale("pt")
+
+
+func test_i18n_english_falls_back_to_portuguese() -> void:
+	T.set_lang("en", false)
+	check(T.hero_name("asclepio") == "Asclepius", "nome em inglês na galeria")
+	check(T.t("MENU_PLAY") == "JOGAR CONTRA BOT", "EN vazio cai para o texto em PT")
+	check(T.origin_name("deusa") == "Goddess", "origem em inglês")
+	T.set_lang("pt", false)
+	check(T.hero_name("asclepio") == "Asclépio", "volta ao PT")
+
+
+func test_meters_display() -> void:
+	T.set_lang("pt", false)
+	check(T.meters(300.0) == "10,0 m", "300 px = 10,0 m (veio %s)" % T.meters(300.0))
+	check(T.mps(72.0) == "2,4 m/s", "72 px/s = 2,4 m/s (veio %s)" % T.mps(72.0))
+	check(GalleryScript.stat_text("artemis", "range") == "10,0 m", "alcance da Ártemis em metros")
+	check(GalleryScript.stat_text("talos", "hp") == "650", "vida continua número")
+	T.set_lang("en", false)
+	check(T.meters(62.0) == "2.1 m", "EN usa ponto (veio %s)" % T.meters(62.0))
+	T.set_lang("pt", false)
+
+
+func test_behavior_tips_use_real_numbers() -> void:
+	T.set_lang("pt", false)
+	var bal: Array = HudScript.behavior_lines("balanced")
+	var text := " | ".join(bal)
+	check(text.contains("0,7 m"), "tanque 20 px à frente = 0,7 m: " + text)
+	check(text.contains("13,3 m") and text.contains("15,8 m"), "persegue a 13,3 m, até 15,8 m do ponto: " + text)
+	check(text.contains("30%") and text.contains("80%"), "recua com 30%, volta com 80%: " + text)
+	var agg := " | ".join(HudScript.behavior_lines("aggressive"))
+	check(agg.contains("5,0 m") and agg.contains("18,7 m") and agg.contains("15%"), "agressivo: " + agg)
+	var def := " | ".join(HudScript.behavior_lines("defensive"))
+	check(def.contains(T.t("TIP_BEH_FRONT_CENTER")) and def.contains("35%"), "defensivo: " + def)
+
+
+func test_hud_hover_finds_ult_next_and_behavior() -> void:
+	var g := new_game()
+	var h = g.hud
+	h.update_hover(h.ult_center(1))
+	check(h.tip.get("kind") == "ult" and h.tip.get("i") == 1, "mouse na ultimate da Ártemis")
+	h.update_hover(h.next_rect().get_center())
+	check(h.tip.get("kind") == "next", "mouse na próxima carta")
+	h.update_hover(h.beh_rect(2).get_center())
+	check(h.tip.get("kind") == "beh" and h.tip.get("i") == 2, "mouse no botão Defensivo")
+	h.update_hover(h.base_card_rect(0).get_center())
+	check(h.hover == 0 and h.tip.is_empty(), "mouse na carta usa a dica da carta")
+	g.paused = true
+	h.update_hover(h.ult_center(0))
+	check(h.tip.is_empty(), "sem dicas com o jogo pausado")
+	done(g)
+
+
+func _tip_draw_test(kind: String, i: int, ult := 0.0) -> void:
+	after_draw(func():
+		scene = new_game()
+		var h = scene.hud
+		h.set_process(false)
+		h.tip = {"kind": kind, "i": i}
+		if ult > 0.0:
+			hero(scene, 0, "talos").ult = ult
+		h.queue_redraw(),
+	func():
+		# Erros de desenho aparecem como SCRIPT ERROR e reprovam o run_tests.
+		check(scene.hud.tip.get("kind") == kind, "dica %s desenhada" % kind)
+		done(scene)
+		scene = null)
+
+
+func test_hud_tip_draw_ult() -> void:
+	_tip_draw_test("ult", 0, 100.0)
+
+
+func test_hud_tip_draw_next() -> void:
+	_tip_draw_test("next", 0)
+
+
+func test_hud_tip_draw_behavior() -> void:
+	_tip_draw_test("beh", 0)
+
+
+func test_pause_menu_flow() -> void:
+	var g := new_game()
+	var h = g.hud
+	var reqs: Array = []
+	g.request.connect(func(a): reqs.append(a))
+	h._input(_key(KEY_ESCAPE))
+	check(g.paused and h.pause_view == "main", "ESC pausa")
+	h._input(_key(KEY_ESCAPE))
+	check(not g.paused, "ESC de novo retoma")
+	h._input(_key(KEY_P))
+	check(g.paused, "P pausa")
+	h.pause_click(h.pause_button("help").get_center())
+	check(h.pause_view == "help", "Como jogar abre a ajuda")
+	h._input(_key(KEY_ESCAPE))
+	check(g.paused and h.pause_view == "main", "ESC na ajuda volta à pausa")
+	h.pause_click(h.pause_button("quit").get_center())
+	check(h.pause_view == "confirm" and reqs.is_empty(), "Voltar ao menu pede confirmação")
+	h.pause_click(h.confirm_button(1).get_center())
+	check(h.pause_view == "main" and reqs.is_empty(), "Cancelar volta à pausa")
+	var lr: Rect2 = h.pause_lang_rect()
+	h.pause_click(Vector2(lr.end.x - 5, lr.get_center().y))
+	check(T.lang() == "en", "botão EN na pausa troca o idioma")
+	h.pause_click(Vector2(lr.position.x + 5, lr.get_center().y))
+	check(T.lang() == "pt", "botão PT na pausa volta")
+	h.pause_click(h.pause_button("continue").get_center())
+	check(not g.paused, "Continuar retoma")
+	h.set_paused(true)
+	h.pause_click(h.pause_button("quit").get_center())
+	h.pause_click(h.confirm_button(0).get_center())
+	check(reqs == ["menu"], "confirmar volta ao menu principal")
+	done(g)
+
+
+func test_pause_on_focus_loss() -> void:
+	var g := new_game()
+	g.hud._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	check(g.paused and g.hud.auto_paused, "perder o foco pausa sozinho")
+	g.hud._input(_key(KEY_ESCAPE))
+	check(not g.paused, "ESC retoma")
+	g.ended = true
+	g.hud._notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	check(not g.paused, "partida encerrada não pausa")
+	done(g)
+
+
+func test_pause_menu_draws() -> void:
+	after_draw(func():
+		scene = new_game()
+		scene.hud.set_paused(true, true)
+		scene.hud.pause_view = "confirm"
+		scene.hud.queue_redraw(),
+	func():
+		check(scene.paused, "pausa desenhada")
+		done(scene)
+		scene = null)
+
+
+func test_menu_language_button() -> void:
+	var Menu = load("res://scripts/menu.gd")
+	var m: Node2D = Menu.new()
+	var lr: Rect2 = m.lang_rect()
+	for r in [m.play_rect(), m.help_rect(), m.heroes_rect()]:
+		check(not lr.intersects(r), "botão de idioma não cobre outros botões")
+	check(lr.end.x <= 1280 and lr.position.y >= 0, "botão de idioma dentro da tela")
+	check(UI_lang_at(lr, Vector2(lr.position.x + 2, lr.get_center().y)) == "pt" and UI_lang_at(lr, Vector2(lr.end.x - 2, lr.get_center().y)) == "en", "metades PT e EN")
+	m.free()
+
+
+func UI_lang_at(r: Rect2, p: Vector2) -> String:
+	return load("res://scripts/ui.gd").lang_at(r, p)
+
+
+func test_art_every_map_image_is_used() -> void:
+	# Com textura em todos os caminhos map/, a partida desenha as 5 imagens do mapa.
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		var tx := ImageTexture.create_from_image(img)
+		Art.clear_cache()
+		for p in _all_art_paths():
+			Art.set_texture(p, tx)
+		Art.drawn_names.clear()
+		scene = _art_scene(),
+	func():
+		for name in Art.MAP_IMAGES.keys():
+			check(Art.drawn_names.has("map/" + name), "a imagem map/%s.png nunca é desenhada" % name)
+		done(scene)
+		scene = null
+		Art.clear_cache())
+
+
+func test_art_map_sizes() -> void:
+	# Colunas grandes (raio 34/28) e pequenas (22/20); tamanhos na tela.
+	check(Art.pillar_name(34.0) == "pillar_large" and Art.pillar_name(28.0) == "pillar_large", "raio 34 e 28 usam a coluna grande")
+	check(Art.pillar_name(22.0) == "pillar_small" and Art.pillar_name(20.0) == "pillar_small", "raio 22 e 20 usam a coluna pequena")
+	check(absf(Art.map_size("pillar_large", 34.0) - 80.0) < 0.1, "coluna de raio 34 desenhada com 80 px")
+	check(absf(Art.map_size("control_point", 95.0) - 211.1) < 0.2, "ponto desenhado com ~211 px")
+	var readme := FileAccess.get_file_as_string("res://assets/README.md")
+	for name in Art.MAP_IMAGES.keys():
+		check(readme.contains(name + ".png"), "assets/README.md deveria listar map/%s.png" % name)

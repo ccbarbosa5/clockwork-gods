@@ -122,6 +122,7 @@ func apply_settings() -> void:
 
 func save_settings() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(settings_path)  # mantém as outras opções (idioma)
 	cfg.set_value("audio", "volume", volume)
 	cfg.set_value("audio", "muted", muted)
 	cfg.set_value("audio", "music", music_on)
