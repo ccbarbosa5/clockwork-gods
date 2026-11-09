@@ -1,0 +1,80 @@
+name: Build e publicação
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7.2"
+  # Destino no itch.io no formato usuario/nome-do-jogo.
+  # Pode ser trocado pela variável de repositório ITCH_TARGET.
+  ITCH_TARGET: ${{ vars.ITCH_TARGET || 'ccbarbosa5/ichor-clockwork-gods' }}
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache do Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Baixar Godot e templates web
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          V="${GODOT_VERSION}-stable"
+          mkdir -p ~/godot/templates
+          cd ~/godot
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/$V/Godot_v${V}_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv "Godot_v${V}_linux.x86_64" godot
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/$V/Godot_v${V}_export_templates.tpz"
+          unzip -q -j templates.tpz 'templates/web_nothreads_release.zip' 'templates/web_nothreads_debug.zip' 'templates/version.txt' -d templates
+          rm templates.tpz
+
+      - name: Instalar templates
+        run: |
+          DEST=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$DEST"
+          cp ~/godot/templates/* "$DEST/"
+
+      - name: Importar projeto
+        run: timeout 300 ~/godot/godot --headless --path . --import || true
+
+      - name: Teste automático (bot contra bot)
+        run: |
+          timeout 300 ~/godot/godot --headless --path . -- --autotest 2>&1 | tee autotest.log
+          if grep -q "SCRIPT ERROR" autotest.log; then echo "Erro de script no teste"; exit 1; fi
+          grep -q "RESULTADO" autotest.log
+
+      - name: Exportar para web
+        run: |
+          mkdir -p build/web
+          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          test -f build/web/index.html
+
+      - name: Guardar build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ichor-web
+          path: build/web
+
+      - name: Publicar no itch.io
+        if: env.BUTLER_API_KEY != ''
+        run: |
+          set -e
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler push build/web "${ITCH_TARGET}:html5" --userversion "0.1.${{ github.run_number }}"
+
+      - name: Aviso sem chave do itch
+        if: env.BUTLER_API_KEY == ''
+        run: echo "::notice::Secret BUTLER_API_KEY não configurado. Build gerado, mas não publicado no itch.io."
