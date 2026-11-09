@@ -133,6 +133,8 @@ func set_paused(on: bool, auto := false) -> void:
 	game.paused = on
 	auto_paused = on and auto
 	pause_view = "main"
+	if AudioScript.instance != null:
+		AudioScript.instance.pause_music(on)
 
 
 func _notification(what: int) -> void:
@@ -207,7 +209,7 @@ func pause_click(m: Vector2) -> void:
 			pause_view = "main"
 		"confirm":
 			if confirm_button(0).has_point(m):
-				game.paused = false
+				set_paused(false)
 				game.request.emit("menu")
 			elif confirm_button(1).has_point(m):
 				pause_view = "main"
