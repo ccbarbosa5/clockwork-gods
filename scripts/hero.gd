@@ -769,7 +769,7 @@ func _draw() -> void:
 	if wall_t > 0.0:
 		var a2 := facing.angle()
 		var alpha := clampf(wall_hp / 450.0, 0.3, 1.0)
-		if Art.draw_fx(self, "muralha_arco", facing * 44.0, Art.FX_EFFECTS["muralha_arco"], 1.0, alpha, a2):
+		if Art.draw_fx(self, "muralha_arco", facing * Art.MURALHA_OFFSET, Art.FX_EFFECTS["muralha_arco"], 1.0, alpha, a2):
 			pass
 		else:
 			_draw_wall_code(a2, alpha)

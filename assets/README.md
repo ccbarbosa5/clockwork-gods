@@ -87,7 +87,7 @@ Nas áreas com imagem, um anel fino na cor do time continua por código (Chuva d
 
 | Arquivo | Fonte | Na tela | Observação |
 | --- | --- | --- | --- |
-| `muralha_arco.png` | 256×128 | 96×48 | Arco convexo virado para a DIREITA (frente). Centro da imagem a 44 px à frente do Talos; gira com ele. Opacidade cai com a resistência (mínimo 30%) |
+| `muralha_arco.png` | 256×128 | 179×90 | Arco convexo virado para a DIREITA (frente), alto e estreito (meia-lua de ~78×123 px no centro da imagem). Desenhado a 70%, com o centro da imagem a 33 px à frente do Talos: o escudo fica de 34 a 60 px do centro dele, com ~86 px de altura. Gira com ele. Opacidade cai com a resistência (mínimo 30%) |
 | `soco_arco.png` | 128×64 | 64×32 (Talos) | Arco de impacto virado para a direita, a raio + 12 px à frente; some em 0,18 s |
 | `feixe_cura.png` | 64×16 | 6 px de espessura | Textura horizontal repetida do Asclépio até o aliado (até 260 px) |
 
