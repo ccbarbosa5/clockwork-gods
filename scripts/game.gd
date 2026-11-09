@@ -722,6 +722,9 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 		# --- Hércules ---
 		"nemeia":
 			var lp := _clamp_range(h.position, tpos, 300.0)
+			var eb: Vector2 = SPAWNS[1 - h.team]
+			if lp.distance_to(eb) < SPAWN_R + h.radius:
+				lp = eb + (lp - eb).normalized() * (SPAWN_R + h.radius + 2.0)
 			h.facing = dir
 			h.leaping = true
 			h.leap_target = lp

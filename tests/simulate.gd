@@ -315,7 +315,7 @@ func _check_invariants(g, tag: String, still: Dictionary, last_pos: Dictionary) 
 		for o in g.OBSTACLES:
 			if not h.leaping and p.distance_to(Vector2(o.x, o.y)) < o.z + h.radius - 1.5:
 				_anomaly("herói dentro de obstáculo", tag + " " + name)
-		if p.distance_to(g.SPAWNS[1 - h.team]) < g.SPAWN_R + h.radius - 1.5:
+		if not h.leaping and p.distance_to(g.SPAWNS[1 - h.team]) < g.SPAWN_R + h.radius - 1.5:
 			_anomaly("herói dentro da base inimiga", tag + " " + name)
 		if h.hp > h.max_hp + 0.01 or h.hp <= 0.0:
 			_anomaly("vida inválida", tag + " %s hp=%.1f" % [name, h.hp])
