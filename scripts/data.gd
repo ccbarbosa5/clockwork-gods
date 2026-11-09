@@ -143,32 +143,34 @@ const ROLE_NAMES := {
 	"Suporte": {"pt": "Suporte", "en": "Support"},
 }
 
-## Epíteto, biografia (2 a 3 linhas) e frase marcante de cada herói.
-## PROVISÓRIO: bios e epítetos resumidos da Bíblia de Lore; as frases são as
-## aprovadas nas fichas. Os definitivos virão de claude/textos-galeria.md (Lore).
-## O inglês é tradução provisória.
+## Nome, epíteto, biografia (até 3 linhas) e frase marcante de cada herói.
+## Fonte: claude/textos-galeria.md (Lore, aprovado pelo usuário em 9 nov. 2026).
+## O inglês usa termos do glossário ainda em PROPOSTA (Great Gear, Rites, sparks).
 const HERO_TEXTS := {
 	"talos": {
+		"name": {"pt": "Talos", "en": "Talos"},
 		"epithet": {"pt": "O Guardião de Bronze", "en": "The Bronze Guardian"},
 		"bio": {
-			"pt": "O primeiro autômato de Hefesto, guardião de Creta. Morreu quando o Ícor vazou da sua única veia e renasceu como o molde de todos os corpos dos Ritos. Protege o selo dos Titãs como antes protegia a ilha.",
-			"en": "Hephaestus' first automaton, guardian of Crete. He died when the Ichor drained from his only vein and was rebuilt as the mold for every body in the Rites. He guards the Titans' seal as he once guarded the island.",
+			"pt": "O primeiro autômato de Hefesto. Morreu quando o Ícor vazou de sua única veia e renasceu como o molde de todos os corpos dos Ritos. Hoje guarda o selo dos Titãs como um dia guardou Creta.",
+			"en": "Hephaestus's first automaton. He died when the Ichor drained from his single vein and was rebuilt as the mold for every body in the Rites. Now he guards the Titans' seal as he once guarded Crete.",
 		},
 		"quote": {"pt": "Uma veia. Um prego. Nunca mais.", "en": "One vein. One nail. Never again."},
 	},
 	"artemis": {
-		"epithet": {"pt": "A Caçadora da Lua", "en": "The Moon Huntress"},
+		"name": {"pt": "Ártemis", "en": "Artemis"},
+		"epithet": {"pt": "A Caçadora de Prata", "en": "The Silver Huntress"},
 		"bio": {
-			"pt": "A deusa da caça, presa num corpo de prata e latão depois de dar o próprio Ícor à Grande Engrenagem. Orgulhosa e impaciente, faz de cada rito a única caçada que lhe restou, e cada tiro precisa contar.",
-			"en": "The goddess of the hunt, bound to a body of silver and brass after giving her own Ichor to the Great Gear. Proud and impatient, she treats every rite as the only hunt she has left, and every shot must count.",
+			"pt": "Deusa da caça, presa num corpo de latão desde que deu seu Ícor à Grande Engrenagem. Nos Ritos, encontrou a única caçada que lhe resta, e cada tiro precisa contar.",
+			"en": "Goddess of the hunt, bound to a brass body since she gave her Ichor to the Great Gear. The Rites are the only hunt she has left, and every shot must count.",
 		},
-		"quote": {"pt": "Corpo de latão, mira de deusa.", "en": "Brass body, a goddess's aim."},
+		"quote": {"pt": "Corpo de latão, mira de deusa.", "en": "Body of brass, aim of a goddess."},
 	},
 	"asclepio": {
-		"epithet": {"pt": "O Médico das Centelhas", "en": "The Physician of Sparks"},
+		"name": {"pt": "Asclépio", "en": "Asclepius"},
+		"epithet": {"pt": "O Médico Fulminado", "en": "The Thunderstruck Healer"},
 		"bio": {
-			"pt": "O médico que Zeus fulminou por ressuscitar os mortos. Hefesto o chamou para cuidar dos corpos e das centelhas dos Ritos, e a ironia o diverte: aqui, todo mundo volta. Sabe curar e, por isso, sabe envenenar.",
-			"en": "The healer Zeus struck down for raising the dead. Hephaestus called him to tend the bodies and sparks of the Rites, and the irony amuses him: here, everyone comes back. He knows how to heal, and so how to poison.",
+			"pt": "O médico que Zeus fulminou por ressuscitar os mortos. Hefesto o chamou para cuidar dos corpos e centelhas dos Ritos, onde todos voltam. A ironia o diverte.",
+			"en": "The physician Zeus struck down for raising the dead. Hephaestus called him to tend the bodies and sparks of the Rites, where everyone comes back. He enjoys the irony.",
 		},
 		"quote": {"pt": "Na arena, ninguém morre de verdade. Finalmente uma regra que eu aprovo.", "en": "In the arena, no one truly dies. Finally, a rule I approve of."},
 	},
