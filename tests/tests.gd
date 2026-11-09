@@ -1137,12 +1137,13 @@ func test_gallery_texts_every_hero_both_languages() -> void:
 		check(Data.ORIGIN_NAMES.has(Data.HEROES[hid]["origin"]), "origem desconhecida: " + hid)
 		check(Data.ROLE_NAMES.has(Data.HEROES[hid]["role"]), "função sem tradução: " + hid)
 		for l in Data.LANGS:
-			for field in ["epithet", "bio", "quote"]:
+			for field in ["name", "epithet", "bio", "quote"]:
 				check(Data.hero_text(hid, field, l) != "", "%s sem %s em %s" % [hid, field, l])
 			var bio_h := f.get_multiline_string_size(Data.hero_text(hid, "bio", l), HORIZONTAL_ALIGNMENT_LEFT, w, 15).y
 			check(bio_h <= f.get_height(15) * 3 + 1, "bio de %s (%s) passa de 3 linhas" % [hid, l])
 			var q_h := f.get_multiline_string_size("“" + Data.hero_text(hid, "quote", l) + "”", HORIZONTAL_ALIGNMENT_LEFT, w - 10, 16).y
 			check(q_h <= f.get_height(16) * 2 + 1, "frase de %s (%s) passa de 2 linhas" % [hid, l])
+	check(Data.hero_text("talos", "name", "pt") == Data.HEROES["talos"]["name"] and Data.hero_text("asclepio", "name", "pt") == Data.HEROES["asclepio"]["name"], "nome em PT igual ao do jogo")
 	check(Data.hero_text("talos", "quote", "xx") == Data.hero_text("talos", "quote", "pt"), "idioma sem tradução cai para PT")
 
 

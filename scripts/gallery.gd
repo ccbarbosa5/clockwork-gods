@@ -227,7 +227,7 @@ func _draw_list() -> void:
 		UI.panel(self, r, bg, border, 3.0 if on else 1.5)
 		var c := r.position + Vector2(r.size.x * 0.5, 58)
 		_portrait(hid, c, 44.0, role_col)
-		UI.text_c(self, Vector2(c.x, r.position.y + 126), Data.HEROES[hid]["name"], 15, Color.WHITE, 2)
+		UI.text_c(self, Vector2(c.x, r.position.y + 126), Data.hero_text(hid, "name"), 15, Color.WHITE, 2)
 		UI.text_c(self, Vector2(c.x, r.position.y + 141), Data.role_name(hid), 11, role_col.lightened(0.2))
 	# Barra de rolagem (só quando a lista não cabe).
 	var ms := max_scroll()
@@ -275,7 +275,7 @@ func _draw_info(hid: String) -> void:
 	var w := INFO_R - INFO_X
 	var f := UI.font()
 	# Nome e epíteto
-	UI.text_l(self, Vector2(x, 128), h["name"], 42, Data.GOLD, 6)
+	UI.text_l(self, Vector2(x, 128), Data.hero_text(hid, "name"), 42, Data.GOLD, 6)
 	italic_text(Vector2(x, 160), Data.hero_text(hid, "epithet"), 19, Data.BRONZE.lightened(0.35))
 	# Função (com a cor) e origem
 	var role := Data.role_name(hid)
