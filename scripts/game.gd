@@ -805,11 +805,11 @@ func _draw() -> void:
 	for r in rains:
 		var rc: Color = Data.TEAM_COLORS[r["team"]]
 		var rain_size := Vector2(r["r"], r["r"]) * 2.0
-		if not Art.draw_fx(self, "chuva_area", r["pos"], rain_size, 1.0, 0.9, time * 0.3):
+		if not Art.draw_fx(self, "chuva_area", r["pos"], rain_size, 1.0, Art.RAIN_ALPHA, time * 0.3):
 			draw_circle(r["pos"], r["r"], Color(rc, 0.12))
 			UI.ring(self, r["pos"], r["r"], Color(0.85, 0.9, 1.0, 0.6), 2.0)
 		else:
-			UI.ring(self, r["pos"], r["r"], Color(rc, 0.5), 2.0)  # cor do time continua visível
+			UI.ring(self, r["pos"], r["r"], Color(rc, 0.8), 3.0)  # cor do time continua visível
 		for k in 14:
 			var sd: float = float(k) * 12.9898 + floor(time * 8.0) * 3.7
 			var ox: float = sin(sd) * r["r"] * 0.9
@@ -880,7 +880,7 @@ func _draw() -> void:
 				if not Art.draw_fx(self, f["img"], f["pos"], Art.FX_EFFECTS.get(f["img"], Vector2(44, 44)), 1.0, 1.0 - k2):
 					UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
 			_:
-				if f.has("img") and Art.draw_fx(self, f["img"], f["pos"], Vector2(f["r"], f["r"]) * 2.0, 0.3 + 0.7 * k2, 1.0 - k2, k2 * 0.5):
+				if f.has("img") and Art.draw_fx(self, f["img"], f["pos"], Vector2(f["r"], f["r"]) * 2.0, 0.3 + 0.7 * k2, Art.AREA_ALPHA * (1.0 - k2), k2 * 0.5):
 					continue
 				UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
 
