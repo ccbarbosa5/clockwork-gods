@@ -4,6 +4,7 @@ extends Node2D
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
+const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
 const PANEL := Rect2(0, 560, 1280, 160)
@@ -229,16 +230,26 @@ func _draw_panel() -> void:
 		for k in n:
 			var ab: Dictionary = Data.ABILITIES[h.armed[k]["ab"]]
 			UI.badge(self, Vector2(c.x + 30 - k * 16, 624), 6.5, ab, rc, 0.95, h.armed[k]["ult"])
+		var portrait := Art.hero_portrait(hid)
 		draw_circle(c, 30.0, Color(0.05, 0.04, 0.03))
-		draw_circle(c, 25.0, Color(rc, 0.22))
+		if portrait != null:
+			Art.draw_circle_tex(self, portrait, c, 25.0)
+		else:
+			draw_circle(c, 25.0, Color(rc, 0.22))
 		var ready: bool = h.ult >= 100.0 and h.alive
 		draw_arc(c, 28.0, -PI * 0.5, -PI * 0.5 + TAU * h.ult / 100.0, 40, Data.GOLD if ready else Color(Data.GOLD, 0.6), 4.0, true)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(game.time * 6.0)
 			draw_circle(c, 25.0, Color(Data.GOLD, 0.25 + 0.3 * pulse))
 		var ult_ab: Dictionary = Data.ABILITIES[h.def["ult"]]
-		UI.effect_icon(self, ult_ab["effect"], c + Vector2(0, -4), 9.0, Color(1, 1, 1, 0.35 if not ready else 0.9))
-		UI.text_c(self, c + Vector2(0, 17), h.ability_ready_text() if h.alive else "—", 10 if ready else 11, Color.WHITE, 3)
+		if portrait != null:
+			# Com retrato: a ultimate vira um selo no canto inferior direito do medidor
+			# e a porcentagem fica sobre a base do retrato.
+			UI.badge(self, c + Vector2(21, 21), 9.0, ult_ab, rc, 1.0 if ready else 0.75, ready)
+			UI.text_c(self, c + Vector2(0, 21), h.ability_ready_text() if h.alive else "—", 11, Color.WHITE, 3)
+		else:
+			UI.ability_icon(self, ult_ab, c + Vector2(0, -4), 9.0, Color(1, 1, 1, 0.35 if not ready else 0.9))
+			UI.text_c(self, c + Vector2(0, 17), h.ability_ready_text() if h.alive else "—", 10 if ready else 11, Color.WHITE, 3)
 		UI.text_c(self, c + Vector2(-20, -18), Data.ULT_KEYS[i], 10, Color(1, 1, 1, 0.6), 2)
 		UI.text_c(self, Vector2(c.x, 712), ult_ab["name"], 10, Color(Data.GOLD, 0.8))
 		if not h.alive:
@@ -309,22 +320,28 @@ func _draw_card(r: Rect2, card: String, hov: bool) -> void:
 	var ab: Dictionary = Data.ABILITIES[card]
 	var hd: Dictionary = Data.HEROES[ab["hero"]]
 	var rc: Color = Data.ROLE_COLORS[hd["role"]]
+	var frame := Art.card_frame(hd["role"])
 	draw_rect(Rect2(r.position + Vector2(3, 4), r.size), Color(0, 0, 0, 0.4))
-	draw_rect(r, rc.darkened(0.78))
-	# Faixa superior com o herói
 	var head := Rect2(r.position, Vector2(r.size.x, 24))
-	draw_rect(head, rc.darkened(0.15))
+	if frame != null:
+		# Moldura em imagem (240×236) no lugar do fundo, da faixa e da borda.
+		Art.draw_centered(self, frame, r.get_center(), r.size)
+	else:
+		draw_rect(r, rc.darkened(0.78))
+		# Faixa superior com o herói
+		draw_rect(head, rc.darkened(0.15))
 	UI.hero_glyph(self, ab["hero"], head.position + Vector2(r.size.x - 14, 12), 5.5, Color(0.1, 0.06, 0.03))
 	UI.text_c(self, Vector2(r.get_center().x + 4, head.position.y + 16), hd["name"].to_upper(), 10, Color(0.1, 0.06, 0.03))
 	# Ícone do efeito
 	var ic := Vector2(r.get_center().x, r.position.y + 54)
 	draw_circle(ic, 20.0, rc.darkened(0.45))
 	UI.ring(self, ic, 20.0, Color(rc, 0.9), 2.0)
-	UI.effect_icon(self, ab["effect"], ic, 12.0, Color.WHITE)
+	UI.ability_icon(self, ab, ic, 12.0, Color.WHITE)
 	# Nome e resumo
 	UI.text_box(self, Rect2(r.position.x + 4, r.position.y + 76, r.size.x - 8, 30), ab["name"], 11, Color.WHITE)
 	UI.text_c(self, Vector2(r.get_center().x, r.end.y - 6), ab["short"], 9, Color(rc.lightened(0.35), 0.95))
-	draw_rect(r, Data.GOLD if hov else Color(rc, 0.9), false, 3.0 if hov else 2.0)
+	if frame == null or hov:
+		draw_rect(r, Data.GOLD if hov else Color(rc, 0.9), false, 3.0 if hov else 2.0)
 	_gem(r.position + Vector2(13, 13), ab["cost"], 11.0)
 
 
@@ -335,7 +352,7 @@ func _draw_card_mini(r: Rect2, card: String) -> void:
 	draw_rect(Rect2(r.position, Vector2(r.size.x, 8)), rc.darkened(0.15))
 	var ic := Vector2(r.get_center().x, r.position.y + 36)
 	draw_circle(ic, 15.0, rc.darkened(0.45))
-	UI.effect_icon(self, ab["effect"], ic, 9.0, Color.WHITE)
+	UI.ability_icon(self, ab, ic, 9.0, Color.WHITE)
 	UI.text_box(self, Rect2(r.position.x + 3, r.position.y + 54, r.size.x - 6, 34), ab["name"], 9, Color(1, 1, 1, 0.85))
 	draw_rect(r, Color(rc, 0.7), false, 1.5)
 	_gem(r.position + Vector2(10, 12), ab["cost"], 8.0)
