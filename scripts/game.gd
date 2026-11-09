@@ -891,23 +891,51 @@ func _draw() -> void:
 			UI.text_c(self, sp + Vector2(0, 5), "%s %d" % [T.hero_name(h.hid).substr(0, 1), int(ceil(h.respawn_t))], 12, Color(Data.TEAM_COLORS[h.team], 0.8), 3)
 
 
-func draw_overlay(ci: CanvasItem) -> void:
-	# Chamado pelo HUD para desenhar acima dos heróis.
-	if flash_t > 0.0:
-		ci.draw_rect(ARENA.grow(-4), Color(flash_col, clampf(flash_t, 0.0, 0.6)), false, 10.0)
+## Selos das habilidades recém-usadas, acima dos heróis. Só o ícone: o nome
+## fica no registro do canto e, nas ultimates, no anúncio do topo. Selos que
+## se encostariam são afastados lado a lado, para não se empilharem.
+const POPUP_R := 11.0
+const POPUP_ULT_R := 14.0
+const POPUP_GAP := 3.0
+
+
+func popup_layout() -> Array:
+	var out: Array = []
 	for pp in popups:
 		var hero = pp["hero"]
 		if is_instance_valid(hero) and hero.alive:
 			pp["pos"] = hero.position
 		var k: float = 1.0 - pp["t"] / pp["max"]
-		var a: float = clampf(pp["t"] / pp["max"] * 2.5, 0.0, 1.0)
-		var abd: Dictionary = Data.ABILITIES[pp["ab"]]
-		var role_col: Color = Data.ROLE_COLORS[Data.HEROES[abd["hero"]]["role"]]
 		var big: bool = pp["ult"]
-		var c: Vector2 = pp["pos"] + Vector2(0, -48.0 - 14.0 * k)
-		UI.badge(ci, c, 17.0 if big else 13.0, abd, role_col, a, big)
-		var tc: Color = Data.TEAM_COLORS[hero.team if is_instance_valid(hero) else 0].lerp(Color.WHITE, 0.45)
-		UI.text_c(ci, c + Vector2(0, (32.0 if big else 27.0)), T.ab_name(pp["ab"]), 14 if big else 12, Color(Data.GOLD if big else tc, a), 4)
+		var r := POPUP_ULT_R if big else POPUP_R
+		var abd: Dictionary = Data.ABILITIES[pp["ab"]]
+		var c: Vector2 = pp["pos"] + Vector2(0, -52.0 - 10.0 * k)
+		# Procura uma posição livre alternando direita/esquerda.
+		var base := c
+		var step := 0
+		while true:
+			var free := true
+			for o in out:
+				if c.distance_to(o["pos"]) < r + o["r"] + POPUP_GAP:
+					free = false
+					break
+			if free or step > 12:
+				break
+			step += 1
+			var side := 1.0 if step % 2 == 1 else -1.0
+			c = base + Vector2(side * ceil(step / 2.0) * (r * 2.0 + POPUP_GAP), 0)
+		out.append({"pos": c, "r": r, "ab": pp["ab"], "ult": big,
+			"col": Data.ROLE_COLORS[Data.HEROES[abd["hero"]]["role"]],
+			"a": clampf(pp["t"] / pp["max"] * 2.5, 0.0, 1.0)})
+	return out
+
+
+func draw_overlay(ci: CanvasItem) -> void:
+	# Chamado pelo HUD para desenhar acima dos heróis.
+	if flash_t > 0.0:
+		ci.draw_rect(ARENA.grow(-4), Color(flash_col, clampf(flash_t, 0.0, 0.6)), false, 10.0)
+	for b in popup_layout():
+		UI.badge(ci, b["pos"], b["r"], Data.ABILITIES[b["ab"]], b["col"], b["a"], b["ult"])
 	var fy := 62.0
 	for cf in cast_feed:
 		var fa: float = clampf(cf["t"], 0.0, 1.0)
