@@ -56,5 +56,5 @@ Configuração (uma vez):
 2. Gere uma chave em *itch.io → Settings → API keys*.
 3. No GitHub, em *Settings → Secrets and variables → Actions*:
    - Secret `BUTLER_API_KEY` com a chave do itch.
-   - Variável `ITCH_TARGET` com `seu-usuario-itch/nome-do-jogo` (padrão: `ccbarbosa5/ichor-clockwork-gods`).
+   - Variável `ITCH_TARGET` com `seu-usuario-itch/nome-do-jogo` (padrão: `ccbarbosa/ichor-clockwork-gods`).
 4. Depois do primeiro envio, na página do jogo no itch, marque o arquivo `html5` como *This file will be played in the browser* e defina o tamanho 1280 × 720.
