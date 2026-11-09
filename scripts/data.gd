@@ -122,3 +122,73 @@ const ABILITIES := {
 
 const ULT_KEYS := ["Q", "W", "E"]
 const BEHAVIOR_KEYS := ["Z", "X", "C"]
+
+# --- Textos da Galeria de heróis (bilíngue) ----------------------------------
+## Idioma atual dos textos ("pt" ou "en"). O resto da interface ainda é só PT.
+static var lang := "pt"
+const LANGS := ["pt", "en"]
+
+## Origem do herói (campo "origin" de HEROES).
+const ORIGIN_NAMES := {
+	"deus": {"pt": "Deus", "en": "God"},
+	"deusa": {"pt": "Deusa", "en": "Goddess"},
+	"semideus": {"pt": "Semideus", "en": "Demigod"},
+	"lenda": {"pt": "Lenda", "en": "Legend"},
+}
+
+## Nome da função em cada idioma (chave = campo "role" de HEROES).
+const ROLE_NAMES := {
+	"Tanque": {"pt": "Tanque", "en": "Tank"},
+	"Dano": {"pt": "Dano", "en": "Damage"},
+	"Suporte": {"pt": "Suporte", "en": "Support"},
+}
+
+## Epíteto, biografia (2 a 3 linhas) e frase marcante de cada herói.
+## PROVISÓRIO: bios e epítetos resumidos da Bíblia de Lore; as frases são as
+## aprovadas nas fichas. Os definitivos virão de claude/textos-galeria.md (Lore).
+## O inglês é tradução provisória.
+const HERO_TEXTS := {
+	"talos": {
+		"epithet": {"pt": "O Guardião de Bronze", "en": "The Bronze Guardian"},
+		"bio": {
+			"pt": "O primeiro autômato de Hefesto, guardião de Creta. Morreu quando o Ícor vazou da sua única veia e renasceu como o molde de todos os corpos dos Ritos. Protege o selo dos Titãs como antes protegia a ilha.",
+			"en": "Hephaestus' first automaton, guardian of Crete. He died when the Ichor drained from his only vein and was rebuilt as the mold for every body in the Rites. He guards the Titans' seal as he once guarded the island.",
+		},
+		"quote": {"pt": "Uma veia. Um prego. Nunca mais.", "en": "One vein. One nail. Never again."},
+	},
+	"artemis": {
+		"epithet": {"pt": "A Caçadora da Lua", "en": "The Moon Huntress"},
+		"bio": {
+			"pt": "A deusa da caça, presa num corpo de prata e latão depois de dar o próprio Ícor à Grande Engrenagem. Orgulhosa e impaciente, faz de cada rito a única caçada que lhe restou, e cada tiro precisa contar.",
+			"en": "The goddess of the hunt, bound to a body of silver and brass after giving her own Ichor to the Great Gear. Proud and impatient, she treats every rite as the only hunt she has left, and every shot must count.",
+		},
+		"quote": {"pt": "Corpo de latão, mira de deusa.", "en": "Brass body, a goddess's aim."},
+	},
+	"asclepio": {
+		"epithet": {"pt": "O Médico das Centelhas", "en": "The Physician of Sparks"},
+		"bio": {
+			"pt": "O médico que Zeus fulminou por ressuscitar os mortos. Hefesto o chamou para cuidar dos corpos e das centelhas dos Ritos, e a ironia o diverte: aqui, todo mundo volta. Sabe curar e, por isso, sabe envenenar.",
+			"en": "The healer Zeus struck down for raising the dead. Hephaestus called him to tend the bodies and sparks of the Rites, and the irony amuses him: here, everyone comes back. He knows how to heal, and so how to poison.",
+		},
+		"quote": {"pt": "Na arena, ninguém morre de verdade. Finalmente uma regra que eu aprovo.", "en": "In the arena, no one truly dies. Finally, a rule I approve of."},
+	},
+}
+
+
+## Texto de um herói no idioma atual (cai para PT se faltar a tradução).
+static func hero_text(hid: String, field: String, language := "") -> String:
+	var l := language if language != "" else lang
+	var d: Dictionary = HERO_TEXTS.get(hid, {}).get(field, {})
+	return d.get(l, d.get("pt", ""))
+
+
+static func origin_name(hid: String, language := "") -> String:
+	var l := language if language != "" else lang
+	var d: Dictionary = ORIGIN_NAMES.get(HEROES[hid]["origin"], {})
+	return d.get(l, d.get("pt", HEROES[hid]["origin"]))
+
+
+static func role_name(hid: String, language := "") -> String:
+	var l := language if language != "" else lang
+	var d: Dictionary = ROLE_NAMES.get(HEROES[hid]["role"], {})
+	return d.get(l, HEROES[hid]["role"])

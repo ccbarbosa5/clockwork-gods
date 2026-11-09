@@ -9,6 +9,8 @@ const Data = preload("res://scripts/data.gd")
 
 const HERO_SPRITE := "res://assets/heroes/%s_top.png"
 const HERO_PORTRAIT := "res://assets/heroes/%s_portrait.png"
+## Ilustração de corpo inteiro da Galeria de heróis (512×768).
+const HERO_FULL := "res://assets/heroes/%s_full.png"
 const ICON := "res://assets/icons/%s.png"
 const CARD_FRAME := "res://assets/cards/frame_%s.png"
 const FX := "res://assets/fx/%s.png"
@@ -98,6 +100,10 @@ static func hero_sprite(hid: String) -> Texture2D:
 
 static func hero_portrait(hid: String) -> Texture2D:
 	return tex(HERO_PORTRAIT % hid)
+
+
+static func hero_full(hid: String) -> Texture2D:
+	return tex(HERO_FULL % hid)
 
 
 static func icon(ab_id: String) -> Texture2D:

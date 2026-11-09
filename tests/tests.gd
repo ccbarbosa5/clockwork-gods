@@ -8,6 +8,8 @@ const Data = preload("res://scripts/data.gd")
 const GameScript = preload("res://scripts/game.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 const Art = preload("res://scripts/art.gd")
+const GalleryScript = preload("res://scripts/gallery.gd")
+const MainScript = preload("res://scripts/main.gd")
 
 var _failures: Array = []
 var _current := ""
@@ -868,6 +870,7 @@ func _all_art_paths() -> Array:
 	for hid in Data.HERO_ORDER:
 		paths.append(Art.HERO_SPRITE % hid)
 		paths.append(Art.HERO_PORTRAIT % hid)
+		paths.append(Art.HERO_FULL % hid)
 	for ab in Data.ABILITIES.keys():
 		paths.append(Art.ICON % ab)
 	for role in Data.ROLE_COLORS.keys():
@@ -1035,6 +1038,7 @@ func test_art_every_effect_image_is_used() -> void:
 
 ## Tamanho de fonte esperado de cada imagem (assets/README.md).
 const ART_SOURCE_SIZES := {
+	"heroes/talos_full": Vector2i(512, 768), "heroes/artemis_full": Vector2i(512, 768), "heroes/asclepio_full": Vector2i(512, 768),
 	"heroes": Vector2i(256, 256), "icons": Vector2i(256, 256), "cards": Vector2i(240, 236),
 	"fx/disparo_projetil": Vector2i(256, 64), "fx/veneno_projetil": Vector2i(160, 64), "fx/tiro_basico": Vector2i(64, 32),
 	"fx/furia_area": Vector2i(512, 512), "fx/valvula_area": Vector2i(512, 512), "fx/sopro_area": Vector2i(512, 512),
@@ -1097,3 +1101,155 @@ func test_art_hero_sprite_turns_smoothly() -> void:
 	step(g, 0.2)
 	check(absf(angle_difference(t.sprite_angle, PI)) < 0.01, "em 0,3 s já deveria apontar para a esquerda")
 	done(g)
+
+
+# ---------------------------------------------------------------------------
+# Galeria de heróis (scripts/gallery.gd)
+func new_gallery() -> Node2D:
+	var g := Node2D.new()
+	g.set_script(GalleryScript)
+	root.add_child(g)
+	g.open()
+	return g
+
+
+func _click(pos: Vector2, button := MOUSE_BUTTON_LEFT) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = button
+	e.pressed = true
+	e.position = pos
+	return e
+
+
+func _key(k: Key) -> InputEventKey:
+	var e := InputEventKey.new()
+	e.keycode = k
+	e.pressed = true
+	return e
+
+
+func test_gallery_texts_every_hero_both_languages() -> void:
+	# Todo herói precisa de epíteto, bio (até 3 linhas) e frase (até 2 linhas)
+	# em PT e EN, origem e função conhecidas.
+	var f := ThemeDB.fallback_font
+	var w := GalleryScript.INFO_R - GalleryScript.INFO_X
+	for hid in Data.HERO_ORDER:
+		check(Data.ORIGIN_NAMES.has(Data.HEROES[hid]["origin"]), "origem desconhecida: " + hid)
+		check(Data.ROLE_NAMES.has(Data.HEROES[hid]["role"]), "função sem tradução: " + hid)
+		for l in Data.LANGS:
+			for field in ["epithet", "bio", "quote"]:
+				check(Data.hero_text(hid, field, l) != "", "%s sem %s em %s" % [hid, field, l])
+			var bio_h := f.get_multiline_string_size(Data.hero_text(hid, "bio", l), HORIZONTAL_ALIGNMENT_LEFT, w, 15).y
+			check(bio_h <= f.get_height(15) * 3 + 1, "bio de %s (%s) passa de 3 linhas" % [hid, l])
+			var q_h := f.get_multiline_string_size("“" + Data.hero_text(hid, "quote", l) + "”", HORIZONTAL_ALIGNMENT_LEFT, w - 10, 16).y
+			check(q_h <= f.get_height(16) * 2 + 1, "frase de %s (%s) passa de 2 linhas" % [hid, l])
+	check(Data.hero_text("talos", "quote", "xx") == Data.hero_text("talos", "quote", "pt"), "idioma sem tradução cai para PT")
+
+
+func test_gallery_stat_bars_come_from_data() -> void:
+	for key in ["hp", "speed", "range"]:
+		var top := 0.0
+		for hid in Data.HERO_ORDER:
+			var fr: float = GalleryScript.stat_fraction(hid, key)
+			check(fr > 0.0 and fr <= 1.0, "barra de %s de %s fora de 0..1" % [key, hid])
+			top = maxf(top, fr)
+		check(is_equal_approx(top, 1.0), "o maior %s deveria encher a barra" % key)
+	check(is_equal_approx(GalleryScript.stat_fraction("talos", "hp"), 1.0), "Talos tem a maior vida")
+
+
+func test_gallery_list_supports_many_heroes() -> void:
+	# Com 9 heróis a grade rola, os cartões não se sobrepõem e o selecionado fica visível.
+	var g := new_gallery()
+	g.heroes = []
+	for i in 9:
+		g.heroes.append(Data.HERO_ORDER[i % 3])
+	check(g.rows() == 5, "9 heróis em 2 colunas = 5 linhas")
+	check(g.max_scroll() > 0.0, "lista com 9 heróis deveria rolar")
+	for i in 9:
+		var r: Rect2 = g.card_rect(i)
+		check(r.position.x >= GalleryScript.LIST_RECT.position.x and r.end.x <= GalleryScript.LIST_RECT.end.x, "cartão %d dentro da coluna" % i)
+		for j in range(i + 1, 9):
+			check(not r.intersects(g.card_rect(j)), "cartões %d e %d sobrepostos" % [i, j])
+	g.select(8)
+	check(g.scroll > 0.0 and GalleryScript.LIST_RECT.encloses(g.card_rect(8)), "selecionar o último rola até ele")
+	g.select(0)
+	check(g.scroll == 0.0, "selecionar o primeiro volta ao topo")
+	g.handle(_click(GalleryScript.LIST_RECT.get_center(), MOUSE_BUTTON_WHEEL_DOWN))
+	check(g.scroll > 0.0, "roda do mouse rola a lista")
+	g.free()
+
+
+func test_gallery_click_selects_and_esc_returns() -> void:
+	var g := new_gallery()
+	var backs := [0]
+	g.back.connect(func(): backs[0] += 1)
+	check(g.selected_id() == "talos", "abre no primeiro herói")
+	g.handle(_click(g.card_rect(1).get_center()))
+	check(g.selected_id() == "artemis", "clique no cartão seleciona o herói")
+	g.handle(_key(KEY_RIGHT))
+	check(g.selected_id() == "asclepio", "seta para a direita vai ao próximo")
+	g.handle(_key(KEY_ESCAPE))
+	check(backs[0] == 1 and not g.visible, "ESC volta ao menu")
+	g.open("artemis")
+	check(g.visible and g.selected_id() == "artemis", "abre direto num herói")
+	g.handle(_click(g.back_rect().get_center()))
+	check(backs[0] == 2 and not g.visible, "botão Voltar volta ao menu")
+	g.free()
+
+
+func test_gallery_opens_from_menu_and_back() -> void:
+	var m := Node2D.new()
+	m.set_script(MainScript)
+	root.add_child(m)
+	var menu = m.menu
+	check(not menu.heroes_rect().intersects(menu.help_rect()) and not menu.heroes_rect().intersects(menu.play_rect()), "botão Heróis não cobre outros botões")
+	check(absf(menu.heroes_rect().position.y - menu.help_rect().position.y) < 1.0, "botão Heróis ao lado de Como jogar")
+	menu.open_gallery.emit()
+	check(m.gallery.visible and not menu.visible, "botão Heróis abre a galeria")
+	m.gallery.close()
+	check(menu.visible and not m.gallery.visible, "Voltar mostra o menu de novo")
+	m.free()
+
+
+func test_gallery_draws_without_images() -> void:
+	# Sem nenhuma imagem a galeria desenha só por código (emblemas no lugar dos retratos).
+	after_draw(func():
+		_no_images()
+		Art.drawn = 0
+		scene = new_gallery(),
+	func():
+		check(Art.drawn == 0, "sem imagens nada deveria ser desenhado por textura (desenhou %d)" % Art.drawn)
+		check(not scene.used_full, "sem ilustração não usa o corpo inteiro")
+		scene.free()
+		scene = null
+		Art.clear_cache())
+
+
+func test_gallery_full_art_and_portrait_fallback() -> void:
+	# Só com retratos: a reserva é o retrato ampliado. Com a ilustração, ela é usada.
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		var tx := ImageTexture.create_from_image(img)
+		_no_images()
+		for hid in Data.HERO_ORDER:
+			Art.set_texture(Art.HERO_PORTRAIT % hid, tx)
+		Art.drawn = 0
+		scene = new_gallery(),
+	func():
+		check(not scene.used_full, "sem _full.png deveria usar o retrato")
+		check(Art.drawn >= 4, "retratos da lista e o ampliado (desenhou %d)" % Art.drawn)
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		var tx := ImageTexture.create_from_image(img)
+		Art.set_texture(Art.HERO_FULL % "talos", tx)
+		scene.queue_redraw()
+		after_draw_check_full())
+
+
+func after_draw_check_full() -> void:
+	# Segunda etapa: a ilustração entra no lugar do retrato ampliado.
+	_draw_tests.push_front({"name": _current, "start": func(): pass, "check": func():
+		check(scene.used_full, "com _full.png a galeria deveria desenhar a ilustração")
+		scene.free()
+		scene = null
+		Art.clear_cache(), "pre": []})

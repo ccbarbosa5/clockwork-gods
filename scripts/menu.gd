@@ -6,6 +6,7 @@ const UI = preload("res://scripts/ui.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
 signal start(opts: Dictionary)
+signal open_gallery
 
 const DIFFS := ["easy", "normal", "hard"]
 const DIFF_NAMES := {"easy": "Fácil", "normal": "Normal", "hard": "Difícil"}
@@ -35,7 +36,11 @@ func play_rect() -> Rect2:
 
 
 func help_rect() -> Rect2:
-	return Rect2(560, 540, 160, 38)
+	return Rect2(470, 540, 160, 38)
+
+
+func heroes_rect() -> Rect2:
+	return Rect2(650, 540, 160, 38)
 
 
 func diff_rect(i: int) -> Rect2:
@@ -73,6 +78,10 @@ func _input(event: InputEvent) -> void:
 			start.emit({"difficulty": difficulty, "behavior": behavior})
 		elif help_rect().has_point(m):
 			show_help = true
+		elif heroes_rect().has_point(m):
+			if a != null: a.play("click")
+			open_gallery.emit()
+			return
 		for i in 3:
 			if diff_rect(i).has_point(m):
 				difficulty = DIFFS[i]
@@ -125,6 +134,9 @@ func _draw() -> void:
 	var hr := help_rect()
 	UI.panel(self, hr, Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
 	UI.text_c(self, hr.get_center() + Vector2(0, 5), "Como jogar", 14, Color.WHITE)
+	var gr := heroes_rect()
+	UI.panel(self, gr, Color(Data.BRONZE, 0.3) if gr.has_point(get_global_mouse_position()) else Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.6), 1.5)
+	UI.text_c(self, gr.get_center() + Vector2(0, 5), "Heróis", 14, Color.WHITE)
 
 	UI.text_c(self, Vector2(640, 700), version_label(), 12, Color(1, 1, 1, 0.35))
 	_draw_audio()
