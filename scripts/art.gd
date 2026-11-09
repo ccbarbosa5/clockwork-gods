@@ -39,8 +39,10 @@ const FX_EFFECTS := {
 	# Objetos no chão
 	"armadilha_aberta": Vector2(44, 44),
 	"armadilha_fechada": Vector2(44, 44),
-	# Presa ao Talos, convexa para a frente (direita)
-	"muralha_arco": Vector2(96, 48),
+	# Presa ao Talos, convexa para a frente (direita). A arte entregue é uma
+	# meia-lua alta (~78×123 px dos 256×128): escala 0,7 e centro a
+	# MURALHA_OFFSET px à frente deixam o escudo de pé, sem cobrir o sprite.
+	"muralha_arco": Vector2(179, 90),
 	# Partículas
 	"fumaca": Vector2(26, 26),
 	"chuva_flecha": Vector2(12, 12),
@@ -56,6 +58,9 @@ const FX_EFFECTS := {
 	"soco_arco": Vector2(64, 32),
 	"feixe_cura": Vector2(64, 6),
 }
+
+## Distância do centro da imagem da Muralha até o centro do Talos (px).
+const MURALHA_OFFSET := 33.0
 
 static var _cache := {}
 ## Nomes de efeito desenhados por imagem (usado pelos testes).
