@@ -15,6 +15,11 @@ const ICON := "res://assets/icons/%s.png"
 const CARD_FRAME := "res://assets/cards/frame_%s.png"
 const FX := "res://assets/fx/%s.png"
 const MAP := "res://assets/map/%s.png"
+## Logo do jogo no menu (1200×400, desenhado em 540×180).
+const LOGO := "res://assets/ui/logo.png"
+const LOGO_SIZE := Vector2(540, 180)
+## Ícone do jogo (aba do navegador, export web); usado pelo projeto, não pelo código.
+const ICON_STORE := "res://assets/store/icon.png"
 
 ## Imagens do mapa (map/<nome>.png). "fill" = fração da imagem ocupada pelo
 ## círculo de jogo (coluna, ponto ou base): o resto é borda, brilho ou detalhe.
@@ -31,7 +36,7 @@ const PILLAR_LARGE_MIN_R := 28.0
 
 ## Lado da imagem inteira do herói na tela (px, base 1280×720). A imagem-fonte
 ## (256×256) é feita para o anel do time ocupar 80% dela: 2 × (raio + 3) / 0,8.
-const HERO_SPRITE_PX := {"talos": 62.0, "artemis": 45.0, "asclepio": 48.0}
+const HERO_SPRITE_PX := {"talos": 62.0, "artemis": 45.0, "asclepio": 48.0, "hercules": 60.0, "zeus": 47.5, "atena": 50.0}
 ## Giro máximo do sprite do herói (graus por segundo).
 const HERO_TURN_DEG := 720.0
 
@@ -41,6 +46,8 @@ const PROJECTILES := {
 	"pierce": {"fx": "disparo_projetil", "size": Vector2(70, 18), "tip": 6.0},
 	"poison": {"fx": "veneno_projetil", "size": Vector2(35, 14), "tip": 5.0},
 	"basic": {"fx": "tiro_basico", "size": Vector2(12, 6), "tip": 4.0},
+	"chain": {"fx": "corrente_gancho", "size": Vector2(20, 20), "tip": 8.0},
+	"spear": {"fx": "lanca_projetil", "size": Vector2(34, 8), "tip": 4.0},
 }
 
 ## Efeitos de imagem única ligados por código (fx/<nome>.png), com o tamanho
@@ -73,6 +80,23 @@ const FX_EFFECTS := {
 	# Ataque e movimento
 	"soco_arco": Vector2(64, 32),
 	"feixe_cura": Vector2(64, 6),
+	# Pacote 3 (Hércules, Zeus, Atena)
+	"nemeia_queda": Vector2(150, 150),
+	"pele_juba": Vector2(72, 72),
+	"corrente_elo": Vector2(32, 8),
+	"trabalho_impacto": Vector2(60, 60),
+	"raio_cadeia": Vector2(64, 10),
+	"nuvem_area": Vector2(200, 200),
+	"raio_queda": Vector2(28, 140),
+	"olimpo_area": Vector2(700, 700),
+	"aguia_pena": Vector2(12, 12),
+	"egide_cupula": Vector2(200, 200),
+	"comando_area": Vector2(400, 400),
+	"comando_aura": Vector2(72, 72),
+	"coruja_olho": Vector2(20, 12),
+	"coruja_voo": Vector2(24, 24),
+	"falange_area": Vector2(360, 360),
+	"escudo_palas": Vector2(68, 68),
 }
 
 ## Opacidade máxima das áreas grandes no chão (Válvula, Fúria, Sopro, Segunda

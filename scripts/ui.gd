@@ -71,6 +71,19 @@ static func hero_glyph(ci: CanvasItem, hid: String, c: Vector2, s: float, col: C
 			ci.draw_colored_polygon(PackedVector2Array([
 				c + Vector2(-s, -s), c + Vector2(s, -s), c + Vector2(s, s * 0.3),
 				c + Vector2(0, s * 1.2), c + Vector2(-s, s * 0.3)]), col)
+		"hercules":
+			# Clava (objeto-assinatura, claude/regras-de-herois.md)
+			ci.draw_line(c + Vector2(-s * 0.8, s * 0.8), c + Vector2(s * 0.2, -s * 0.2), col, maxf(2.0, s * 0.3), true)
+			ci.draw_circle(c + Vector2(s * 0.45, -s * 0.45), s * 0.5, col)
+		"zeus":
+			# Raio
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(s * 0.25, -s * 1.1), c + Vector2(-s * 0.6, s * 0.15), c + Vector2(-s * 0.05, s * 0.15),
+				c + Vector2(-s * 0.3, s * 1.1), c + Vector2(s * 0.6, -s * 0.2), c + Vector2(s * 0.05, -s * 0.2)]), col)
+		"atena":
+			# Escudo redondo com lança
+			ci.draw_arc(c, s * 0.75, 0.0, TAU, 20, col, maxf(1.5, s * 0.25), true)
+			ci.draw_line(c + Vector2(-s, s), c + Vector2(s, -s), col, maxf(1.5, s * 0.2), true)
 		"artemis":
 			ci.draw_arc(c + Vector2(-s * 0.3, 0), s * 1.0, -1.2, 1.2, 12, col, maxf(2.0, s * 0.22), true)
 			ci.draw_line(c + Vector2(-s * 0.9, 0), c + Vector2(s * 0.9, 0), col, maxf(1.5, s * 0.15), true)

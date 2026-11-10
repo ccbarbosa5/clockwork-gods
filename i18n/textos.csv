@@ -8,7 +8,7 @@ MENU_BEHAVIOR,Comportamento inicial do seu time,Your team's starting behavior
 MENU_PLAY,JOGAR CONTRA BOT,PLAY VS BOT
 MENU_HELP,Como jogar,How to play
 MENU_HEROES,Heróis,Heroes
-MENU_VERSION,Protótipo v%s  ·  %s · %s · %s,Prototype v%s  ·  %s · %s · %s
+MENU_VERSION,Protótipo v%s  ·  %d heróis,Prototype v%s  ·  %d heroes
 SOUND_LABEL,Som,Sound
 SOUND_HINT,(M para mudo),(M to mute)
 SOUND_MUTED_HINT,(mudo — M),(muted — M)
@@ -19,7 +19,7 @@ LANG_PT,PT,PT
 LANG_EN,EN,EN
 HELP_TITLE,Como jogar,How to play
 HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
-HELP_02,"Seus 3 heróis (Talos, Ártemis e Asclépio) andam e atacam sozinhos.","Your 3 heroes (Talos, Artemis and Asclepius) move and attack on their own."
+HELP_02,"Seus 3 heróis (um Tanque, um Dano e um Suporte) andam e atacam sozinhos.","Your 3 heroes (one Tank, one Damage, one Support) move and attack on their own."
 HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
 HELP_04,"   O herói guarda a habilidade e usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
 HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
@@ -183,3 +183,52 @@ AB_ENGRENAGEM_DESC,Escudo de 150 em um aliado por 5 s.,150 shield on one ally fo
 AB_SEGUNDA_NAME,Segunda Chance,Second Chance
 AB_SEGUNDA_SHORT,Ninguém morre,No one dies
 AB_SEGUNDA_DESC,Aliados próximos não podem morrer por 3 s.,Nearby allies can't die for 3 s.
+MENU_TEAM,Seu time (clique para trocar o herói),Your team (click to swap the hero)
+HERO_HERCULES_NAME,Hércules,Hercules
+HERO_HERCULES_EPITHET,O Leão do Olimpo,The Lion of Olympus
+HERO_HERCULES_BIO,"Filho de Zeus, venceu doze trabalhos e subiu ao Olimpo. Deu seu Ícor à Grande Engrenagem como os deuses e agora trata cada rito como o décimo terceiro: mais uma prova para o pai.","Son of Zeus, he survived twelve labors and rose to Olympus. He gave his Ichor to the Great Gear like the gods, and now treats every rite as the thirteenth: one more trial for his father."
+HERO_HERCULES_QUOTE,Doze trabalhos. Este é o décimo terceiro.,Twelve labors. This is the thirteenth.
+HERO_ZEUS_NAME,Zeus,Zeus
+HERO_ZEUS_EPITHET,O Rei Sem Trono,The Throneless King
+HERO_ZEUS_BIO,"Rei dos deuses, liderou o sacrifício que selou os Titãs e foi quem mais deu Ícor à Engrenagem. Agora disputa os Ritos num corpo de mármore e ouro, decidido a reinar outra vez.","King of the gods, he led the sacrifice that sealed the Titans and gave more Ichor to the Gear than anyone. Now he fights in the Rites in a body of marble and gold, set on ruling again."
+HERO_ZEUS_QUOTE,"Sem corpo, sem trono. Mas o trovão ainda é meu.","No body, no throne. But the thunder is still mine."
+HERO_ATENA_NAME,Atena,Athena
+HERO_ATENA_EPITHET,A Lança da Razão,The Spear of Reason
+HERO_ATENA_BIO,"Deusa da sabedoria e da guerra, nascida da cabeça de Zeus. Entende os Arquitetos como ninguém: para ela, os Ritos são um jogo de estratégia, e cada aliado é uma peça a proteger.","Goddess of wisdom and war, born from Zeus's head. She understands the Architects like no one else: to her, the Rites are a game of strategy, and every ally is a piece to protect."
+HERO_ATENA_QUOTE,Lute com a cabeça. O escudo cuida do resto.,Fight with your head. The shield handles the rest.
+AB_NEMEIA_NAME,Salto de Nemeia,Nemean Leap
+AB_NEMEIA_SHORT,Salta e desacelera,Leap and slow
+AB_NEMEIA_DESC,"Salta até um ponto; ao cair, causa dano e lentidão em área.","Leaps to a point; on landing, deals damage and slows in an area."
+AB_PELE_NAME,Pele do Leão,Lion's Hide
+AB_PELE_SHORT,"-50% dano, imune","-50% dmg, immune"
+AB_PELE_DESC,"Recebe 50% menos dano e ignora atordoar, prender e empurrar por 3 s.","Takes 50% less damage and ignores stun, root and knockback for 3 s."
+AB_CORRENTE_NAME,Corrente de Cérbero,Cerberus Chain
+AB_CORRENTE_SHORT,Puxa um inimigo,Pulls an enemy
+AB_CORRENTE_DESC,Lança uma corrente que puxa o primeiro inimigo atingido.,Throws a chain that pulls the first enemy hit.
+AB_TRABALHO_NAME,Décimo Terceiro Trabalho,The Thirteenth Labor
+AB_TRABALHO_SHORT,Agarra e arremessa,Grab and throw
+AB_TRABALHO_DESC,Agarra um inimigo e o arremessa em direção ao seu time.,Grabs an enemy and throws them toward your team.
+AB_RAIOS_NAME,Corrente de Raios,Chain Lightning
+AB_RAIOS_SHORT,Raio em cadeia,Chain lightning
+AB_RAIOS_DESC,Raio que salta entre até 4 inimigos próximos.,Lightning that jumps between up to 4 nearby enemies.
+AB_NUVEM_NAME,Nuvem de Tempestade,Storm Cloud
+AB_NUVEM_SHORT,Nuvem que atordoa,Stunning cloud
+AB_NUVEM_DESC,"Após 1 s, um raio cai na área, causa dano e atordoa.","After 1 s, lightning strikes the area, dealing damage and stunning."
+AB_AGUIA_NAME,Voo da Águia,Eagle's Flight
+AB_AGUIA_SHORT,Avança e carrega,Dash and charge
+AB_AGUIA_DESC,Avança e o próximo ataque causa mais dano e salta mais.,"Dashes, and the next attack deals more damage and jumps further."
+AB_OLIMPO_NAME,Fúria do Olimpo,Wrath of Olympus
+AB_OLIMPO_SHORT,Tempestade de raios,Lightning storm
+AB_OLIMPO_DESC,Raios dourados caem em inimigos aleatórios ao redor.,Golden lightning strikes random enemies nearby.
+AB_EGIDE_NAME,Égide,Aegis
+AB_EGIDE_SHORT,Cúpula contra tiros,Anti-shot dome
+AB_EGIDE_DESC,Cúpula que bloqueia projéteis inimigos vindos de fora.,Dome that blocks enemy projectiles from outside.
+AB_COMANDO_NAME,Comando de Guerra,War Command
+AB_COMANDO_SHORT,+20% dano e veloc.,+20% dmg & speed
+AB_COMANDO_DESC,Aliados próximos causam 20% mais dano e andam 20% mais rápido.,Nearby allies deal 20% more damage and move 20% faster.
+AB_CORUJA_NAME,Olhar da Coruja,Owl's Gaze
+AB_CORUJA_SHORT,Marca: +20% dano,Mark: +20% dmg
+AB_CORUJA_DESC,A coruja marca um inimigo: recebe mais dano e fica lento.,The owl marks an enemy: takes more damage and is slowed.
+AB_FALANGE_NAME,Falange de Atenas,Phalanx of Athens
+AB_FALANGE_SHORT,Escudo e ataque,Shield & attack
+AB_FALANGE_DESC,Área onde aliados ganham escudo e atacam mais rápido; inimigos ficam lentos.,Area where allies gain a shield and attack faster; enemies are slowed.

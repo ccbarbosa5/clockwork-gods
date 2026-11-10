@@ -53,6 +53,25 @@ var knock_vel := Vector2.ZERO
 var knock_t := 0.0
 var wall_t := 0.0
 var wall_hp := 0.0
+## Pele do Leão: -50% de dano e imune a atordoar, prender e empurrar.
+var hide_t := 0.0
+## Olhar da Coruja: recebe +20% de dano (a lentidão usa slow_t).
+var mark_t := 0.0
+## Comando de Guerra: +20% de dano causado e de velocidade.
+var buff_t := 0.0
+## Voo da Águia: próximo ataque básico fortalecido.
+var empower_t := 0.0
+## Dentro da Falange aliada: +25% de velocidade de ataque.
+var phalanx_t := 0.0
+## Salto de Nemeia: no ar passa por cima das colunas.
+var leaping := false
+var leap_target := Vector2.ZERO
+## Atordoamento ao terminar um puxão/arremesso; "throw" deixa rastro.
+var knock_stun := 0.0
+var knock_kind := ""
+## Última habilidade usada (a IA da Pele do Leão vem logo depois do salto).
+var last_cast := ""
+var last_cast_t := -99.0
 
 ## Habilidades armadas aguardando o melhor momento: [{ab, t, ult}]
 var armed: Array = []
@@ -99,6 +118,8 @@ func clear_status() -> void:
 	undying_t = 0.0; poison_t = 0.0; poison_dps = 0.0; poison_src = null
 	heal_red_t = 0.0; dash_t = 0.0; knock_t = 0.0
 	wall_t = 0.0; wall_hp = 0.0
+	hide_t = 0.0; mark_t = 0.0; buff_t = 0.0; empower_t = 0.0; phalanx_t = 0.0
+	leaping = false; knock_stun = 0.0; knock_kind = ""
 	target = null; heal_target = null; retreating = false
 	armed = []
 
@@ -114,6 +135,50 @@ func ability_ready_text() -> String:
 
 func role_color() -> Color:
 	return Data.ROLE_COLORS[def["role"]]
+
+
+## Imune a controle (Pele do Leão).
+func immune() -> bool:
+	return hide_t > 0.0
+
+
+func apply_stun(t: float) -> void:
+	if not immune():
+		stun_t = maxf(stun_t, t)
+
+
+func apply_root(t: float) -> void:
+	if not immune():
+		root_t = maxf(root_t, t)
+
+
+func apply_slow(amt: float, t: float) -> void:
+	if slow_t <= 0.0 or amt >= slow_amt:
+		slow_amt = amt
+	slow_t = maxf(slow_t, t)
+
+
+## Empurrão, puxão ou arremesso: velocidade por t segundos; colunas param o
+## movimento. `land_stun` atordoa quando ele termina.
+func apply_knock(vel: Vector2, t: float, land_stun := 0.0, kind := "") -> void:
+	if immune():
+		return
+	dash_t = 0.0
+	leaping = false
+	knock_vel = vel
+	knock_t = t
+	knock_stun = land_stun
+	knock_kind = kind
+
+
+func _end_knock() -> void:
+	knock_t = 0.0
+	if knock_stun > 0.0:
+		apply_stun(knock_stun)
+		if knock_kind == "throw":
+			game.on_throw_land(self)
+	knock_stun = 0.0
+	knock_kind = ""
 
 
 func is_backline() -> bool:
@@ -158,6 +223,11 @@ func tick(dt: float) -> void:
 	heal_beam_t -= dt
 	swing_t -= dt
 	wall_t -= dt
+	hide_t -= dt
+	mark_t -= dt
+	buff_t -= dt
+	empower_t -= dt
+	phalanx_t -= dt
 	cast_gap -= dt
 	if shield_t <= 0.0:
 		shield_hp = 0.0
@@ -181,18 +251,37 @@ func tick(dt: float) -> void:
 	for a in armed:
 		a["t"] -= dt
 
+	var knocked := false
 	if dash_t > 0.0:
 		dash_t -= dt
 		position += dash_vel * dt
 		puff_t -= dt
 		if puff_t <= 0.0:
 			puff_t = 0.03
-			game.add_puff(position, Color(1, 0.95, 0.85) if dash_damage else role_color().lightened(0.3))
+			if not leaping:
+				game.add_puff(position, Color(1, 0.95, 0.85) if dash_damage else role_color().lightened(0.3))
 		if dash_damage:
 			game.dash_hits(self)
+		if leaping:
+			# No ar: só a borda da arena segura; as colunas ficam embaixo.
+			position.x = clampf(position.x, game.ARENA.position.x + radius, game.ARENA.end.x - radius)
+			position.y = clampf(position.y, game.ARENA.position.y + radius, game.ARENA.end.y - radius)
+			if dash_t <= 0.0:
+				leaping = false
+				game.leap_land(self)
+			else:
+				sprite_angle = rotate_toward(sprite_angle, facing.angle(), deg_to_rad(Art.HERO_TURN_DEG) * dt)
+				queue_redraw()
+				return
 	elif knock_t > 0.0:
+		position += knock_vel * minf(dt, knock_t)
 		knock_t -= dt
-		position += knock_vel * dt
+		knocked = true
+		if knock_kind == "throw":
+			puff_t -= dt
+			if puff_t <= 0.0:
+				puff_t = 0.04
+				game.add_puff(position, Color(1.0, 0.7, 0.35))
 	elif stun_t <= 0.0:
 		_update_armed()
 		var move := _think(dt)
@@ -209,9 +298,14 @@ func tick(dt: float) -> void:
 				if move.length() < 0.15:
 					# Sem congelar: circula dentro do ponto (BUG-016).
 					move = Vector2(-n.y, n.x) * 0.4 * sin(game.time * 1.1 + strafe_phase) - n * 0.2
-		var spd := speed * (1.0 - slow_amt)
+		var spd := speed * (1.0 - slow_amt) * (1.2 if buff_t > 0.0 else 1.0)
 		position += move * spd * dt
+	var before := position
 	game.resolve_collisions(self)
+	if knocked:
+		# Bateu numa coluna ou na borda: o puxão/arremesso para ali.
+		if before.distance_to(position) > 0.5 or knock_t <= 0.0:
+			_end_knock()
 	sprite_angle = rotate_toward(sprite_angle, facing.angle(), deg_to_rad(Art.HERO_TURN_DEG) * dt)
 	queue_redraw()
 
@@ -375,7 +469,7 @@ func decide(ab: String, forced: bool):
 			if low != null:
 				return low.position
 			if forced:
-				var tank = game.get_hero(team, "talos")
+				var tank = game.team_hero(team, 0)
 				return tank.position if tank != null and tank.alive else position
 		"segunda":
 			for a in allies:
@@ -383,9 +477,170 @@ func decide(ab: String, forced: bool):
 					return position
 			if forced:
 				return position
+		# --- Hércules ---
+		"nemeia":
+			var soft = _nearest_soft(enemies, 300.0)
+			if soft != null:
+				return soft.position
+			if forced:
+				return _toward(fallback, 300.0)
+		"pele":
+			if hp / max_hp < 0.7 and _nearest(position, enemies, 250.0) != null:
+				return position
+			if last_cast == "nemeia" and game.time - last_cast_t < 1.0:
+				return position
+			if forced:
+				return position
+		"corrente":
+			for e in enemies:
+				var dc: float = position.distance_to(e.position)
+				if _is_soft(e) and dc >= 120.0 and dc <= 330.0:
+					return _lead(e)
+			if forced:
+				var nc = _nearest(position, enemies, 330.0)
+				return _lead(nc) if nc != null else _toward(fallback, 330.0)
+		"trabalho":
+			for e in enemies:
+				if position.distance_to(e.position) - e.radius <= 90.0 and (_is_soft(e) or e.hp / e.max_hp < 0.4):
+					return e.position
+			if forced:
+				return fallback
+		# --- Zeus ---
+		"raios":
+			var bestr = null
+			var br := 0
+			for e in enemies:
+				if position.distance_to(e.position) - e.radius > 280.0:
+					continue
+				var cr := _count_near(enemies, e.position, 150.0)
+				if cr > br or (cr == br and bestr != null and e.hp < bestr.hp):
+					br = cr
+					bestr = e
+			if bestr != null and (br >= 2 or bestr.hp < 60.0):
+				return bestr.position
+			if forced:
+				return bestr.position if bestr != null else _toward(fallback, 280.0)
+		"nuvem":
+			for e in enemies:
+				if position.distance_to(e.position) > 450.0:
+					continue
+				if _count_near(enemies, e.position, 100.0) >= 2:
+					return _group_center(enemies, e.position, 100.0)
+				if e.stun_t > 0.3 or e.root_t > 0.3 or (game.in_point(e.position) and e.knock_t <= 0.0 and e.speed * (1.0 - e.slow_amt) < 60.0):
+					return e.position
+			if forced:
+				var nn = _nearest(position, enemies, 450.0)
+				return _lead(nn) if nn != null else _toward(fallback, 450.0)
+		"aguia":
+			var close2 = _nearest(position, enemies, 140.0)
+			if close2 != null:
+				var away: Vector2 = (position - close2.position).normalized()
+				var home: Vector2 = (game.spawn_pos(team) - position).normalized()
+				return position + (away + home * 0.6).normalized() * 200.0
+			# Chegar ao flanco: avança para a faixa lateral, nunca para cima do inimigo.
+			var lane_pos := _formation_pos(game.commanders[team].behavior, _forward())
+			if position.distance_to(lane_pos) > 160.0 and _nearest(_toward(lane_pos, 200.0), enemies, 260.0) == null:
+				return _toward(lane_pos, 200.0)
+			if forced:
+				return _toward(fallback, 200.0)
+		"olimpo":
+			var no := 0
+			var weak2 := false
+			for e in enemies:
+				if e.position.distance_to(position) <= 350.0:
+					no += 1
+					if e.hp / e.max_hp < 0.4:
+						weak2 = true
+			if no >= 2 or (no >= 1 and weak2):
+				return position
+			if forced:
+				return position
+		# --- Atena ---
+		"egide":
+			var threat2 := false
+			for e in enemies:
+				if e.def["range"] > 150.0 and position.distance_to(e.position) < 450.0:
+					threat2 = true
+			if threat2:
+				for a in allies:
+					if a.position.distance_to(position) <= 300.0 and _count_near(allies, a.position, 100.0) >= 2:
+						return _group_center(allies, a.position, 100.0)
+			if forced:
+				var tk = game.team_hero(team, 0)
+				return tk.position if tk != null and tk.alive else position
+		"comando":
+			if (_count_near(allies, position, 200.0) >= 2 and _nearest(position, enemies, 300.0) != null) or (game.contested and game.in_point(position)):
+				return position
+			if forced:
+				return position
+		"coruja":
+			var mark = null
+			var mf := 2.0
+			for e in enemies:
+				if position.distance_to(e.position) > 400.0:
+					continue
+				var attacked := false
+				for a in allies:
+					if a.target == e:
+						attacked = true
+				var f2: float = e.hp / e.max_hp
+				if attacked and f2 < mf:
+					mf = f2
+					mark = e
+			if mark != null:
+				return mark.position
+			if forced:
+				var nm = _nearest(position, enemies, 400.0)
+				return nm.position if nm != null else fallback
+		"falange":
+			if (_count_near(allies, position, 250.0) >= 2 and _count_near(enemies, position, 250.0) >= 2) or (game.contested and game.in_point(position)):
+				return position
+			if forced:
+				return position
 	if forced:
 		return fallback
 	return null
+
+
+## Inimigo de Dano ou Suporte (alvo preferido do Hércules).
+func _is_soft(e) -> bool:
+	return e.def["role"] != "Tanque"
+
+
+func _nearest_soft(enemies: Array, max_d: float):
+	var best = null
+	var bd := max_d
+	for e in enemies:
+		var d: float = position.distance_to(e.position)
+		if _is_soft(e) and d <= bd:
+			bd = d
+			best = e
+	return best
+
+
+## Quantos da lista estão a até r de p.
+func _count_near(list: Array, p: Vector2, r: float) -> int:
+	var n := 0
+	for e in list:
+		if e.position.distance_to(p) <= r:
+			n += 1
+	return n
+
+
+func _group_center(list: Array, p: Vector2, r: float) -> Vector2:
+	var sum := Vector2.ZERO
+	var n := 0
+	for e in list:
+		if e.position.distance_to(p) <= r:
+			sum += e.position
+			n += 1
+	return sum / float(n) if n > 0 else p
+
+
+## Ponto em direção a `p`, a no máximo `r` px.
+func _toward(p: Vector2, r: float) -> Vector2:
+	var v := p - position
+	return position + (v.normalized() * minf(r, v.length()) if v.length() > 1.0 else Vector2(_forward() * r, 0.0))
 
 
 # --------------------------------------------------------------------------
@@ -591,8 +846,11 @@ func _pick_target(enemies: Array, beh: String):
 			continue
 		var score := d
 		match style:
-			"backline_dps", "flank":
+			"backline_dps":
 				score = d + e.hp * 0.6
+			"flank":
+				# Zeus prefere grupos: o raio salta entre inimigos próximos.
+				score = d + e.hp * 0.6 - def.get("group_bias", 60.0) * (_count_near(enemies, e.position, 120.0) - 1)
 			"dive":
 				score = d * 0.5 + e.hp + (400.0 if e.style == "frontline" else 0.0)
 		if score < best_score:
@@ -609,19 +867,25 @@ func _try_attack() -> void:
 	var d: float = position.distance_to(target.position) - target.radius
 	if d > def["range"]:
 		return
-	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0))
+	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0) + (0.25 if phalanx_t > 0.0 else 0.0))
 	if def["range"] < 100.0:
 		swing_t = 0.18
 		game.sfx("melee", -10.0)
 		game.deal_damage(self, target, def["dmg"])
-		for e in game.alive_heroes(1 - team):
-			if e != target and e.position.distance_to(target.position) < 45.0:
-				game.deal_damage(self, e, def["dmg"] * 0.5)
+		var splash: float = def.get("splash", 0.0)
+		if splash > 0.0:
+			for e in game.alive_heroes(1 - team):
+				if e != target and e.position.distance_to(target.position) < 45.0:
+					game.deal_damage(self, e, def["dmg"] * splash)
+	elif def.get("basic", "") == "chain":
+		game.sfx("shot", -14.0)
+		game.zeus_basic(self, target)
 	else:
 		var dir: Vector2 = (target.position - position).normalized()
 		var col: Color = role_color().lightened(0.45)
 		game.sfx("shot" if not is_healer() else "shot_support", -14.0)
-		game.spawn_projectile(self, position + dir * (radius + 4.0), dir * def["proj_speed"], def["dmg"], 5.0, "basic", col)
+		var kind := "spear" if def.get("basic", "") == "spear" else "basic"
+		game.spawn_projectile(self, position + dir * (radius + 4.0), dir * def["proj_speed"], def["dmg"], 5.0, kind, col)
 
 
 func _support_heal(dt: float) -> void:
@@ -736,8 +1000,13 @@ func _draw() -> void:
 			draw_line(Vector2.ZERO, tp, Color(0.45, 1.0, 0.6, 0.7), 4.0, true)
 			draw_line(Vector2.ZERO, tp, Color(1, 1, 1, 0.6), 1.5, true)
 
-	# Sombra e corpo
-	draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.35))
+	# Sombra e corpo (no salto, a sombra fica no chão e o corpo sobe)
+	if leaping:
+		draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.25))
+		var hgt := sin(clampf(1.0 - dash_t / 0.45, 0.0, 1.0) * PI)
+		draw_set_transform(Vector2(0, -18.0 * hgt), 0.0, Vector2.ONE * (1.0 + 0.25 * hgt))
+	else:
+		draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.35))
 	var aura_k := radius / 22.0  # auras são feitas no tamanho do Talos (raio 22)
 	if undying_t > 0.0 and Art.draw_fx(self, "aura_segunda", Vector2.ZERO, Art.FX_EFFECTS["aura_segunda"], aura_k, 0.9, t * 1.5):
 		pass
@@ -797,7 +1066,15 @@ func _draw() -> void:
 			var ang3 := t * 2.2 + k * TAU / 4.0
 			draw_circle(Vector2(cos(ang3), sin(ang3)) * (radius + 6.0), 4.0, Color(1, 1, 1, 0.35))
 		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(1.0, 0.65, 0.3, 0.8), 2.0)
-	if shield_hp > 0.0 and Art.draw_fx(self, "aura_engrenagem", Vector2.ZERO, Art.FX_EFFECTS["aura_engrenagem"], aura_k, 0.95, -t * 1.8):
+	var gear_shield: bool = shield_hp > 0.0 and is_instance_valid(shield_src) and shield_src.hid == "asclepio"
+	if shield_hp > 0.0 and not gear_shield:
+		# Escudo da Atena (Palas ou Falange): anel de prata com placas.
+		if not Art.draw_fx(self, "escudo_palas", Vector2.ZERO, Art.FX_EFFECTS["escudo_palas"], aura_k, 0.9, t * 0.6):
+			UI.ring(self, Vector2.ZERO, radius + 7.0, Color(0.85, 0.9, 0.95, 0.85), 2.5)
+			for k in 4:
+				var angp := t * 0.6 + k * TAU / 4.0
+				draw_circle(Vector2(cos(angp), sin(angp)) * (radius + 7.0), 3.5, Color(0.75, 0.82, 0.6))
+	elif shield_hp > 0.0 and Art.draw_fx(self, "aura_engrenagem", Vector2.ZERO, Art.FX_EFFECTS["aura_engrenagem"], aura_k, 0.95, -t * 1.8):
 		pass
 	elif shield_hp > 0.0:
 		# Engrenagem Vital: engrenagens orbitando
@@ -814,6 +1091,33 @@ func _draw() -> void:
 			draw_line(Vector2(cos(ang5), sin(ang5)) * (radius + 1.0), Vector2(cos(ang5), sin(ang5)) * (radius + 10.0), Color(0.6, 0.45, 0.25), 3.0)
 	if slow_t > 0.0:
 		UI.ring(self, Vector2.ZERO, radius + 1.0, Color(0.5, 0.7, 1.0, 0.7), 2.0)
+	if hide_t > 0.0:
+		# Pele do Leão: juba dourada e anel âmbar.
+		if not Art.draw_fx(self, "pele_juba", Vector2.ZERO, Art.FX_EFFECTS["pele_juba"], aura_k, 0.9, t * 0.8):
+			UI.ring(self, Vector2.ZERO, radius + 4.0, Color(1.0, 0.72, 0.25, 0.9), 3.0)
+			for k in 10:
+				var angm := k * TAU / 10.0 + t * 0.8
+				draw_line(Vector2(cos(angm), sin(angm)) * (radius + 5.0), Vector2(cos(angm), sin(angm)) * (radius + 11.0), Color(1.0, 0.82, 0.35, 0.85), 3.0, true)
+	if buff_t > 0.0:
+		# Comando de Guerra: setas prateadas girando.
+		if not Art.draw_fx(self, "comando_aura", Vector2.ZERO, Art.FX_EFFECTS["comando_aura"], aura_k, 0.85, -t * 2.0):
+			for k in 3:
+				var angc := -t * 2.0 + k * TAU / 3.0
+				var cp := Vector2(cos(angc), sin(angc)) * (radius + 9.0)
+				var fw := Vector2(-sin(angc), cos(angc)) * -1.0
+				draw_colored_polygon(PackedVector2Array([cp + fw * 5.0, cp - fw * 3.0 + fw.orthogonal() * 3.5, cp - fw * 3.0 - fw.orthogonal() * 3.5]), Color(0.85, 0.9, 0.7))
+	if mark_t > 0.0:
+		# Olhar da Coruja: olho dourado acima da cabeça.
+		var ep := Vector2(0, -radius - 26.0 + sin(t * 3.0) * 2.0)
+		if not Art.draw_fx(self, "coruja_olho", ep, Art.FX_EFFECTS["coruja_olho"]):
+			draw_set_transform(ep, 0.0, Vector2(1.0, 0.6))
+			draw_circle(Vector2.ZERO, 8.0, Color(0.1, 0.07, 0.04, 0.9))
+			draw_circle(Vector2.ZERO, 6.0, Data.GOLD)
+			draw_circle(Vector2.ZERO, 2.5, Color(0.1, 0.07, 0.04))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+	if empower_t > 0.0:
+		var pe := 0.5 + 0.5 * sin(t * 10.0)
+		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(Data.GOLD, 0.5 + 0.4 * pe), 2.0)
 	if poison_t > 0.0:
 		for i in 4:
 			var ph := fmod(t * 1.2 + i * 0.25, 1.0)
@@ -827,6 +1131,8 @@ func _draw() -> void:
 			if not Art.draw_fx(self, "atordoado_estrela", sp, Art.FX_EFFECTS["atordoado_estrela"], 1.0, 1.0, t * 4.0):
 				draw_circle(sp, 3.0, Color(1, 0.95, 0.3))
 
+	if leaping:
+		draw_set_transform_matrix(Transform2D.IDENTITY)
 	# Barra de vida
 	var bw := 46.0
 	var by := -radius - 13.0

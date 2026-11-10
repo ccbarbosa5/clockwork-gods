@@ -38,6 +38,16 @@ var projectiles: Array = []
 var traps: Array = []
 var rains: Array = []
 var fx: Array = []
+## Nuvem de Tempestade: aviso de 1 s e depois o raio. {pos, r, t, team, src}
+var clouds: Array = []
+## Fúria do Olimpo: raios aleatórios em volta do Zeus. {src, team, life, tick, left}
+var storms: Array = []
+## Égide: cúpula que bloqueia projéteis vindos de fora. {pos, r, life, hp, team, src}
+var domes: Array = []
+## Falange de Atenas: zona fixa. {pos, r, life, team, src, got_shield: []}
+var phalanxes: Array = []
+## Composição de cada time: [tanque, dano, suporte].
+var teams: Array = [Data.DEFAULT_TEAM.duplicate(), Data.DEFAULT_TEAM.duplicate()]
 var texts: Array = []
 var killfeed: Array = []
 var cast_feed: Array = []
@@ -70,17 +80,21 @@ var _announced_unlock := false
 func setup(opts: Dictionary) -> void:
 	difficulty = opts.get("difficulty", "normal")
 	autotest = opts.get("autotest", false)
+	var opt_teams: Array = opts.get("teams", [])
 	for t in 2:
-		for i in Data.HERO_ORDER.size():
+		if opt_teams.size() > t and Data.valid_team(opt_teams[t]):
+			teams[t] = opt_teams[t].duplicate()
+	for t in 2:
+		for i in teams[t].size():
 			var h := Node2D.new()
 			h.set_script(HeroScript)
 			add_child(h)
-			h.setup(self, t, Data.HERO_ORDER[i], i)
+			h.setup(self, t, teams[t][i], i)
 			h.position = _spawn_slot(t, i)
 			heroes.append(h)
 	for t in 2:
 		var c = Commander.new()
-		c.setup(self, t, Data.HERO_ORDER)
+		c.setup(self, t, teams[t])
 		commanders[t] = c
 	commanders[0].behavior = opts.get("behavior", "balanced")
 	if opts.get("bots", true):
@@ -103,6 +117,11 @@ func _spawn_slot(t: int, i: int) -> Vector2:
 
 # ---------------------------------------------------------------------------
 # Consultas
+## Herói do time na posição i (0 tanque, 1 dano, 2 suporte).
+func team_hero(t: int, i: int):
+	return get_hero(t, teams[t][i])
+
+
 func get_hero(t: int, hid: String):
 	for h in heroes:
 		if h.team == t and h.hid == hid:
@@ -197,6 +216,8 @@ func _step(dt: float) -> void:
 	_update_projectiles(dt)
 	_update_traps(dt)
 	_update_rains(dt)
+	_update_zeus_zones(dt)
+	_update_atena_zones(dt)
 	_update_point(dt)
 	_check_end()
 
@@ -291,6 +312,32 @@ func resolve_collisions(h) -> void:
 			var dx: float = sqrt(maxf(0.0, minimum2 * minimum2 - dy * dy))
 			var sx := 1.0 if h.position.x >= c2.x else -1.0
 			h.position.x = c2.x + sx * (dx + 0.5)
+	# Garantia final: se ainda sobrepõe algo (ex.: caiu do Salto de Nemeia num
+	# vão apertado), vai para o ponto livre mais próximo, em espiral.
+	if not spot_free(h.position, h.radius, h.team):
+		var base_pos: Vector2 = h.position
+		for ring in range(1, 40):
+			var found := false
+			for k in 16:
+				var ang := k * TAU / 16.0
+				var p: Vector2 = base_pos + Vector2(cos(ang), sin(ang)) * ring * 4.0
+				if spot_free(p, h.radius, h.team):
+					h.position = p
+					found = true
+					break
+			if found:
+				break
+
+
+## Posição livre para um herói de raio r do time `team`: dentro da arena, fora
+## das colunas e fora da base inimiga.
+func spot_free(p: Vector2, r: float, team: int) -> bool:
+	if p.x < ARENA.position.x + r or p.x > ARENA.end.x - r or p.y < ARENA.position.y + r or p.y > ARENA.end.y - r:
+		return false
+	for o in OBSTACLES:
+		if p.distance_to(Vector2(o.x, o.y)) < o.z + r - 0.5:
+			return false
+	return p.distance_to(SPAWNS[1 - team]) >= SPAWN_R + r - 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +425,14 @@ func deal_damage(src, victim, amount: float, show_text := true) -> void:
 	if victim == null or not victim.alive or amount <= 0.0:
 		return
 	var amt := amount
+	if src != null and is_instance_valid(src) and src.buff_t > 0.0:
+		amt *= 1.2  # Comando de Guerra
+	if victim.mark_t > 0.0:
+		amt *= 1.2  # Olhar da Coruja
+	if victim.hide_t > 0.0:
+		var mh: float = amt * 0.5  # Pele do Leão
+		amt -= mh
+		credit_mitigation(victim, mh)
 	if victim.dr_t > 0.0:
 		var m: float = amt * victim.dr_amt
 		amt -= m
@@ -395,7 +450,7 @@ func deal_damage(src, victim, amount: float, show_text := true) -> void:
 		src.stats["damage"] += amt
 		src.add_charge(amt * Data.ULT_DMG)
 	if show_text:
-		add_text(victim.position + Vector2(randf_range(-10, 10), -victim.radius - 18), str(int(round(amount))), Color(1, 0.92, 0.75))
+		add_text(victim.position + Vector2(randf_range(-10, 10), -victim.radius - 18), str(int(round(amount * (1.2 if victim.mark_t > 0.0 else 1.0)))), Color(1, 0.92, 0.75))
 		sfx("hit", -8.0)
 	if victim.hp <= 0.0:
 		_kill(victim, src)
@@ -471,6 +526,18 @@ func _update_projectiles(dt: float) -> void:
 		p["life"] -= dt
 		var alive: bool = p["life"] > 0.0 and in_arena(p["pos"])
 		if alive:
+			# Égide: bloqueia projéteis inimigos que entram na cúpula vindos de fora.
+			var prev: Vector2 = p["pos"] - p["vel"] * dt
+			for d in domes:
+				if d["team"] == p["team"]:
+					continue
+				if prev.distance_to(d["pos"]) > d["r"] and p["pos"].distance_to(d["pos"]) <= d["r"]:
+					d["hp"] -= p["dmg"]
+					credit_mitigation(d["src"] if is_instance_valid(d["src"]) else null, p["dmg"])
+					_burst(p["pos"], 14.0, Color(0.85, 0.9, 0.95), 0.25)
+					alive = false
+					break
+		if alive:
 			for o in OBSTACLES:
 				if p["pos"].distance_to(Vector2(o.x, o.y)) < o.z:
 					alive = false
@@ -507,6 +574,17 @@ func _update_projectiles(dt: float) -> void:
 func _projectile_hit(p: Dictionary, h) -> void:
 	var src = p["src"] if is_instance_valid(p["src"]) else null
 	deal_damage(src, h, p["dmg"])
+	if p["kind"] == "chain" and h.alive and src != null:
+		# Corrente de Cérbero: puxa até 150 px em direção ao Hércules e atordoa 0,4 s.
+		var v: Vector2 = src.position - h.position
+		var dist: float = clampf(v.length() - (src.radius + h.radius + 6.0), 0.0, 150.0)
+		if dist > 1.0:
+			h.apply_knock(v.normalized() * dist / 0.25, 0.25, 0.4, "pull")
+		else:
+			h.apply_stun(0.4)
+		_burst(h.position, 22.0, Color(0.85, 0.6, 0.3), 0.3)
+	if p["kind"] == "spear" and src != null and src.alive:
+		pallas_shield(src)
 	if p["kind"] == "poison" and h.alive:
 		h.poison_t = 5.0
 		h.poison_dps = 12.0
@@ -524,7 +602,7 @@ func _update_traps(dt: float) -> void:
 		if tr["arm"] <= 0.0:
 			for h in alive_heroes(1 - tr["team"]):
 				if h.position.distance_to(tr["pos"]) < 30.0 + h.radius:
-					h.root_t = 1.8
+					h.apply_root(1.8)
 					var src = tr["src"] if is_instance_valid(tr["src"]) else null
 					deal_damage(src, h, 30.0)
 					_burst(tr["pos"], 36.0, Color(0.85, 0.65, 0.3), 0.4)
@@ -547,8 +625,7 @@ func _update_rains(dt: float) -> void:
 			for h in alive_heroes(1 - r["team"]):
 				if h.position.distance_to(r["pos"]) < r["r"] + h.radius * 0.5:
 					deal_damage(src, h, 22.0, false)
-					h.slow_t = 0.4
-					h.slow_amt = 0.3
+					h.apply_slow(0.3, 0.4)
 		if r["life"] > 0.0:
 			keep.append(r)
 	rains = keep
@@ -562,9 +639,8 @@ func dash_hits(h) -> void:
 			h.dash_hit.append(e)
 			deal_damage(h, e, 45.0)
 			if e.alive:
-				e.stun_t = maxf(e.stun_t, 0.6)
-				e.knock_vel = h.dash_vel.normalized() * 380.0
-				e.knock_t = 0.3
+				e.apply_stun(0.6)
+				e.apply_knock(h.dash_vel.normalized() * 380.0, 0.3)
 
 
 # ---------------------------------------------------------------------------
@@ -603,7 +679,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 				if e.position.distance_to(h.position) <= 210.0:
 					deal_damage(h, e, 60.0)
 					if e.alive:
-						e.stun_t = maxf(e.stun_t, 1.6)
+						e.apply_stun(1.6)
 			_burst(h.position, 210.0, Color(1.0, 0.6, 0.2), 0.7, "furia_area")
 			fx.append({"type": "cracks", "img": "furia_area", "pos": h.position, "r": 210.0, "col": Color(1.0, 0.55, 0.15), "t": 0.9, "max": 0.9, "seed": randf() * TAU})
 		"disparo":
@@ -669,8 +745,102 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					heal(h, a, 40.0)
 			_burst(h.position, 240.0, Color(1.0, 0.85, 0.3), 0.7, "segunda_area")
 			fx.append({"type": "rays", "img": "segunda_area", "pos": h.position, "r": 240.0, "col": Color(1.0, 0.85, 0.3), "t": 1.0, "max": 1.0, "seed": randf() * TAU})
+		# --- Hércules ---
+		"nemeia":
+			var lp := _clamp_range(h.position, tpos, 300.0)
+			var eb: Vector2 = SPAWNS[1 - h.team]
+			if lp.distance_to(eb) < SPAWN_R + h.radius:
+				lp = eb + (lp - eb).normalized() * (SPAWN_R + h.radius + 2.0)
+			h.facing = dir
+			h.leaping = true
+			h.leap_target = lp
+			h.dash_vel = (lp - h.position) / 0.45
+			h.dash_t = 0.45
+			h.dash_damage = false
+			fx.append({"type": "leap_mark", "pos": lp, "r": 75.0, "col": Color(0, 0, 0), "t": 0.45, "max": 0.45})
+		"pele":
+			h.hide_t = 3.0
+			h.stun_t = 0.0
+			h.root_t = 0.0
+			_burst(h.position, h.radius + 20.0, Color(1.0, 0.75, 0.3), 0.4)
+		"corrente":
+			h.facing = dir
+			spawn_projectile(h, h.position + dir * 20.0, dir * 900.0, 25.0, 8.0, "chain", Color(0.8, 0.55, 0.25), false, 330.0 / 900.0)
+		"trabalho":
+			var grab = null
+			var gd := INF
+			for e in enemies:
+				var d3: float = e.position.distance_to(h.position) - e.radius
+				if d3 <= 90.0 and d3 < gd:
+					gd = d3
+					grab = e
+			if grab != null:
+				deal_damage(h, grab, 90.0)
+				if grab.alive:
+					var home: Vector2 = (SPAWNS[h.team] - grab.position).normalized()
+					grab.apply_knock(home * 240.0 / 0.4, 0.4, 1.2, "throw")
+				_burst(grab.position, 30.0, Color(1.0, 0.6, 0.25), 0.4)
+		# --- Zeus ---
+		"raios":
+			var first = null
+			var fd := INF
+			for e in enemies:
+				if e.position.distance_to(h.position) - e.radius > 280.0:
+					continue
+				var d4: float = e.position.distance_to(tpos)
+				if d4 < fd:
+					fd = d4
+					first = e
+			if first != null:
+				h.facing = (first.position - h.position).normalized()
+				chain_lightning(h, first, h.def.get("chain_cast", [60.0, 45.0, 34.0, 25.0]), 150.0, 5.0)
+		"nuvem":
+			var cp := _clamp_range(h.position, tpos, 450.0)
+			clouds.append({"pos": cp, "r": 100.0, "t": 1.0, "max": 1.0, "team": h.team, "src": h})
+		"aguia":
+			var ap := _clamp_range(h.position, tpos, 200.0)
+			var av: Vector2 = ap - h.position
+			if av.length() > 1.0:
+				h.facing = av.normalized()
+			h.dash_vel = av / 0.2
+			h.dash_t = 0.2
+			h.dash_damage = false
+			h.empower_t = 3.0
+			for k in 6:
+				fx.append({"type": "feather", "pos": h.position + Vector2(randf_range(-12, 12), randf_range(-12, 12)), "r": 6.0, "col": Data.GOLD, "t": 0.6, "max": 0.6, "seed": randf() * TAU})
+		"olimpo":
+			storms.append({"src": h, "team": h.team, "life": 4.0, "tick": 0.0, "left": 8})
+		# --- Atena ---
+		"egide":
+			var ep := _clamp_range(h.position, tpos, 300.0)
+			domes.append({"pos": ep, "r": 100.0, "life": 3.0, "hp": 400.0, "team": h.team, "src": h})
+			_burst(ep, 100.0, Color(0.85, 0.9, 0.95), 0.4)
+		"comando":
+			for a in allies:
+				if a.position.distance_to(h.position) <= 200.0:
+					a.buff_t = 4.0
+			_burst(h.position, 200.0, Color(0.6, 0.75, 0.35), 0.5, "comando_area")
+		"coruja":
+			var mk = null
+			var md := INF
+			for e in enemies:
+				if e.position.distance_to(h.position) > 400.0 + e.radius:
+					continue
+				var d5: float = e.position.distance_to(tpos)
+				if d5 < md:
+					md = d5
+					mk = e
+			if mk != null:
+				mk.mark_t = 4.0
+				mk.apply_slow(0.2, 4.0)
+				fx.append({"type": "owl", "pos": h.position, "to": mk.position, "r": 8.0, "col": Data.GOLD, "t": 0.35, "max": 0.35})
+		"falange":
+			phalanxes.append({"pos": h.position, "r": 180.0, "life": 5.0, "team": h.team, "src": h, "got": []})
+			_burst(h.position, 180.0, Color(0.75, 0.85, 0.6), 0.5)
 		_:
 			return false
+	h.last_cast = ab
+	h.last_cast_t = time
 	var abd: Dictionary = Data.ABILITIES[ab]
 	var is_ult: bool = abd.get("ult", false)
 	cast_counts[ab] = cast_counts.get(ab, 0) + 1
@@ -686,6 +856,161 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 		flash_t = 0.6
 		flash_col = Data.TEAM_COLORS[h.team]
 	return true
+
+
+## Hércules caiu do Salto de Nemeia: 40 de dano e 30% de lentidão por 1,5 s
+## num raio de 75 px. Se caiu em cima de uma coluna, é empurrado para fora.
+func leap_land(h) -> void:
+	resolve_collisions(h)
+	for e in alive_heroes(1 - h.team):
+		if e.position.distance_to(h.position) <= 75.0 + e.radius * 0.5:
+			deal_damage(h, e, 40.0)
+			if e.alive:
+				e.apply_slow(0.3, 1.5)
+	_burst(h.position, 75.0, Color(0.95, 0.65, 0.3), 0.5, "nemeia_queda")
+	for k in 8:
+		var ang := randf() * TAU
+		add_puff(h.position + Vector2(cos(ang), sin(ang)) * randf_range(20.0, 70.0), Color(0.9, 0.8, 0.65))
+	sfx("melee", -4.0)
+
+
+## Alvo do Décimo Terceiro Trabalho caiu.
+func on_throw_land(h) -> void:
+	fx.append({"type": "img", "img": "trabalho_impacto", "pos": h.position, "r": 30.0, "col": Color(1.0, 0.6, 0.25), "t": 0.5, "max": 0.5})
+
+
+## Raio em cadeia (não é projétil: nada bloqueia). Atinge `first` com dmgs[0]
+## e salta para o inimigo mais próximo ainda não atingido a até `jump` px,
+## com os danos seguintes. Desenha os raios entre os alvos.
+func chain_lightning(src, first, dmgs: Array, jump: float, width := 3.0) -> void:
+	var pts := PackedVector2Array([src.position])
+	var hit: Array = []
+	var cur = first
+	for i in dmgs.size():
+		if cur == null:
+			break
+		hit.append(cur)
+		pts.append(cur.position)
+		deal_damage(src, cur, dmgs[i])
+		var nxt = null
+		var nd := jump
+		for e in alive_heroes(1 - src.team):
+			if hit.has(e):
+				continue
+			var d: float = e.position.distance_to(cur.position)
+			if d <= nd:
+				nd = d
+				nxt = e
+		cur = nxt
+	fx.append({"type": "bolt", "pts": pts, "pos": pts[pts.size() - 1], "r": width, "col": Data.GOLD, "t": 0.18, "max": 0.18, "seed": randf() * 100.0})
+
+
+## Ataque básico do Zeus: raio instantâneo de 14 que salta para 1 inimigo a até
+## 90 px (7). Fortalecido pelo Voo da Águia: +30 no alvo e salta para 2.
+func zeus_basic(h, target) -> void:
+	var dmg: float = h.def["dmg"]
+	var jumps := 1
+	if h.empower_t > 0.0:
+		h.empower_t = 0.0
+		dmg += 30.0
+		jumps = 2
+	var dmgs: Array = [dmg]
+	for k in jumps:
+		dmgs.append(h.def["chain_dmg"])
+	chain_lightning(h, target, dmgs, h.def["chain_range"], 2.0 if jumps == 1 else 4.0)
+
+
+## Passiva Escudo de Palas: 10 de escudo no aliado mais ferido a até 220 px
+## da Atena (acumula até 60, dura 4 s).
+func pallas_shield(src) -> void:
+	var cfg: Dictionary = src.def.get("pallas", {})
+	if cfg.is_empty():
+		return
+	var best = null
+	var bf := 2.0
+	for a in alive_heroes(src.team):
+		if a.position.distance_to(src.position) > cfg["range"]:
+			continue
+		var f: float = a.hp / a.max_hp
+		if f < bf:
+			bf = f
+			best = a
+	if best == null or best.shield_hp >= cfg["max"]:
+		return
+	if best.shield_hp <= 0.0:
+		best.shield_src = src
+	best.shield_hp = minf(cfg["max"], best.shield_hp + cfg["amount"])
+	best.shield_t = maxf(best.shield_t, cfg["time"])
+
+
+func _update_zeus_zones(dt: float) -> void:
+	var keep: Array = []
+	for c in clouds:
+		c["t"] -= dt
+		if c["t"] > 0.0:
+			keep.append(c)
+			continue
+		var src = c["src"] if is_instance_valid(c["src"]) else null
+		for e in alive_heroes(1 - c["team"]):
+			if e.position.distance_to(c["pos"]) <= c["r"] + e.radius * 0.5:
+				deal_damage(src, e, 50.0)
+				if e.alive:
+					e.apply_stun(0.8)
+		fx.append({"type": "strike", "pos": c["pos"], "r": 12.0, "col": Data.GOLD, "t": 0.3, "max": 0.3, "seed": randf() * 100.0})
+		_burst(c["pos"], c["r"], Color(1.0, 0.85, 0.35), 0.35)
+		sfx("melee", -6.0)
+	clouds = keep
+	var keep2: Array = []
+	for s in storms:
+		var z = s["src"]
+		if not is_instance_valid(z) or not z.alive:
+			continue
+		s["life"] -= dt
+		s["tick"] -= dt
+		if s["tick"] <= 0.0 and s["left"] > 0:
+			s["tick"] = 0.5
+			s["left"] -= 1
+			var near: Array = []
+			for e in alive_heroes(1 - s["team"]):
+				if e.position.distance_to(z.position) <= 350.0:
+					near.append(e)
+			if not near.is_empty():
+				var e2 = near[randi() % near.size()]
+				deal_damage(z, e2, 30.0)
+				if e2.alive:
+					e2.apply_slow(0.2, 0.5)
+				fx.append({"type": "strike", "pos": e2.position, "r": 8.0, "col": Data.GOLD, "t": 0.25, "max": 0.25, "seed": randf() * 100.0})
+		if s["life"] > 0.0 and s["left"] > 0:
+			keep2.append(s)
+	storms = keep2
+
+
+func _update_atena_zones(dt: float) -> void:
+	var keep: Array = []
+	for d in domes:
+		d["life"] -= dt
+		if d["life"] > 0.0 and d["hp"] > 0.0:
+			keep.append(d)
+	domes = keep
+	var keep2: Array = []
+	for z in phalanxes:
+		z["life"] -= dt
+		var src = z["src"] if is_instance_valid(z["src"]) else null
+		for a in alive_heroes(z["team"]):
+			if a.position.distance_to(z["pos"]) > z["r"]:
+				continue
+			a.phalanx_t = 0.15
+			if not z["got"].has(a):
+				z["got"].append(a)
+				a.shield_hp += 100.0
+				a.shield_t = maxf(a.shield_t, z["life"])
+				a.shield_src = src
+		for e in alive_heroes(1 - z["team"]):
+			if e.position.distance_to(z["pos"]) <= z["r"]:
+				e.apply_slow(0.3, 0.2)
+		if z["life"] > 0.0:
+			keep2.append(z)
+	phalanxes = keep2
 
 
 ## Uma carta foi jogada e a habilidade está armada no herói.
@@ -819,9 +1144,20 @@ func _draw() -> void:
 				if not Art.draw_fx(self, "chuva_flecha", p + Vector2(-2, -6), Art.FX_EFFECTS["chuva_flecha"], 1.0, 0.95, Vector2(4, 12).angle()):
 					draw_line(p + Vector2(-4, -12), p, Color(0.9, 0.95, 1.0, 0.85), 2.0)
 
+	_draw_new_zones()
+
 	# Projéteis
 	for p2 in projectiles:
 		var v: Vector2 = p2["vel"].normalized()
+		if p2["kind"] == "chain" and is_instance_valid(p2["src"]):
+			# Corrente de Cérbero: elos do Hércules até o gancho.
+			if not Art.draw_beam(self, "corrente_elo", p2["src"].position, p2["pos"], 8.0):
+				var a0: Vector2 = p2["src"].position
+				var seg: float = a0.distance_to(p2["pos"])
+				var n := int(seg / 9.0)
+				for k in n:
+					var pk: Vector2 = a0.lerp(p2["pos"], (k + 0.5) / maxf(1.0, n))
+					draw_arc(pk, 3.5, 0.0, TAU, 8, Color(0.75, 0.52, 0.25), 2.0)
 		# Com imagem: desenhada apontando para o voo. O tiro básico é tingido
 		# com a cor do herói (a imagem deve ser clara/neutra).
 		var tint: Color = p2["col"] if p2["kind"] == "basic" else Color.WHITE
@@ -832,6 +1168,15 @@ func _draw() -> void:
 				draw_line(p2["pos"] - v * 70.0, p2["pos"], Color(0.8, 0.6, 1.0, 0.35), 14.0, true)
 				draw_line(p2["pos"] - v * 60.0, p2["pos"], Color(0.95, 0.9, 1.0, 0.9), 4.0, true)
 				draw_circle(p2["pos"], 6.0, Color.WHITE)
+			"chain":
+				for k in 3:
+					var ang := v.angle() + (k - 1) * 0.6
+					draw_line(p2["pos"], p2["pos"] + Vector2(cos(ang), sin(ang)) * 9.0, Color(0.85, 0.6, 0.3), 3.0, true)
+				draw_circle(p2["pos"], 4.0, Color(0.6, 0.4, 0.2))
+			"spear":
+				draw_line(p2["pos"] - v * 30.0, p2["pos"] - v * 8.0, Color(0.6, 0.72, 0.4, 0.5), 5.0, true)
+				draw_line(p2["pos"] - v * 26.0, p2["pos"], Color(0.88, 0.9, 0.95), 2.5, true)
+				draw_colored_polygon(PackedVector2Array([p2["pos"] + v * 4.0, p2["pos"] - v * 4.0 + v.orthogonal() * 3.0, p2["pos"] - v * 4.0 - v.orthogonal() * 3.0]), Color(0.95, 0.97, 1.0))
 			"poison":
 				var perp := Vector2(-v.y, v.x)
 				var pts := PackedVector2Array()
@@ -876,6 +1221,28 @@ func _draw() -> void:
 					var r0: float = f["r"] * 0.2
 					var r1: float = f["r"] * (0.4 + 0.6 * minf(1.0, k2 * 2.0))
 					draw_line(f["pos"] + Vector2(cos(ang2), sin(ang2)) * r0, f["pos"] + Vector2(cos(ang2), sin(ang2)) * r1, Color(fc, 0.8 * (1.0 - k2)), 3.0, true)
+			"bolt":
+				_draw_bolt(f["pts"], f["r"], f["seed"], 1.0 - k2)
+			"strike":
+				# Raio vertical caindo do céu + clarão no chão.
+				var top: Vector2 = f["pos"] + Vector2(0, -140.0)
+				if not Art.draw_fx(self, "raio_queda", f["pos"] + Vector2(0, -70.0), Art.FX_EFFECTS["raio_queda"], 1.0, 1.0 - k2):
+					_draw_bolt(PackedVector2Array([top, f["pos"]]), 4.0, f["seed"], 1.0 - k2)
+				draw_circle(f["pos"], 18.0 * (0.6 + k2), Color(1.0, 0.9, 0.5, 0.45 * (1.0 - k2)))
+			"leap_mark":
+				# Sombra que cresce onde o Hércules vai cair.
+				draw_circle(f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(0, 0, 0, 0.25 + 0.15 * k2))
+				UI.ring(self, f["pos"], f["r"], Color(0.95, 0.65, 0.3, 0.5), 2.0)
+			"feather":
+				var fp: Vector2 = f["pos"] + Vector2(sin(f["seed"] + k2 * 4.0) * 8.0, 14.0 * k2)
+				if not Art.draw_fx(self, "aguia_pena", fp, Art.FX_EFFECTS["aguia_pena"], 1.0, 1.0 - k2, f["seed"] + k2 * 3.0):
+					draw_line(fp - Vector2(4, 2), fp + Vector2(4, 2), Color(Data.GOLD, 1.0 - k2), 3.0, true)
+			"owl":
+				var op: Vector2 = f["pos"].lerp(f["to"], k2) + Vector2(0, -30.0 * sin(k2 * PI))
+				if not Art.draw_fx(self, "coruja_voo", op, Art.FX_EFFECTS["coruja_voo"], 1.0, 1.0, (f["to"] - f["pos"]).angle()):
+					draw_circle(op, 6.0, Color(0.72, 0.55, 0.3))
+					draw_circle(op + Vector2(-2, -1), 1.8, Data.GOLD)
+					draw_circle(op + Vector2(2, -1), 1.8, Data.GOLD)
 			"img":
 				if not Art.draw_fx(self, f["img"], f["pos"], Art.FX_EFFECTS.get(f["img"], Vector2(44, 44)), 1.0, 1.0 - k2):
 					UI.ring(self, f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(fc, 1.0 - k2), 4.0)
@@ -928,6 +1295,66 @@ func popup_layout() -> Array:
 			"col": Data.ROLE_COLORS[Data.HEROES[abd["hero"]]["role"]],
 			"a": clampf(pp["t"] / pp["max"] * 2.5, 0.0, 1.0)})
 	return out
+
+
+## Raio em zigue-zague passando por `pts` (dourado, com núcleo claro).
+func _draw_bolt(pts: PackedVector2Array, w: float, sd: float, a: float) -> void:
+	for i in pts.size() - 1:
+		var p0: Vector2 = pts[i]
+		var p1: Vector2 = pts[i + 1]
+		if Art.draw_beam(self, "raio_cadeia", p0, p1, w * 3.0, Color(1, 1, 1, a)):
+			continue
+		var line := PackedVector2Array([p0])
+		var n := maxi(2, int(p0.distance_to(p1) / 18.0))
+		var perp := (p1 - p0).orthogonal().normalized()
+		for k in range(1, n):
+			var off := sin(sd + k * 7.7 + i * 3.1) * 7.0
+			line.append(p0.lerp(p1, float(k) / n) + perp * off)
+		line.append(p1)
+		draw_polyline(line, Color(Data.GOLD, 0.55 * a), w + 3.0, true)
+		draw_polyline(line, Color(1.0, 0.97, 0.8, a), maxf(1.0, w * 0.6), true)
+
+
+## Zonas do Zeus e da Atena (Nuvem, Fúria do Olimpo, Égide, Falange).
+func _draw_new_zones() -> void:
+	for c in clouds:
+		var k: float = 1.0 - c["t"] / c["max"]
+		var tc: Color = Data.TEAM_COLORS[c["team"]]
+		if not Art.draw_fx(self, "nuvem_area", c["pos"], Art.FX_EFFECTS["nuvem_area"] * (c["r"] / 100.0), 1.0, Art.AREA_ALPHA + 0.2, time * 0.4):
+			draw_circle(c["pos"], c["r"], Color(0.75, 0.75, 0.78, 0.22))
+			for j in 6:
+				var ang := time * 0.4 + j * TAU / 6.0
+				draw_circle(c["pos"] + Vector2(cos(ang), sin(ang)) * c["r"] * 0.55, c["r"] * 0.3, Color(0.82, 0.82, 0.86, 0.18))
+		UI.ring(self, c["pos"], c["r"], Color(tc, 0.85), 3.0)
+		# Aviso: arco dourado enche em 1 s até o raio cair.
+		draw_arc(c["pos"], c["r"] - 6.0, -PI * 0.5, -PI * 0.5 + TAU * k, 40, Color(Data.GOLD, 0.9), 4.0, true)
+	for s in storms:
+		var z = s["src"]
+		if is_instance_valid(z) and z.alive:
+			if not Art.draw_fx(self, "olimpo_area", z.position, Art.FX_EFFECTS["olimpo_area"], 1.0, 0.35, time * 0.2):
+				draw_circle(z.position, 350.0, Color(0.05, 0.05, 0.12, 0.16))
+			UI.ring(self, z.position, 350.0, Color(Data.TEAM_COLORS[s["team"]], 0.6), 2.0)
+	for d in domes:
+		var tc2: Color = Data.TEAM_COLORS[d["team"]]
+		var a2: float = clampf(d["hp"] / 400.0, 0.35, 1.0) * clampf(d["life"] * 2.0, 0.0, 1.0)
+		if not Art.draw_fx(self, "egide_cupula", d["pos"], Art.FX_EFFECTS["egide_cupula"], 1.0, a2 * 0.8):
+			draw_circle(d["pos"], d["r"], Color(0.85, 0.9, 0.95, 0.12 * a2))
+			draw_arc(d["pos"], d["r"] * 0.55, PI * 1.1, PI * 1.9, 16, Color(1, 1, 1, 0.25 * a2), 3.0, true)
+		UI.ring(self, d["pos"], d["r"], Color(0.9, 0.93, 1.0, 0.8 * a2), 3.0)
+		UI.ring(self, d["pos"], d["r"] + 3.0, Color(tc2, 0.7 * a2), 2.0)
+	for z2 in phalanxes:
+		var tc3: Color = Data.TEAM_COLORS[z2["team"]]
+		var a3: float = clampf(z2["life"] * 2.0, 0.0, 1.0)
+		if not Art.draw_fx(self, "falange_area", z2["pos"], Art.FX_EFFECTS["falange_area"], 1.0, Art.AREA_ALPHA * a3):
+			draw_circle(z2["pos"], z2["r"], Color(0.55, 0.65, 0.35, 0.12 * a3))
+			for j in 14:
+				var ang2 := j * TAU / 14.0
+				var sp: Vector2 = z2["pos"] + Vector2(cos(ang2), sin(ang2)) * z2["r"]
+				draw_circle(sp, 8.0, Color(0.78, 0.82, 0.86, 0.8 * a3))
+				draw_circle(sp, 4.0, Color(0.55, 0.65, 0.35, 0.9 * a3))
+			draw_line(z2["pos"] + Vector2(0, 10), z2["pos"] + Vector2(0, -34), Color(0.9, 0.92, 0.95, a3), 3.0, true)
+			draw_colored_polygon(PackedVector2Array([z2["pos"] + Vector2(0, -44), z2["pos"] + Vector2(-5, -32), z2["pos"] + Vector2(5, -32)]), Color(0.95, 0.97, 1.0, a3))
+		UI.ring(self, z2["pos"], z2["r"], Color(tc3, 0.8 * a3), 3.0)
 
 
 func draw_overlay(ci: CanvasItem) -> void:
