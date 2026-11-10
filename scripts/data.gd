@@ -26,6 +26,24 @@ const ULT_MIT := 0.06              # por ponto de dano mitigado
 const ULT_POINT := 0.45            # por segundo no ponto
 const ULT_PASSIVE := 0.3           # por segundo, sempre
 
+# --- Roda do Destino (sistema "engrenar", claude/sistema-engrenar.md) -------
+## Engrenagens em ciclo: Movimento → Controle → Ataque → Defesa → Movimento.
+const GEARS := ["move", "control", "attack", "defense"]
+## Tipo de carta → engrenagem (índice em GEARS). Cura junta com Proteção.
+const EFFECT_GEAR := {"mobilidade": 0, "controle": 1, "dano": 2, "escudo": 3, "cura": 3}
+## Ícone de cada engrenagem (tipo de efeito usado no desenho).
+const GEAR_ICON := ["mobilidade", "controle", "dano", "escudo"]
+const GEAR_WINDOW := 5.0           # s que a engrenagem fica engatada após o efeito
+const GEAR_CTRL_BONUS := 0.5       # Movimento → Controle: controle dura +50%
+const GEAR_DMG_BONUS := 0.3        # Controle → Ataque: +30% de dano
+const GEAR_DEF_BONUS := 0.3        # Ataque → Defesa: +30% de cura, escudo ou redução
+const GEAR_MOVE_SHIELD := 60.0     # Defesa → Movimento: escudo no herói que se desloca
+const GEAR_MOVE_SHIELD_T := 3.0
+const CADENCE_FROM := 3            # a partir deste elo seguido, cada elo devolve Ícor
+const CADENCE_REFUND := 1.0
+const FULL_TURN_LINKS := 4         # elos seguidos para a volta completa
+const FULL_TURN_ULT := 10.0        # carga de ultimate para cada herói do time
+
 # --- Comportamento da IA ----------------------------------------------------
 const BEHAVIOR_CD := 10.0
 const BEHAVIORS := ["aggressive", "balanced", "defensive"]
@@ -211,3 +229,11 @@ const ABILITIES := {
 
 const ULT_KEYS := ["Q", "W", "E"]
 const BEHAVIOR_KEYS := ["Z", "X", "C"]
+
+
+## Engrenagem da carta na Roda do Destino (-1 para ultimates).
+static func gear_of(card: String) -> int:
+	var ab: Dictionary = ABILITIES[card]
+	if ab.get("ult", false):
+		return -1
+	return EFFECT_GEAR[ab["effect"]]

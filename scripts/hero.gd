@@ -55,6 +55,8 @@ var wall_t := 0.0
 var wall_hp := 0.0
 ## Pele do Leão: -50% de dano e imune a atordoar, prender e empurrar.
 var hide_t := 0.0
+## Fração de dano que a Pele do Leão tira (0,5; mais se a carta engrenou).
+var hide_amt := 0.5
 ## Olhar da Coruja: recebe +20% de dano (a lentidão usa slow_t).
 var mark_t := 0.0
 ## Comando de Guerra: +20% de dano causado e de velocidade.
@@ -118,7 +120,7 @@ func clear_status() -> void:
 	undying_t = 0.0; poison_t = 0.0; poison_dps = 0.0; poison_src = null
 	heal_red_t = 0.0; dash_t = 0.0; knock_t = 0.0
 	wall_t = 0.0; wall_hp = 0.0
-	hide_t = 0.0; mark_t = 0.0; buff_t = 0.0; empower_t = 0.0; phalanx_t = 0.0
+	hide_t = 0.0; hide_amt = 0.5; mark_t = 0.0; buff_t = 0.0; empower_t = 0.0; phalanx_t = 0.0
 	leaping = false; knock_stun = 0.0; knock_kind = ""
 	target = null; heal_target = null; retreating = false
 	armed = []

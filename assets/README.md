@@ -40,8 +40,10 @@ O retrato também é coberto pelas bordas do medidor: a porcentagem fica sobre a
 
 | Arquivo | Fonte | Na tela | Observação |
 | --- | --- | --- | --- |
-| `ui/logo.png` | 1200×400 | 540×180 no menu (centro em 640, 150) | Substitui o título em texto; sem o arquivo, volta o texto |
+| `ui/logo.png` | 1200×400 | 507×169 na tela de título, topo em y 40 (≈ 760 px de largura a 60 px do topo em 1920 × 1080) | Substitui o título em texto; sem o arquivo, volta o texto |
+| `ui/title_bg.png` | 1920×1080 | tela de título inteira (1280×720), escalada para cobrir sem distorcer | Opaco. Céu no alto para o logo; heróis no meio (y ≈ 290 a 550 na tela); botões no terço de baixo, sobre o chão escuro (o código escurece a faixa de y 520 a 720). Sem o arquivo, volta o fundo escuro com engrenagens |
 | `store/icon.png` | 512×512 | ícone do projeto | Aba do navegador e export web (config/icon do project.godot) |
+| `store/itch_cover.png` | 630×500 | não aparece no jogo | Capa da página do itch.io. Fica fora da exportação (exclude_filter em export_presets.cfg); sobe para a página à mão |
 
 ## icons/
 
@@ -71,10 +73,10 @@ esquerdo e ícone no centro (círculo em y ≈ 108 px na fonte). A miniatura da 
 | Arquivo | Fonte | Na tela | Observação |
 | --- | --- | --- | --- |
 | `arena_floor.png` | 2560×1040 | 1280×520 (arena inteira, y 40 a 560) | Opaco, visto de cima. Substitui o fundo, a grade e a faixa central; a borda de bronze da arena continua por código. Na imagem-fonte: bases em (124, 520) e (2436, 520), ponto em (1280, 520) |
-| `pillar_large.png` | 160×160 | 80×80 (raio 34) e 66×66 (raio 28) | Coluna vista de cima, transparente. O círculo de colisão ocupa 85% da imagem (136 px da fonte); o resto é borda ou detalhe. Sem sombra: o código desenha a sombra 6 px abaixo |
-| `pillar_small.png` | 112×112 | 52×52 (raio 22) e 47×47 (raio 20) | Idem, 85% (95 px da fonte) |
+| `pillar_large.png` | 160×160 | 74×74 (raio 34) e 61×61 (raio 28) | Coluna vista de cima, transparente. O círculo de colisão ocupa 92% da imagem (147 px da fonte); a pedra entregue vai até 94%, então a borda passa só ~1 px da colisão. Sem sombra: o código desenha a sombra 6 px abaixo |
+| `pillar_small.png` | 112×112 | 48×48 (raio 22) e 43×43 (raio 20) | Idem, 92% (103 px da fonte) |
 | `control_point.png` | 512×512 | 211×211 (ponto de raio 95) | Plataforma neutra, transparente fora do círculo. A borda do ponto fica a 90% da imagem (461 px da fonte). O código desenha por cima o anel na cor do dono, o pulso de disputa, o arco de captura e a contagem; antes de liberar, a imagem fica acinzentada |
-| `spawn_base.png` | 384×384 | 167×167 (base de raio 75) | Neutra (sem azul nem vermelho). Borda a 90% da imagem. O código tinge de leve e contorna com a cor do time. A base azul (x 62) sai em parte da tela pela esquerda e a vermelha pela direita |
+| `spawn_base.png` | 384×384 | 160×160 (base de raio 75) | Neutra (sem azul nem vermelho). Borda a 94% da imagem (a pedra entregue vai até 96%). O código tinge de leve e contorna com a cor do time. A base azul (x 62) sai em parte da tela pela esquerda e a vermelha pela direita |
 
 As colunas, o ponto e a base não giram; luz de cima, neutra. Sem a imagem, cada peça continua desenhada por código.
 

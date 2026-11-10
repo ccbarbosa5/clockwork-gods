@@ -890,6 +890,8 @@ func _all_art_paths() -> Array:
 		paths.append(Art.HERO_FULL % hid)
 	paths.append(Art.LOGO)
 	paths.append(Art.ICON_STORE)
+	paths.append(Art.TITLE_BG)
+	paths.append(Art.ITCH_COVER)
 	for ab in Data.ABILITIES.keys():
 		paths.append(Art.ICON % ab)
 	for role in Data.ROLE_COLORS.keys():
@@ -1091,6 +1093,7 @@ func test_art_every_effect_image_is_used() -> void:
 const ART_SOURCE_SIZES := {
 	"heroes/hercules_full": Vector2i(512, 768), "heroes/zeus_full": Vector2i(512, 768), "heroes/atena_full": Vector2i(512, 768),
 	"ui/logo": Vector2i(1200, 400), "store/icon": Vector2i(512, 512),
+	"ui/title_bg": Vector2i(1920, 1080), "store/itch_cover": Vector2i(630, 500),
 	"heroes/talos_full": Vector2i(512, 768), "heroes/artemis_full": Vector2i(512, 768), "heroes/asclepio_full": Vector2i(512, 768),
 	"map/arena_floor": Vector2i(2560, 1040), "map/pillar_large": Vector2i(160, 160), "map/pillar_small": Vector2i(112, 112),
 	"map/control_point": Vector2i(512, 512), "map/spawn_base": Vector2i(384, 384),
@@ -1132,8 +1135,8 @@ func test_art_delivered_images_are_valid() -> void:
 			if want != Vector2i.ZERO:
 				check(Vector2i(t.get_width(), t.get_height()) == want, "%s tem %dx%d, esperado %dx%d" % [path, t.get_width(), t.get_height(), want.x, want.y])
 			var img := t.get_image()
-			if key == "map/arena_floor":
-				continue  # o piso é opaco de propósito
+			if key in ["map/arena_floor", "ui/title_bg", "store/itch_cover"]:
+				continue  # piso, fundo da tela de título e capa do itch são opacos de propósito
 			check(img != null and img.detect_alpha() != Image.ALPHA_NONE, "imagem sem transparência: " + path)
 	print("        (imagens entregues conferidas: %d)" % found)
 
@@ -1621,7 +1624,7 @@ func test_art_map_sizes() -> void:
 	# Colunas grandes (raio 34/28) e pequenas (22/20); tamanhos na tela.
 	check(Art.pillar_name(34.0) == "pillar_large" and Art.pillar_name(28.0) == "pillar_large", "raio 34 e 28 usam a coluna grande")
 	check(Art.pillar_name(22.0) == "pillar_small" and Art.pillar_name(20.0) == "pillar_small", "raio 22 e 20 usam a coluna pequena")
-	check(absf(Art.map_size("pillar_large", 34.0) - 80.0) < 0.1, "coluna de raio 34 desenhada com 80 px")
+	check(absf(Art.map_size("pillar_large", 34.0) - 73.9) < 0.1, "coluna de raio 34 desenhada com ~74 px")
 	check(absf(Art.map_size("control_point", 95.0) - 211.1) < 0.2, "ponto desenhado com ~211 px")
 	var readme := FileAccess.get_file_as_string("res://assets/README.md")
 	for name in Art.MAP_IMAGES.keys():
@@ -1990,3 +1993,189 @@ func test_resolve_collisions_never_leaves_hero_inside_pillar() -> void:
 		g.resolve_collisions(hc)
 		check(g.spot_free(hc.position, hc.radius, hc.team), "herói preso em (%.0f, %.0f)" % [hc.position.x, hc.position.y])
 	done(g)
+
+
+# ---------------------------------------------------------------------------
+# Roda do Destino (claude/sistema-engrenar.md)
+
+func test_wheel_gear_of_cards() -> void:
+	# Mobilidade → Movimento, Controle → Controle, Dano → Ataque, Proteção e Cura → Defesa; ultimates fora.
+	check(Data.gear_of("investida") == 0 and Data.gear_of("comando") == 0, "Mobilidade é Movimento")
+	check(Data.gear_of("armadilha") == 1 and Data.gear_of("coruja") == 1, "Controle é Controle")
+	check(Data.gear_of("disparo") == 2 and Data.gear_of("raios") == 2, "Dano é Ataque")
+	check(Data.gear_of("muralha") == 3 and Data.gear_of("sopro") == 3 and Data.gear_of("pele") == 3, "Proteção e Cura são Defesa")
+	for hid in Data.HERO_ORDER:
+		check(Data.gear_of(Data.HEROES[hid]["ult"]) == -1, "ultimate fora da roda: " + hid)
+	# Todo time possível tem as 4 engrenagens no deck.
+	for tk in Data.heroes_of_role("Tanque"):
+		for dd in Data.heroes_of_role("Dano"):
+			for sp in Data.heroes_of_role("Suporte"):
+				var gs := {}
+				for hid in [tk, dd, sp]:
+					for c in Data.HEROES[hid]["cards"]:
+						gs[Data.gear_of(c)] = true
+				check(gs.size() == 4, "time %s/%s/%s tem as 4 engrenagens" % [tk, dd, sp])
+
+
+func test_wheel_full_chain_bonuses_and_rewards() -> void:
+	var g := new_game()
+	var w = g.wheels[0]
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	var s = hero(g, 0, "asclepio")
+	var cmd = g.commanders[0]
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	check(w.gear == 0 and w.links == 0, "primeira carta só engata")
+	check(t.shield_hp == 0.0, "sem escudo de Movimento na primeira carta")
+	g.cast(a, "armadilha", Vector2(700, 300))
+	check(w.links == 1 and g.traps[-1]["ctrl"] == 1.0 + Data.GEAR_CTRL_BONUS, "Movimento → Controle: controle +50%")
+	g.cast(a, "disparo", Vector2(900, 300))
+	check(w.links == 2 and is_equal_approx(g.projectiles[-1]["dmg"], 90.0 * (1.0 + Data.GEAR_DMG_BONUS)), "Controle → Ataque: +30% de dano")
+	cmd.ichor = 2.0
+	g.cast(s, "engrenagem", s.position)
+	check(w.links == 3, "terceiro elo")
+	check(is_equal_approx(cmd.ichor, 2.0 + Data.CADENCE_REFUND), "Cadência do 3º elo devolve 1 Ícor")
+	var best_shield := 0.0
+	for h in [t, a, s]:
+		best_shield = maxf(best_shield, h.shield_hp)
+	check(is_equal_approx(best_shield, 150.0 * (1.0 + Data.GEAR_DEF_BONUS)), "Ataque → Defesa: escudo +30%")
+	for h in [t, a, s]:
+		h.ult = 0.0
+	var shield_before: float = t.shield_hp
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	check(w.links == 4 and w.stats["full"] == 1, "volta completa com 4 elos")
+	for h in [t, a, s]:
+		check(h.ult >= Data.FULL_TURN_ULT and h.ult < Data.FULL_TURN_ULT + 1.0, "volta completa dá +10 de ultimate a " + h.hid)
+	check(is_equal_approx(t.shield_hp - shield_before, Data.GEAR_MOVE_SHIELD) and t.shield_t >= Data.GEAR_MOVE_SHIELD_T - 0.01, "Defesa → Movimento: 60 de escudo por 3 s")
+	check(g.announce_text == T.t("WHEEL_FULL_TURN") and g.announce_sub != "", "aviso grande da volta completa")
+	done(g)
+
+
+func test_wheel_breaks_out_of_order_and_after_window() -> void:
+	var g := new_game()
+	var w = g.wheels[0]
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	g.cast(a, "disparo", Vector2(900, 300))
+	check(w.links == 0 and w.gear == 2, "fora da ordem quebra e vira a engrenagem engatada")
+	check(is_equal_approx(g.projectiles[-1]["dmg"], 90.0), "sem bônus fora da ordem")
+	step(g, Data.GEAR_WINDOW + 0.1)
+	check(w.gear == -1, "a engrenagem solta depois da janela")
+	g.cast(a, "armadilha", Vector2(700, 300))
+	check(w.links == 0 and g.traps[-1]["ctrl"] == 1.0, "depois da janela não engrena")
+	# Ultimates ficam fora: não quebram nem contam.
+	g.cast(t, "furia", t.position)
+	check(w.gear == 1 and w.links == 0, "ultimate não mexe na roda")
+	# Cada time tem a sua roda.
+	var e = hero(g, 1, "artemis")
+	g.cast(e, "disparo", Vector2(300, 300))
+	check(w.gear == 1 and g.wheels[1].gear == 2, "roda do inimigo é separada")
+	done(g)
+
+
+func test_wheel_other_bonuses() -> void:
+	# Controle → Ataque no veneno (impacto e dano por segundo) e nos raios do Zeus;
+	# Ataque → Defesa na Pele do Leão; Movimento → Controle na Coruja.
+	var g := new_game({"teams": [NEW_TEAM, Data.DEFAULT_TEAM]})
+	var hc = hero(g, 0, "hercules")
+	var at = hero(g, 0, "atena")
+	var z = hero(g, 0, "zeus")
+	var e = hero(g, 1, "talos")
+	e.position = at.position + Vector2(200, 0)
+	g.cast(at, "comando", at.position)
+	g.cast(at, "coruja", e.position)
+	check(is_equal_approx(e.mark_t, 4.0 * (1.0 + Data.GEAR_CTRL_BONUS)), "Coruja dura +50% ao engrenar")
+	e.position = z.position + Vector2(150, 0)
+	e.hp = e.max_hp
+	z.buff_t = 0.0  # tira o Comando de Guerra para medir só a roda
+	g.cast(z, "raios", e.position)
+	var first: float = z.def["chain_cast"][0]
+	check(is_equal_approx(e.max_hp - e.hp, first * (1.0 + Data.GEAR_DMG_BONUS) * 1.2), "Corrente de Raios +30% (alvo marcado)")
+	g.cast(hc, "pele", hc.position)
+	check(is_equal_approx(hc.hide_amt, 0.5 * (1.0 + Data.GEAR_DEF_BONUS)), "Pele do Leão tira 65% ao engrenar")
+	hc.clear_status()
+	check(hc.hide_amt == 0.5, "Pele volta ao normal")
+	done(g)
+
+
+func test_wheel_can_be_turned_off() -> void:
+	var g := new_game({"wheel": false})
+	var t = hero(g, 0, "talos")
+	var a = hero(g, 0, "artemis")
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	g.cast(a, "armadilha", Vector2(700, 300))
+	check(g.wheels[0].gear == -1 and g.traps[-1]["ctrl"] == 1.0, "sem a roda, nada engrena")
+	check(g.wheel_next_gear(0) == -1, "sem a roda, nenhuma carta ganha selo")
+	done(g)
+
+
+func test_wheel_hud_seal_tip_and_layout() -> void:
+	var g := new_game()
+	var t = hero(g, 0, "talos")
+	var hud = g.hud
+	check(not hud.continues_chain("disparo"), "nada engatado: sem selo")
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	check(hud.continues_chain("armadilha") and not hud.continues_chain("disparo"), "selo só na carta de Controle depois de Movimento")
+	# Carta armada que ainda não aconteceu conta para o selo.
+	var a = hero(g, 0, "artemis")
+	a.arm("armadilha", false)
+	g.on_armed(a, "armadilha")
+	check(hud.continues_chain("disparo") and not hud.continues_chain("armadilha"), "selo considera a carta já armada")
+	# A roda não cobre ultimates, cartas nem a barra de Ícor.
+	var wr: Rect2 = HudScript.wheel_rect()
+	for i in 3:
+		check(not wr.intersects(hud.ult_rect(i)), "roda não cobre a ultimate %d" % i)
+	for i in 4:
+		check(not wr.intersects(hud.base_card_rect(i)), "roda não cobre a carta %d" % i)
+	check(not wr.intersects(HudScript.ICHOR_BAR), "roda não cobre a barra de Ícor")
+	check(wr.end.x < 330.0 and wr.position.x > hud.ult_center(2).x + 30.0, "roda entre as ultimates e o separador")
+	# Dica: 7 linhas (título + 6), até 37 caracteres, EN nunca maior que PT.
+	var old := T.lang()
+	var pt_lines: Array = []
+	for l in T.LANGS:
+		T.set_lang(l, false)
+		var lines: Array = HudScript.wheel_tip_lines()
+		lines.push_front(T.t("WHEEL_TIP_TITLE"))
+		check(lines.size() == 7, "dica com 7 linhas")
+		for k in lines.size():
+			check(String(lines[k]).length() <= 37, "linha da dica longa demais (%s): %s" % [l, lines[k]])
+			if l == "pt":
+				pt_lines.append(lines[k])
+			else:
+				check(String(lines[k]).length() <= String(pt_lines[k]).length(), "EN maior que PT: " + lines[k])
+		var r: Rect2 = HudScript.tip_rect(wr, "", HudScript.wheel_tip_lines(), 260.0)
+		check(Rect2(0, 0, 1280, 720).encloses(r), "dica da roda dentro da tela")
+	T.set_lang(old, false)
+	hud.update_hover(wr.get_center())
+	check(hud.tip.get("kind", "") == "wheel", "mouse na roda abre a dica")
+	done(g)
+
+
+func test_wheel_texts_in_both_languages() -> void:
+	for key in ["WHEEL_IN_GEAR", "WHEEL_CADENCE", "WHEEL_FULL_TURN", "WHEEL_FULL_TURN_SUB", "WHEEL_TIP_TITLE",
+			"WHEEL_TIP_MOVE_CTRL", "WHEEL_TIP_CTRL_ATK", "WHEEL_TIP_ATK_DEF", "WHEEL_TIP_DEF_MOVE",
+			"WHEEL_TIP_WINDOW", "WHEEL_TIP_FULL", "HELP_15"]:
+		for l in T.LANGS:
+			var s := T.in_lang(key, l)
+			check(s != key and s != "", "%s sem texto em %s" % [key, l])
+		check(T.in_lang(key, "pt") != T.in_lang(key, "en"), "%s igual em PT e EN" % key)
+	check(T.in_lang("WHEEL_TIP_TITLE", "pt") == "RODA DO DESTINO" and T.in_lang("WHEEL_TIP_TITLE", "en") == "WHEEL OF FATE", "nome do sistema")
+	check(T.in_lang("WHEEL_CADENCE", "pt").begins_with("CADÊNCIA"), "Cadência é o nome para o jogador")
+
+
+func test_all_texts_have_glyphs_in_font() -> void:
+	# Toda letra dos textos existe na fonte do jogo (na web não há fonte do
+	# sistema para cobrir a falta; "→" virava um quadrado e foi trocado por "›").
+	var f := UI_FONT()
+	var txt := FileAccess.get_file_as_string("res://i18n/textos.csv")
+	var miss := {}
+	for i in txt.length():
+		var c := txt.unicode_at(i)
+		if c >= 32 and c != 0xFEFF and not f.has_char(c):
+			miss[String.chr(c)] = true
+	check(miss.is_empty(), "caracteres sem desenho na fonte: " + str(miss.keys()))
+
+
+func UI_FONT() -> Font:
+	return ThemeDB.fallback_font

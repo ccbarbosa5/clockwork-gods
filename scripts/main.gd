@@ -6,6 +6,8 @@ extends Node2D
 ##   --shot-at=segundos   momento da captura (padrão 40)
 ##   --shot-menu          captura o menu em vez da partida
 ##   --shot-gallery=heroi captura a Galeria de heróis aberta nesse herói
+##   --shot-team=a,b,c    time 1 da captura (ex.: hercules,zeus,atena)
+##   --shot-tip=tipo      deixa uma dica aberta na captura (ex.: wheel)
 
 const GameScript = preload("res://scripts/game.gd")
 const MenuScript = preload("res://scripts/menu.gd")
@@ -24,6 +26,9 @@ var shot_at := 40.0
 var shot_menu := false
 var shot_gallery := ""
 var _shot_done := false
+var shot_team: Array = []
+var shot_tip := ""
+var shot_help := false
 var _frames := 0
 
 
@@ -39,6 +44,13 @@ func _ready() -> void:
 			shot_at = a.substr(10).to_float()
 		elif a == "--shot-menu":
 			shot_menu = true
+		elif a == "--shot-help":
+			shot_menu = true
+			shot_help = true
+		elif a.begins_with("--shot-tip="):
+			shot_tip = a.substr(11)
+		elif a.begins_with("--shot-team="):
+			shot_team = Array(a.substr(12).split(","))
 		elif a.begins_with("--shot-gallery="):
 			shot_menu = true
 			shot_gallery = a.substr(15)
@@ -55,6 +67,8 @@ func _ready() -> void:
 	add_child(gallery)
 	menu.open_gallery.connect(_open_gallery)
 	gallery.back.connect(_close_gallery)
+	if shot_help:
+		menu.show_help = true
 	if shot_gallery != "":
 		_open_gallery()
 		gallery.open(shot_gallery)
@@ -63,7 +77,12 @@ func _ready() -> void:
 		_on_start({"difficulty": "hard", "autotest": true})
 	elif shot_path != "" and not shot_menu:
 		Engine.time_scale = 4.0
-		_on_start({"difficulty": "normal", "autotest": true})
+		var o := {"difficulty": "normal", "autotest": true}
+		if Data.valid_team(shot_team):
+			o["teams"] = [shot_team, Data.DEFAULT_TEAM.duplicate()]
+		_on_start(o)
+		if shot_tip != "":
+			game.hud.force_tip = {"kind": shot_tip, "i": 0}
 
 
 func _open_gallery() -> void:

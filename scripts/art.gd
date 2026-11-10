@@ -17,7 +17,15 @@ const FX := "res://assets/fx/%s.png"
 const MAP := "res://assets/map/%s.png"
 ## Logo do jogo no menu (1200×400, desenhado em 540×180).
 const LOGO := "res://assets/ui/logo.png"
-const LOGO_SIZE := Vector2(540, 180)
+## Logo na tela de título: ~760 px de largura em 1920 (507 em 1280), a ~60 px
+## do topo em 1920 (40 em 720).
+const LOGO_SIZE := Vector2(507, 169)
+const LOGO_TOP := 40.0
+## Fundo da tela de título (1920 × 1080), escalado para cobrir sem distorcer.
+const TITLE_BG := "res://assets/ui/title_bg.png"
+## Capa da página do itch.io (630 × 500). Não é usada no jogo e fica fora da
+## exportação (export_presets.cfg); vai para a página à mão.
+const ITCH_COVER := "res://assets/store/itch_cover.png"
 ## Ícone do jogo (aba do navegador, export web); usado pelo projeto, não pelo código.
 const ICON_STORE := "res://assets/store/icon.png"
 
@@ -26,10 +34,10 @@ const ICON_STORE := "res://assets/store/icon.png"
 ## O piso é desenhado esticado na arena inteira (1280×520).
 const MAP_IMAGES := {
 	"arena_floor": {"src": Vector2i(2560, 1040)},
-	"pillar_large": {"src": Vector2i(160, 160), "fill": 0.85},   # colunas de raio 34 e 28
-	"pillar_small": {"src": Vector2i(112, 112), "fill": 0.85},   # colunas de raio 22 e 20
+	"pillar_large": {"src": Vector2i(160, 160), "fill": 0.92},   # colunas de raio 34 e 28
+	"pillar_small": {"src": Vector2i(112, 112), "fill": 0.92},   # colunas de raio 22 e 20
 	"control_point": {"src": Vector2i(512, 512), "fill": 0.9},   # ponto de raio 95
-	"spawn_base": {"src": Vector2i(384, 384), "fill": 0.9},      # bases de raio 75
+	"spawn_base": {"src": Vector2i(384, 384), "fill": 0.94},      # bases de raio 75
 }
 ## Colunas com raio a partir deste valor usam pillar_large.
 const PILLAR_LARGE_MIN_R := 28.0
@@ -206,6 +214,16 @@ static func ability_id(ab: Dictionary) -> String:
 # Desenho
 
 ## Desenha a textura centrada em `c`, com tamanho, giro (rad) e cor/transparência.
+## Desenha a imagem cobrindo o retângulo sem distorcer (corta o que sobrar).
+static func draw_cover(ci: CanvasItem, t: Texture2D, rect: Rect2) -> void:
+	drawn += 1
+	var ts := t.get_size()
+	var k := maxf(rect.size.x / ts.x, rect.size.y / ts.y)
+	var src_size := rect.size / k
+	var src := Rect2((ts - src_size) * 0.5, src_size)
+	ci.draw_texture_rect_region(t, rect, src)
+
+
 static func draw_centered(ci: CanvasItem, t: Texture2D, c: Vector2, size: Vector2, rot := 0.0, mod := Color.WHITE) -> void:
 	drawn += 1
 	if rot == 0.0:

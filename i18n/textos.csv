@@ -21,17 +21,18 @@ HELP_TITLE,Como jogar,How to play
 HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
 HELP_02,"Seus 3 heróis (um Tanque, um Dano e um Suporte) andam e atacam sozinhos.","Your 3 heroes (one Tank, one Damage, one Support) move and attack on their own."
 HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
-HELP_04,"   O herói guarda a habilidade e usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
+HELP_04,"   O herói guarda a habilidade e a usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
 HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
 HELP_06,"   Cor da carta = função (laranja Tanque, roxo Dano, verde Suporte).","   Card color = role (orange Tank, purple Damage, green Support)."
 HELP_07,Ícor: recarrega com o tempo e ao abater inimigos.,Ichor: recharges over time and when you take down enemies.
 HELP_08,   Abater um herói do time que está na frente rende Ícor extra.,   Taking down a hero from the leading team gives extra Ichor.
 HELP_09,"Ultimates: botões redondos (Q, W, E), também usadas no melhor momento.","Ultimates: round buttons (Q, W, E), also used at the best moment."
-HELP_10,"   Carregam com dano, cura, mitigação e tempo no ponto. Sem custo de Ícor.","   Charged by damage, healing, mitigation and time on the point. No Ichor cost."
+HELP_10,"   Carregam com dano, cura, dano evitado e tempo no ponto. Sem custo de Ícor.","   Charged by damage, healing, damage prevented and time on the point. No Ichor cost."
 HELP_11,"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.","AI behavior (Z, X, C): Aggressive, Balanced or Defensive."
 HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,A downed hero respawns in 6 s; their cards return to the deck.
 HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
 HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
+HELP_15,Roda do Destino: jogue Movimento › Controle › Ataque › Defesa para ganhar bônus.,Wheel of Fate: play Move › Control › Attack › Defense in order for bonuses.
 HELP_BACK,Clique para voltar,Click to go back
 HUD_YOU,VOCÊ,YOU
 HUD_BOT,BOT,BOT
@@ -45,7 +46,7 @@ HUD_NEXT,Próxima,Next
 HUD_ICHOR,%d Ícor,%d Ichor
 HUD_BEHAVIOR,Comportamento da IA,AI behavior
 HUD_BEH_CD,Nova troca em %d s,Next switch in %d s
-HUD_FOOTER,Clique na carta: o herói usa no melhor momento · ESC pausa,Click a card: the hero uses it at the best moment · ESC pauses
+HUD_FOOTER,Clique na carta: o herói a usa no melhor momento · ESC pausa,Click a card: the hero uses it at the best moment · ESC pauses
 HUD_RESPAWN,%d s,%d s
 ULT_READY,PRONTA,READY
 FLASH_ICOR,Ícor insuficiente,Not enough Ichor
@@ -90,7 +91,7 @@ END_COL_HERO,Herói,Hero
 END_COL_KD,Abates/Mortes,Kills/Deaths
 END_COL_DMG,Dano,Damage
 END_COL_HEAL,Cura,Heal
-END_COL_MIT,Mitigado,Mitigated
+END_COL_MIT,Evitado,Prevented
 END_YOUR_TEAM,Seu time,Your team
 END_BOT,Bot,Bot
 END_AGAIN,Jogar novamente,Play again
@@ -141,8 +142,8 @@ HERO_TALOS_BIO,O primeiro autômato de Hefesto. Morreu quando o Ícor vazou de s
 HERO_TALOS_QUOTE,Uma veia. Um prego. Nunca mais.,One vein. One nail. Never again.
 HERO_ARTEMIS_NAME,Ártemis,Artemis
 HERO_ARTEMIS_EPITHET,A Caçadora de Prata,The Silver Huntress
-HERO_ARTEMIS_BIO,"Deusa da caça, presa num corpo de latão desde que deu seu Ícor à Grande Engrenagem. Nos Ritos, encontrou a única caçada que lhe resta, e cada tiro precisa contar.","Goddess of the hunt, bound to a brass body since she gave her Ichor to the Great Gear. The Rites are the only hunt she has left, and every shot must count."
-HERO_ARTEMIS_QUOTE,"Corpo de latão, mira de deusa.","Body of brass, aim of a goddess."
+HERO_ARTEMIS_BIO,"Deusa da caça, presa num corpo forjado desde que deu seu Ícor à Grande Engrenagem. Nos Ritos, encontrou a única caçada que lhe resta, e cada tiro precisa contar.","Goddess of the hunt, bound to a forged body since she gave her Ichor to the Great Gear. The Rites are the only hunt she has left, and every shot must count."
+HERO_ARTEMIS_QUOTE,"Mão de latão, mira de deusa.","Hand of brass, aim of a goddess."
 HERO_ASCLEPIO_NAME,Asclépio,Asclepius
 HERO_ASCLEPIO_EPITHET,O Médico Fulminado,The Thunderstruck Healer
 HERO_ASCLEPIO_BIO,"O médico que Zeus fulminou por ressuscitar os mortos. Hefesto o chamou para cuidar dos corpos e centelhas dos Ritos, onde todos voltam. A ironia o diverte.","The physician Zeus struck down for raising the dead. Hephaestus called him to tend the bodies and sparks of the Rites, where everyone comes back. He enjoys the irony."
@@ -164,7 +165,7 @@ AB_DISPARO_SHORT,Tiro perfurante,Piercing shot
 AB_DISPARO_DESC,Tiro que atravessa inimigos causando 90 de dano.,"Shot that pierces enemies, dealing 90 damage."
 AB_ARMADILHA_NAME,Armadilha de Caça,Hunter's Trap
 AB_ARMADILHA_SHORT,Prende inimigo,Roots an enemy
-AB_ARMADILHA_DESC,"Prende o primeiro inimigo por 1,8 s e causa 30.",Roots the first enemy for 1.8 s and deals 30.
+AB_ARMADILHA_DESC,"Prende o primeiro inimigo por 1,8 s e causa 30 de dano.",Roots the first enemy for 1.8 s and deals 30 damage.
 AB_SALTO_NAME,Salto Lunar,Lunar Leap
 AB_SALTO_SHORT,Recua e acelera,"Leap back, haste"
 AB_SALTO_DESC,Recua e ganha 60% de velocidade de ataque por 3 s.,Leaps back and gains 60% attack speed for 3 s.
@@ -232,3 +233,14 @@ AB_CORUJA_DESC,A coruja marca um inimigo: recebe mais dano e fica lento.,The owl
 AB_FALANGE_NAME,Falange de Atenas,Phalanx of Athens
 AB_FALANGE_SHORT,Escudo e ataque,Shield & attack
 AB_FALANGE_DESC,Área onde aliados ganham escudo e atacam mais rápido; inimigos ficam lentos.,Area where allies gain a shield and attack faster; enemies are slowed.
+WHEEL_IN_GEAR,ENGRENOU!,IN GEAR!
+WHEEL_CADENCE,CADÊNCIA x%d,CADENCE x%d
+WHEEL_FULL_TURN,VOLTA COMPLETA!,FULL TURN!
+WHEEL_FULL_TURN_SUB,+%d de carga de ultimate,+%d ultimate charge
+WHEEL_TIP_TITLE,RODA DO DESTINO,WHEEL OF FATE
+WHEEL_TIP_MOVE_CTRL,Movimento › Controle: +%d%% de duração,Move › Control: +%d%% duration
+WHEEL_TIP_CTRL_ATK,Controle › Ataque: +%d%% de dano,Control › Attack: +%d%% damage
+WHEEL_TIP_ATK_DEF,Ataque › Defesa: +%d%% de defesa,Attack › Defense: +%d%% defense
+WHEEL_TIP_DEF_MOVE,Defesa › Movimento: +%d de escudo,Defense › Move: +%d shield
+WHEEL_TIP_WINDOW,Janela: %s s · Cadência %d+: +%d Ícor,Window: %s s · Cadence %d+: +%d Ichor
+WHEEL_TIP_FULL,Volta completa: +%d de ultimate,Full turn: +%d ultimate charge

@@ -8,6 +8,7 @@ const Art = preload("res://scripts/art.gd")
 const HeroScript = preload("res://scripts/hero.gd")
 const Commander = preload("res://scripts/commander.gd")
 const Bot = preload("res://scripts/bot.gd")
+const Wheel = preload("res://scripts/wheel.gd")
 const HUD = preload("res://scripts/hud.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
@@ -46,6 +47,13 @@ var storms: Array = []
 var domes: Array = []
 ## Falange de Atenas: zona fixa. {pos, r, life, team, src, got_shield: []}
 var phalanxes: Array = []
+## Roda do Destino de cada time (scripts/wheel.gd) e se o sistema está ligado.
+var wheels: Array = []
+var wheel_on := true
+## Ordem em que as cartas foram armadas (para a roda prever a próxima engrenagem).
+var arm_seq := 0
+## Só para a simulação: [time, engrenagem] cujo bônus não vale (ver tests/simulate.gd).
+var wheel_nobonus: Array = []
 ## Composição de cada time: [tanque, dano, suporte].
 var teams: Array = [Data.DEFAULT_TEAM.duplicate(), Data.DEFAULT_TEAM.duplicate()]
 var texts: Array = []
@@ -58,6 +66,8 @@ var flash_col := Color.WHITE
 var announce_text := ""
 var announce_color := Color.WHITE
 var announce_t := 0.0
+## Linha menor abaixo do aviso (volta completa da roda).
+var announce_sub := ""
 
 var time := 0.0
 var point_owner := -1
@@ -80,6 +90,9 @@ var _announced_unlock := false
 func setup(opts: Dictionary) -> void:
 	difficulty = opts.get("difficulty", "normal")
 	autotest = opts.get("autotest", false)
+	wheel_on = opts.get("wheel", true)
+	wheel_nobonus = opts.get("wheel_nobonus", [])
+	wheels = [Wheel.new(), Wheel.new()]
 	var opt_teams: Array = opts.get("teams", [])
 	for t in 2:
 		if opt_teams.size() > t and Data.valid_team(opt_teams[t]):
@@ -207,6 +220,8 @@ func _step(dt: float) -> void:
 	time += dt
 	for c in commanders:
 		c.update(dt)
+	for w in wheels:
+		w.update(dt)
 	for b in bots:
 		if b != null:
 			b.think(dt)
@@ -430,7 +445,7 @@ func deal_damage(src, victim, amount: float, show_text := true) -> void:
 	if victim.mark_t > 0.0:
 		amt *= 1.2  # Olhar da Coruja
 	if victim.hide_t > 0.0:
-		var mh: float = amt * 0.5  # Pele do Leão
+		var mh: float = amt * victim.hide_amt  # Pele do Leão
 		amt -= mh
 		credit_mitigation(victim, mh)
 	if victim.dr_t > 0.0:
@@ -579,15 +594,15 @@ func _projectile_hit(p: Dictionary, h) -> void:
 		var v: Vector2 = src.position - h.position
 		var dist: float = clampf(v.length() - (src.radius + h.radius + 6.0), 0.0, 150.0)
 		if dist > 1.0:
-			h.apply_knock(v.normalized() * dist / 0.25, 0.25, 0.4, "pull")
+			h.apply_knock(v.normalized() * dist / 0.25, 0.25, 0.4 * p.get("ctrl", 1.0), "pull")
 		else:
-			h.apply_stun(0.4)
+			h.apply_stun(0.4 * p.get("ctrl", 1.0))
 		_burst(h.position, 22.0, Color(0.85, 0.6, 0.3), 0.3)
 	if p["kind"] == "spear" and src != null and src.alive:
 		pallas_shield(src)
 	if p["kind"] == "poison" and h.alive:
 		h.poison_t = 5.0
-		h.poison_dps = 12.0
+		h.poison_dps = 12.0 * p.get("dmg_k", 1.0)
 		h.poison_src = src
 		h.heal_red_t = 5.0
 		_burst(h.position, 24.0, Color(0.5, 1.0, 0.3), 0.3)
@@ -602,7 +617,7 @@ func _update_traps(dt: float) -> void:
 		if tr["arm"] <= 0.0:
 			for h in alive_heroes(1 - tr["team"]):
 				if h.position.distance_to(tr["pos"]) < 30.0 + h.radius:
-					h.apply_root(1.8)
+					h.apply_root(1.8 * tr.get("ctrl", 1.0))
 					var src = tr["src"] if is_instance_valid(tr["src"]) else null
 					deal_damage(src, h, 30.0)
 					_burst(tr["pos"], 36.0, Color(0.85, 0.65, 0.3), 0.4)
@@ -652,11 +667,21 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 	var enemies := alive_heroes(1 - h.team)
 	var dir: Vector2 = tpos - h.position
 	dir = dir.normalized() if dir.length() > 1.0 else h.facing
+	# Roda do Destino: se a carta engrenou, ganha o bônus da sua engrenagem.
+	var gear_res := _wheel_cast(h, ab)
+	var bonus: int = gear_res["gear"] if gear_res.get("linked", false) else -1
+	if wheel_nobonus.size() == 2 and wheel_nobonus[0] == h.team and wheel_nobonus[1] == bonus:
+		bonus = -1
+	var ctrl_k := 1.0 + Data.GEAR_CTRL_BONUS if bonus == 1 else 1.0
+	var dmg_k := 1.0 + Data.GEAR_DMG_BONUS if bonus == 2 else 1.0
+	var def_k := 1.0 + Data.GEAR_DEF_BONUS if bonus == 3 else 1.0
+	if bonus == 0:
+		_gear_move_shield(h)
 	match ab:
 		"muralha":
 			h.facing = dir
 			h.wall_t = 4.0
-			h.wall_hp = 450.0
+			h.wall_hp = 450.0 * def_k
 			_burst(h.position + dir * 44.0, 40.0, Color(1.0, 0.7, 0.3), 0.4)
 		"investida":
 			h.facing = dir
@@ -668,7 +693,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			for a in allies:
 				if a.position.distance_to(h.position) <= 190.0:
 					a.dr_t = 4.0
-					a.dr_amt = 0.4
+					a.dr_amt = 0.4 * def_k
 					a.dr_src = h
 			_burst(h.position, 190.0, Color(1.0, 0.65, 0.3), 0.5, "valvula_area")
 			for k in 14:
@@ -684,7 +709,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			fx.append({"type": "cracks", "img": "furia_area", "pos": h.position, "r": 210.0, "col": Color(1.0, 0.55, 0.15), "t": 0.9, "max": 0.9, "seed": randf() * TAU})
 		"disparo":
 			h.facing = dir
-			spawn_projectile(h, h.position + dir * 20.0, dir * 1100.0, 90.0, 8.0, "pierce", Color(0.85, 0.95, 1.0), true, 0.85)
+			spawn_projectile(h, h.position + dir * 20.0, dir * 1100.0, 90.0 * dmg_k, 8.0, "pierce", Color(0.85, 0.95, 1.0), true, 0.85)
 		"armadilha":
 			var p := _clamp_range(h.position, tpos, 380.0)
 			if count_traps(h.team) >= 2:
@@ -692,7 +717,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					if traps[i]["team"] == h.team:
 						traps.remove_at(i)
 						break
-			traps.append({"pos": p, "team": h.team, "arm": 0.6, "life": 20.0, "src": h})
+			traps.append({"pos": p, "team": h.team, "arm": 0.6, "life": 20.0, "src": h, "ctrl": ctrl_k})
 			_burst(p, 30.0, Color(0.85, 0.65, 0.3), 0.4)
 		"salto":
 			var away := Vector2.ZERO
@@ -718,14 +743,15 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 		"sopro":
 			for a in allies:
 				if a.position.distance_to(h.position) <= 210.0:
-					heal(h, a, 120.0)
+					heal(h, a, 120.0 * def_k)
 			_burst(h.position, 210.0, Color(0.5, 1.0, 0.6), 0.6, "sopro_area")
 			for k in 10:
 				var ang2 := randf() * TAU
 				fx.append({"type": "plus", "pos": h.position + Vector2(cos(ang2), sin(ang2)) * randf_range(10.0, 190.0), "r": 7.0, "col": Color(0.55, 1.0, 0.6), "t": 0.9, "max": 0.9})
 		"veneno":
 			h.facing = dir
-			spawn_projectile(h, h.position + dir * 18.0, dir * 750.0, 15.0, 7.0, "poison", Color(0.55, 1.0, 0.3), false, 1.0)
+			spawn_projectile(h, h.position + dir * 18.0, dir * 750.0, 15.0 * dmg_k, 7.0, "poison", Color(0.55, 1.0, 0.3), false, 1.0)
+			projectiles[-1]["dmg_k"] = dmg_k
 		"engrenagem":
 			var best = h
 			var bd := INF
@@ -734,7 +760,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 				if d2 < bd:
 					bd = d2
 					best = a
-			best.shield_hp = 150.0
+			best.shield_hp = 150.0 * def_k
 			best.shield_t = 5.0
 			best.shield_src = h
 			_burst(best.position, 40.0, Color(0.6, 1.0, 0.8), 0.4)
@@ -760,12 +786,14 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			fx.append({"type": "leap_mark", "pos": lp, "r": 75.0, "col": Color(0, 0, 0), "t": 0.45, "max": 0.45})
 		"pele":
 			h.hide_t = 3.0
+			h.hide_amt = 0.5 * def_k
 			h.stun_t = 0.0
 			h.root_t = 0.0
 			_burst(h.position, h.radius + 20.0, Color(1.0, 0.75, 0.3), 0.4)
 		"corrente":
 			h.facing = dir
 			spawn_projectile(h, h.position + dir * 20.0, dir * 900.0, 25.0, 8.0, "chain", Color(0.8, 0.55, 0.25), false, 330.0 / 900.0)
+			projectiles[-1]["ctrl"] = ctrl_k
 		"trabalho":
 			var grab = null
 			var gd := INF
@@ -793,10 +821,13 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					first = e
 			if first != null:
 				h.facing = (first.position - h.position).normalized()
-				chain_lightning(h, first, h.def.get("chain_cast", [60.0, 45.0, 34.0, 25.0]), 150.0, 5.0)
+				var cdm: Array = []
+				for v in h.def.get("chain_cast", [60.0, 45.0, 34.0, 25.0]):
+					cdm.append(v * dmg_k)
+				chain_lightning(h, first, cdm, 150.0, 5.0)
 		"nuvem":
 			var cp := _clamp_range(h.position, tpos, 450.0)
-			clouds.append({"pos": cp, "r": 100.0, "t": 1.0, "max": 1.0, "team": h.team, "src": h})
+			clouds.append({"pos": cp, "r": 100.0, "t": 1.0, "max": 1.0, "team": h.team, "src": h, "ctrl": ctrl_k})
 		"aguia":
 			var ap := _clamp_range(h.position, tpos, 200.0)
 			var av: Vector2 = ap - h.position
@@ -813,7 +844,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 		# --- Atena ---
 		"egide":
 			var ep := _clamp_range(h.position, tpos, 300.0)
-			domes.append({"pos": ep, "r": 100.0, "life": 3.0, "hp": 400.0, "team": h.team, "src": h})
+			domes.append({"pos": ep, "r": 100.0, "life": 3.0, "hp": 400.0 * def_k, "team": h.team, "src": h})
 			_burst(ep, 100.0, Color(0.85, 0.9, 0.95), 0.4)
 		"comando":
 			for a in allies:
@@ -831,8 +862,8 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					md = d5
 					mk = e
 			if mk != null:
-				mk.mark_t = 4.0
-				mk.apply_slow(0.2, 4.0)
+				mk.mark_t = 4.0 * ctrl_k
+				mk.apply_slow(0.2, 4.0 * ctrl_k)
 				fx.append({"type": "owl", "pos": h.position, "to": mk.position, "r": 8.0, "col": Data.GOLD, "t": 0.35, "max": 0.35})
 		"falange":
 			phalanxes.append({"pos": h.position, "r": 180.0, "life": 5.0, "team": h.team, "src": h, "got": []})
@@ -955,7 +986,7 @@ func _update_zeus_zones(dt: float) -> void:
 			if e.position.distance_to(c["pos"]) <= c["r"] + e.radius * 0.5:
 				deal_damage(src, e, 50.0)
 				if e.alive:
-					e.apply_stun(0.8)
+					e.apply_stun(0.8 * c.get("ctrl", 1.0))
 		fx.append({"type": "strike", "pos": c["pos"], "r": 12.0, "col": Data.GOLD, "t": 0.3, "max": 0.3, "seed": randf() * 100.0})
 		_burst(c["pos"], c["r"], Color(1.0, 0.85, 0.35), 0.35)
 		sfx("melee", -6.0)
@@ -1013,8 +1044,70 @@ func _update_atena_zones(dt: float) -> void:
 	phalanxes = keep2
 
 
+# ---------------------------------------------------------------------------
+# Roda do Destino
+## Registra a carta na roda do time (ultimates ficam fora) e dá as recompensas
+## de Cadência e volta completa. Retorna o resultado de Wheel.on_cast (vazio se
+## a carta não conta).
+func _wheel_cast(h, ab: String) -> Dictionary:
+	var g := Data.gear_of(ab)
+	if not wheel_on or g < 0:
+		return {}
+	var res: Dictionary = wheels[h.team].on_cast(g)
+	if not res["linked"]:
+		return res
+	var mine: bool = h.team == player_team
+	add_text(h.position + Vector2(0, -h.radius - 34), T.t("WHEEL_IN_GEAR"), Data.GOLD, 1.1, 15)
+	fx.append({"type": "gear_spark", "pos": h.position, "r": h.radius + 16.0, "col": Data.GOLD, "t": 0.6, "max": 0.6, "seed": randf() * TAU})
+	if res["cadence"]:
+		commanders[h.team].add_ichor(Data.CADENCE_REFUND)
+		add_text(h.position + Vector2(0, -h.radius - 52), T.tf("WHEEL_CADENCE", [res["links"]]), Data.GOLD.lightened(0.3), 1.3, 13)
+	if res["full"]:
+		for a in alive_heroes(h.team):
+			a.add_charge(Data.FULL_TURN_ULT)
+		fx.append({"type": "gear_spark", "pos": h.position, "r": 90.0, "col": Data.GOLD, "t": 0.9, "max": 0.9, "seed": randf() * TAU})
+		if mine:
+			announce(T.t("WHEEL_FULL_TURN"), Data.GOLD, 2.2)
+			announce_sub = T.tf("WHEEL_FULL_TURN_SUB", [int(Data.FULL_TURN_ULT)])
+			flash_t = 0.4
+			flash_col = Data.GOLD
+	if mine:
+		sfx("gear", -4.0)
+	return res
+
+
+## Defesa → Movimento: o herói que se desloca chega com escudo.
+func _gear_move_shield(h) -> void:
+	if h.shield_hp <= 0.0:
+		h.shield_src = h
+	h.shield_hp += Data.GEAR_MOVE_SHIELD
+	h.shield_t = maxf(h.shield_t, Data.GEAR_MOVE_SHIELD_T)
+
+
+## Engrenagem que a próxima carta do time precisa ter para engrenar, contando
+## as cartas já armadas que ainda não aconteceram (-1 = nada engatado).
+func wheel_next_gear(t: int) -> int:
+	if not wheel_on or wheels.is_empty():
+		return -1
+	var last := -1
+	var seq := -1
+	for h in heroes:
+		if h.team != t or not h.alive:
+			continue
+		for a in h.armed:
+			if not a["ult"] and a.get("seq", 0) > seq:
+				seq = a.get("seq", 0)
+				last = Data.gear_of(a["ab"])
+	if last >= 0:
+		return (last + 1) % Data.GEARS.size()
+	return wheels[t].next_gear()
+
+
 ## Uma carta foi jogada e a habilidade está armada no herói.
 func on_armed(h, _ab: String) -> void:
+	arm_seq += 1
+	if not h.armed.is_empty():
+		h.armed[-1]["seq"] = arm_seq
 	_burst(h.position, h.radius + 14.0, h.role_color(), 0.3)
 
 
@@ -1048,6 +1141,7 @@ func add_text(pos: Vector2, s: String, col: Color, t := 0.8, size := 14) -> void
 
 
 func announce(s: String, col: Color, t := 2.0) -> void:
+	announce_sub = ""
 	announce_text = s
 	announce_color = col
 	announce_t = t
@@ -1229,6 +1323,15 @@ func _draw() -> void:
 				if not Art.draw_fx(self, "raio_queda", f["pos"] + Vector2(0, -70.0), Art.FX_EFFECTS["raio_queda"], 1.0, 1.0 - k2):
 					_draw_bolt(PackedVector2Array([top, f["pos"]]), 4.0, f["seed"], 1.0 - k2)
 				draw_circle(f["pos"], 18.0 * (0.6 + k2), Color(1.0, 0.9, 0.5, 0.45 * (1.0 - k2)))
+			"gear_spark":
+				# Roda do Destino engrenou: engrenagem dourada girando e faíscas.
+				var gr: float = f["r"] * (0.7 + 0.4 * k2)
+				UI.gear(self, f["pos"], gr, 12, Color(fc, 0.35 * (1.0 - k2)), f["seed"] + k2 * 2.0)
+				UI.ring(self, f["pos"], gr * 0.8, Color(fc, 0.8 * (1.0 - k2)), 2.0)
+				for j in 8:
+					var ga: float = f["seed"] + j * TAU / 8.0
+					var gv := Vector2(cos(ga), sin(ga))
+					draw_line(f["pos"] + gv * gr * (0.9 + 0.3 * k2), f["pos"] + gv * gr * (1.1 + 0.5 * k2), Color(1.0, 0.95, 0.7, 1.0 - k2), 2.0, true)
 			"leap_mark":
 				# Sombra que cresce onde o Hércules vai cair.
 				draw_circle(f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(0, 0, 0, 0.25 + 0.15 * k2))
@@ -1386,3 +1489,5 @@ func draw_overlay(ci: CanvasItem) -> void:
 	if announce_t > 0.0:
 		var a3 := clampf(announce_t, 0.0, 1.0)
 		UI.text_c(ci, Vector2(640, 110), announce_text, 28, Color(announce_color, a3), 6)
+		if announce_sub != "":
+			UI.text_c(ci, Vector2(640, 134), announce_sub, 15, Color(1, 1, 1, a3), 4)
