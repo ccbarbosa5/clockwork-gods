@@ -312,6 +312,32 @@ func resolve_collisions(h) -> void:
 			var dx: float = sqrt(maxf(0.0, minimum2 * minimum2 - dy * dy))
 			var sx := 1.0 if h.position.x >= c2.x else -1.0
 			h.position.x = c2.x + sx * (dx + 0.5)
+	# Garantia final: se ainda sobrepõe algo (ex.: caiu do Salto de Nemeia num
+	# vão apertado), vai para o ponto livre mais próximo, em espiral.
+	if not spot_free(h.position, h.radius, h.team):
+		var base_pos: Vector2 = h.position
+		for ring in range(1, 40):
+			var found := false
+			for k in 16:
+				var ang := k * TAU / 16.0
+				var p: Vector2 = base_pos + Vector2(cos(ang), sin(ang)) * ring * 4.0
+				if spot_free(p, h.radius, h.team):
+					h.position = p
+					found = true
+					break
+			if found:
+				break
+
+
+## Posição livre para um herói de raio r do time `team`: dentro da arena, fora
+## das colunas e fora da base inimiga.
+func spot_free(p: Vector2, r: float, team: int) -> bool:
+	if p.x < ARENA.position.x + r or p.x > ARENA.end.x - r or p.y < ARENA.position.y + r or p.y > ARENA.end.y - r:
+		return false
+	for o in OBSTACLES:
+		if p.distance_to(Vector2(o.x, o.y)) < o.z + r - 0.5:
+			return false
+	return p.distance_to(SPAWNS[1 - team]) >= SPAWN_R + r - 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -767,7 +793,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 					first = e
 			if first != null:
 				h.facing = (first.position - h.position).normalized()
-				chain_lightning(h, first, [60.0, 45.0, 34.0, 25.0], 150.0, 5.0)
+				chain_lightning(h, first, h.def.get("chain_cast", [60.0, 45.0, 34.0, 25.0]), 150.0, 5.0)
 		"nuvem":
 			var cp := _clamp_range(h.position, tpos, 450.0)
 			clouds.append({"pos": cp, "r": 100.0, "t": 1.0, "max": 1.0, "team": h.team, "src": h})

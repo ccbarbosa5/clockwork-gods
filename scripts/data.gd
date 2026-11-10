@@ -110,16 +110,17 @@ const HEROES := {
 	},
 	"hercules": {
 		"role": "Tanque", "origin": "semideus",
-		"hp": 560.0, "speed": 80.0, "range": 58.0, "dmg": 30.0, "cd": 1.0,
+		"hp": 610.0, "speed": 80.0, "range": 58.0, "dmg": 33.0, "cd": 1.0, "dive_reach": 0.0,
 		"radius": 21.0, "color": Color(0.96, 0.6, 0.2), "style": "dive",
 		"ult": "trabalho", "cards": ["nemeia", "pele", "corrente"],
 	},
 	"zeus": {
 		"role": "Dano", "origin": "deus",
-		"hp": 260.0, "speed": 92.0, "range": 220.0, "dmg": 14.0, "cd": 0.7,
+		"hp": 320.0, "speed": 92.0, "range": 270.0, "dmg": 18.0, "cd": 0.7, "kite": 180.0, "group_bias": 0.0,
 		"radius": 16.0, "color": Color(0.72, 0.45, 1.0), "style": "flank",
 		# Ataque básico: raio instantâneo que salta para 1 inimigo a até 90 px (7 de dano).
-		"basic": "chain", "chain_dmg": 7.0, "chain_range": 90.0,
+		"basic": "chain", "chain_dmg": 8.0, "chain_range": 90.0,
+		"chain_cast": [68.0, 51.0, 38.0, 29.0],  # Corrente de Raios: dano de cada salto
 		"ult": "olimpo", "cards": ["raios", "nuvem", "aguia"],
 	},
 	"atena": {

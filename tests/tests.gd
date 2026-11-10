@@ -1745,7 +1745,7 @@ func test_hercules_basic_has_no_splash_talos_has() -> void:
 	hc.target = e1
 	hc.attack_cd = 0.0
 	hc._try_attack()
-	check(e1.hp == e1.max_hp - 30.0 and e2.hp == e2.max_hp, "Hércules: 30 no alvo, nada em volta")
+	check(e1.hp == e1.max_hp - hc.def["dmg"] and e2.hp == e2.max_hp, "Hércules: dano cheio no alvo, nada em volta")
 	done(g)
 
 
@@ -1836,9 +1836,11 @@ func test_raios_chain_four_targets_not_blocked() -> void:
 	pin(hc, Vector2(600, 300)); pin(ez, Vector2(700, 300)); pin(at, Vector2(800, 300))
 	g.cast(ez, "egide", ez.position)
 	g.cast(z, "raios", hc.position)
-	check(hc.hp == hc.max_hp - 60.0, "1º alvo 60")
-	check(ez.hp == ez.max_hp - 45.0, "2º alvo 45 (Égide não bloqueia)")
-	check(at.hp == at.max_hp - 34.0, "3º alvo 34")
+	var cc: Array = z.def.get("chain_cast", [60.0, 45.0, 34.0, 25.0])
+	check(cc.size() == 4 and cc[0] > cc[1] and cc[1] > cc[2] and cc[2] > cc[3], "4 saltos, cada um mais fraco")
+	check(hc.hp == hc.max_hp - cc[0], "1º alvo %.0f" % cc[0])
+	check(ez.hp == ez.max_hp - cc[1], "2º alvo %.0f (Égide não bloqueia)" % cc[1])
+	check(at.hp == at.max_hp - cc[2], "3º alvo %.0f" % cc[2])
 	done(g)
 
 
@@ -1863,11 +1865,13 @@ func test_aguia_empowers_next_basic() -> void:
 	pin(a, Vector2(560, 300)); pin(b, Vector2(620, 300)); pin(c, Vector2(680, 300))
 	g.cast(z, "aguia", Vector2(380, 300))
 	check(z.empower_t > 0.0, "ataque fortalecido por 3 s")
+	var bd: float = z.def["dmg"]
+	var jd: float = z.def["chain_dmg"]
 	g.zeus_basic(z, a)
-	check(a.hp == a.max_hp - 44.0, "14 + 30 no alvo (veio %.0f)" % (a.max_hp - a.hp))
-	check(b.hp == b.max_hp - 7.0 and c.hp == c.max_hp - 7.0, "salta para 2 inimigos")
+	check(a.hp == a.max_hp - bd - 30.0, "básico + 30 no alvo (veio %.0f)" % (a.max_hp - a.hp))
+	check(b.hp == b.max_hp - jd and c.hp == c.max_hp - jd, "salta para 2 inimigos")
 	g.zeus_basic(z, a)
-	check(c.hp == c.max_hp - 7.0, "o seguinte volta ao normal (1 salto)")
+	check(c.hp == c.max_hp - jd, "o seguinte volta ao normal (1 salto)")
 	done(g)
 
 
@@ -1959,7 +1963,7 @@ func test_zeus_basic_is_instant_and_jumps() -> void:
 	z.attack_cd = 0.0
 	z._try_attack()
 	check(g.projectiles.is_empty(), "não cria projétil")
-	check(a.hp == a.max_hp - 14.0 and b.hp == b.max_hp - 7.0, "14 no alvo e 7 no salto")
+	check(a.hp == a.max_hp - z.def["dmg"] and b.hp == b.max_hp - z.def["chain_dmg"], "dano no alvo e no salto")
 	done(g)
 
 
@@ -1972,3 +1976,17 @@ func test_ult_names_fit_under_meter() -> void:
 			var n := T.in_lang("AB_%s_NAME" % String(Data.HEROES[hid]["ult"]).to_upper(), l)
 			var size: int = HudScript.fit_size(n, HudScript.ULT_LABEL_W, 10, 7)
 			check(f.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= HudScript.ULT_LABEL_W, "nome da ultimate não cabe: %s (%s)" % [n, l])
+
+
+
+func test_resolve_collisions_never_leaves_hero_inside_pillar() -> void:
+	# Hércules (o mais largo, raio 21) em centenas de pontos aleatórios, inclusive
+	# dentro de colunas e da base inimiga: sempre termina num lugar livre.
+	var g := new_game({"teams": [NEW_TEAM, Data.DEFAULT_TEAM]})
+	var hc = hero(g, 0, "hercules")
+	seed(42)
+	for i in 600:
+		hc.position = Vector2(randf_range(0, 1280), randf_range(40, 560))
+		g.resolve_collisions(hc)
+		check(g.spot_free(hc.position, hc.radius, hc.team), "herói preso em (%.0f, %.0f)" % [hc.position.x, hc.position.y])
+	done(g)

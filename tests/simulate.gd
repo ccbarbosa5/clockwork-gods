@@ -25,6 +25,11 @@ const LIMITS := {
 
 var matches := 12
 var balance := false
+## Parte das partidas (k/n) para rodar o balanceamento em paralelo.
+var part_k := 0
+var part_n := 1
+## Soma às sementes (outra amostra das mesmas combinações).
+var seed_offset := 0
 ## As 8 composições possíveis (um herói por função).
 var comps: Array = []
 ## Por herói: partidas e vitórias (sem contar espelhos, quando está nos dois times).
@@ -48,6 +53,12 @@ func _run() -> void:
 			matches = a.substr(10).to_int()
 		elif a == "--balance":
 			balance = true
+		elif a.begins_with("--seed="):
+			seed_offset = a.substr(7).to_int()
+		elif a.begins_with("--part="):
+			var kn := a.substr(7).split("/")
+			part_k = kn[0].to_int()
+			part_n = kn[1].to_int()
 	for t in Data.heroes_of_role("Tanque"):
 		for d in Data.heroes_of_role("Dano"):
 			for s in Data.heroes_of_role("Suporte"):
@@ -58,7 +69,9 @@ func _run() -> void:
 	var casts := {}
 	var t0 := Time.get_ticks_msec()
 	for m in matches:
-		seed(1000 + m)
+		seed(1000 + m + seed_offset)
+		if m % part_n != part_k:
+			continue
 		var diffs: Array = [["hard", "hard"], ["normal", "normal"], ["hard", "easy"], ["easy", "hard"]][m % 4]
 		var behaviors := ["balanced", "aggressive", "defensive"]
 		var beh: String = behaviors[m % 3]
@@ -127,6 +140,7 @@ func _run() -> void:
 		var gms: int = hero_games.get(hid, 0)
 		var wns: float = hero_wins.get(hid, 0.0)
 		print("%-9s %5.1f%%  (%d partidas)" % [hid, 100.0 * wns / maxf(1.0, gms), gms])
+		print("BAL %s %d %.1f" % [hid, gms, wns])
 	print("")
 	print("=== Habilidades usadas (todas as partidas) ===")
 	var line := ""
