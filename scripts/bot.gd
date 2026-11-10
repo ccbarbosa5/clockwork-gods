@@ -58,6 +58,15 @@ func think(dt: float) -> void:
 			continue
 		if hero.decide(card, false) != null:
 			good.append(i)
+	# Roda do Destino (Normal e Difícil): a carta que engrena vem primeiro.
+	var want: int = -1 if difficulty == "easy" else game.wheel_next_gear(team)
+	if want >= 0:
+		for i in good:
+			if Data.gear_of(cmd.hand[i]) == want and cmd.ichor >= Data.ABILITIES[cmd.hand[i]]["cost"]:
+				cmd.play(i)
+				return
+		if difficulty == "hard" and _save_for_chain(want):
+			return
 	# Prefere a carta mais cara; se ela está quase paga, guarda Ícor para ela.
 	good.sort_custom(func(x, y): return Data.ABILITIES[cmd.hand[x]]["cost"] > Data.ABILITIES[cmd.hand[y]]["cost"])
 	for i in good:
@@ -72,6 +81,24 @@ func think(dt: float) -> void:
 			if cmd.can_play(i) == "":
 				cmd.play(i)
 				return
+
+
+## Difícil: guarda Ícor quando há na mão uma carta que fecha a corrente e o
+## Ícor chega a tempo antes de a engrenagem soltar.
+func _save_for_chain(want: int) -> bool:
+	var w = game.wheels[team]
+	var left: float = w.t if w.gear >= 0 else Data.GEAR_WINDOW
+	for i in cmd.HAND_SIZE:
+		var card: String = cmd.hand[i]
+		if card == "" or Data.gear_of(card) != want:
+			continue
+		var reason: String = cmd.can_play(i)
+		if reason != "" and reason != "icor":
+			continue
+		var cost: float = Data.ABILITIES[card]["cost"]
+		if cmd.ichor < cost and cmd.ichor + (left - 1.0) / Data.ICHOR_INTERVAL >= cost:
+			return true
+	return false
 
 
 func _maybe_behavior() -> void:

@@ -30,6 +30,13 @@ var part_k := 0
 var part_n := 1
 ## Soma às sementes (outra amostra das mesmas combinações).
 var seed_offset := 0
+## Roda do Destino: --wheel=off desliga; --nobonus=g tira do time 0 o bônus da
+## engrenagem g (0 Movimento, 1 Controle, 2 Ataque, 3 Defesa) para ver se algum
+## elo é obrigatório; --diffs=a,b troca os níveis dos bots no --balance.
+var wheel_on := true
+var nobonus := -1
+var bal_diffs: Array = ["hard", "hard"]
+var wheel_tot := {}
 ## As 8 composições possíveis (um herói por função).
 var comps: Array = []
 ## Por herói: partidas e vitórias (sem contar espelhos, quando está nos dois times).
@@ -53,6 +60,12 @@ func _run() -> void:
 			matches = a.substr(10).to_int()
 		elif a == "--balance":
 			balance = true
+		elif a == "--wheel=off":
+			wheel_on = false
+		elif a.begins_with("--nobonus="):
+			nobonus = a.substr(10).to_int()
+		elif a.begins_with("--diffs="):
+			bal_diffs = Array(a.substr(8).split(","))
 		elif a.begins_with("--seed="):
 			seed_offset = a.substr(7).to_int()
 		elif a.begins_with("--part="):
@@ -79,7 +92,7 @@ func _run() -> void:
 		var t0c: Array = comps[m % comps.size()]
 		var t1c: Array = comps[(m * 3 + 5) % comps.size()]
 		if balance:
-			diffs = ["hard", "hard"]
+			diffs = bal_diffs
 			beh = "balanced"
 			t0c = comps[m / comps.size()]
 			t1c = comps[m % comps.size()]
@@ -141,6 +154,22 @@ func _run() -> void:
 		var wns: float = hero_wins.get(hid, 0.0)
 		print("%-9s %5.1f%%  (%d partidas)" % [hid, 100.0 * wns / maxf(1.0, gms), gms])
 		print("BAL %s %d %.1f" % [hid, gms, wns])
+	var side := [0.0, 0.0]
+	for r in results:
+		if r["winner"] == 0:
+			side[0] += 1.0
+		elif r["winner"] == 1:
+			side[1] += 1.0
+		else:
+			side[0] += 0.5; side[1] += 0.5
+	print("SIDE %d %.1f %.1f" % [results.size(), side[0], side[1]])
+	print("")
+	print("=== Roda do Destino (por time e partida) ===")
+	for d in wheel_tot.keys():
+		var acc: Dictionary = wheel_tot[d]
+		var n: float = maxf(1.0, acc["n"])
+		print("%-7s cartas %.1f  elos %.1f  cadência %.2f  voltas %.2f" % [d, acc["cards"] / n, acc["links"] / n, acc["cadence"] / n, acc["full"] / n])
+		print("WHEEL %s %d %d %d %d %d" % [d, acc["n"], acc["cards"], acc["links"], acc["cadence"], acc["full"]])
 	print("")
 	print("=== Habilidades usadas (todas as partidas) ===")
 	var line := ""
@@ -215,7 +244,10 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 	var g := Node2D.new()
 	g.set_script(GameScript)
 	root.add_child(g)
-	g.setup({"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams})
+	var o := {"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams, "wheel": wheel_on}
+	if nobonus >= 0:
+		o["wheel_nobonus"] = [0, nobonus]
+	g.setup(o)
 	g.set_process(false)
 	g.hud.set_process(false)
 	g.commanders[0].behavior = beh
@@ -288,6 +320,15 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 
 	for ab in g.cast_counts.keys():
 		casts[ab] = casts.get(ab, 0) + g.cast_counts[ab]
+	for t in 2:
+		var d: String = [d0, d1][t]
+		var ws: Dictionary = g.wheels[t].stats
+		var acc: Dictionary = wheel_tot.get(d, {"n": 0, "cards": 0, "links": 0, "cadence": 0, "full": 0})
+		acc["n"] += 1
+		acc["cards"] += g.commanders[t].cards_played
+		for k in ["links", "cadence", "full"]:
+			acc[k] += ws[k]
+		wheel_tot[d] = acc
 	if not g.ended:
 		_anomaly("partida não terminou", "partida %d" % (idx + 1))
 	var kills := 0

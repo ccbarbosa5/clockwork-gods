@@ -11,6 +11,10 @@ const AudioScript = preload("res://scripts/audio.gd")
 const PANEL := Rect2(0, 560, 1280, 160)
 const ICHOR_BAR := Rect2(350, 700, 504, 14)
 const NEXT_RECT := Rect2(872, 604, 78, 90)
+## Roda do Destino: entre as ultimates e as cartas, ao lado do medidor de Ícor.
+const WHEEL_C := Vector2(302, 664)
+const WHEEL_R := 17.0
+const WHEEL_NODE_R := 7.0
 
 var game
 var cmd
@@ -21,6 +25,8 @@ var pressed := -1
 var press_t := 0.0
 ## Dica do mouse fora das cartas: {"kind": "ult"|"next"|"beh", "i": índice}.
 var tip := {}
+## Só para capturas de tela (main.gd --shot-tip): dica sempre aberta.
+var force_tip := {}
 ## Menu de pausa: "main", "help" ou "confirm" (sair para o menu).
 var pause_view := "main"
 ## Pausa causada pela janela/aba perder o foco.
@@ -45,7 +51,7 @@ func card_rect(i: int) -> Rect2:
 	return r
 
 
-## Largura máxima do nome da ultimate embaixo do medidor (passo de 98 px).
+## Largura máxima do nome da ultimate embaixo do medidor (passo de 94 px).
 const ULT_LABEL_W := 92.0
 
 
@@ -58,7 +64,18 @@ static func fit_size(s: String, w: float, big: int, small: int) -> int:
 
 
 func ult_center(i: int) -> Vector2:
-	return Vector2(58 + i * 98, 668)
+	return Vector2(50 + i * 94, 668)
+
+
+## Centro de cada engrenagem na roda: Movimento em cima e o resto em sentido horário.
+static func wheel_node(g: int) -> Vector2:
+	var a := -PI * 0.5 + g * TAU / Data.GEARS.size()
+	return WHEEL_C + Vector2(cos(a), sin(a)) * WHEEL_R
+
+
+static func wheel_rect() -> Rect2:
+	var e := WHEEL_R + WHEEL_NODE_R + 3.0
+	return Rect2(WHEEL_C - Vector2(e, e), Vector2(e, e) * 2.0)
 
 
 func beh_rect(i: int) -> Rect2:
@@ -119,7 +136,9 @@ func _process(delta: float) -> void:
 ## Carta, ultimate, próxima carta ou comportamento sob o mouse.
 func update_hover(m: Vector2) -> void:
 	hover = -1
-	tip = {}
+	tip = force_tip.duplicate()
+	if not force_tip.is_empty():
+		return
 	if game.ended or game.paused:
 		return
 	for i in 4:
@@ -132,6 +151,9 @@ func update_hover(m: Vector2) -> void:
 			return
 	if NEXT_RECT.has_point(m) and cmd.next_card() != "":
 		tip = {"kind": "next", "i": 0}
+		return
+	if game.wheel_on and wheel_rect().has_point(m):
+		tip = {"kind": "wheel", "i": 0}
 		return
 	for k in 3:
 		if beh_rect(k).has_point(m):
@@ -295,6 +317,7 @@ func _draw() -> void:
 			"ult": _draw_ult_tip(tip["i"])
 			"next": _draw_next_tip()
 			"beh": _draw_beh_tip(tip["i"])
+			"wheel": _draw_wheel_tip()
 	if msg_t > 0.0:
 		UI.text_c(self, Vector2(640, 548), msg, 18, Color(1, 0.5, 0.4, clampf(msg_t, 0.0, 1.0)), 4)
 	if game.paused and not game.ended:
@@ -406,6 +429,13 @@ func _draw_panel() -> void:
 			var cost: float = Data.ABILITIES[card]["cost"]
 			var f := clampf(cmd.ichor / cost, 0.0, 1.0)
 			draw_rect(Rect2(r.position, Vector2(r.size.x, r.size.y * (1.0 - f))), Color(0, 0, 0, 0.6))
+		# Selo depois do escurecimento: a carta que engrena aparece mesmo sem Ícor.
+		if continues_chain(card):
+			_draw_gear_seal(r)
+
+	# Roda do Destino
+	if game.wheel_on:
+		_draw_wheel()
 
 	# Próxima carta
 	UI.text_c(self, Vector2(NEXT_RECT.get_center().x, 596), T.t("HUD_NEXT"), 10, Color(1, 1, 1, 0.6))
@@ -474,7 +504,14 @@ func _draw_card(r: Rect2, card: String, hov: bool) -> void:
 	# Com moldura, o círculo e o anel do ícone já vêm na imagem.
 	UI.ability_icon(self, ab, ic, 12.0, Color.WHITE)
 	# Nome e resumo
-	UI.text_box(self, Rect2(r.position.x + 4, r.position.y + 76, r.size.x - 8, 30), T.ab_name(card), 11, Color.WHITE)
+	# Nome numa linha só (fonte diminui até 9); só quebra se ainda não couber.
+	var nm := T.ab_name(card)
+	var nw := r.size.x - 8
+	var ns := fit_size(nm, nw, 11, 9)
+	if UI.font().get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, ns).x <= nw:
+		UI.text_c(self, Vector2(r.get_center().x, r.position.y + 90), nm, ns, Color.WHITE)
+	else:
+		UI.text_box(self, Rect2(r.position.x + 4, r.position.y + 76, nw, 30), nm, 9, Color.WHITE)
 	UI.text_c(self, Vector2(r.get_center().x, r.end.y - 6), T.ab_short(card), 9, Color(rc.lightened(0.35), 0.95))
 	if frame == null or hov:
 		draw_rect(r, Data.GOLD if hov else Color(rc, 0.9), false, 3.0 if hov else 2.0)
@@ -500,22 +537,98 @@ func _draw_card_mini(r: Rect2, card: String) -> void:
 func _draw_tip(anchor: Rect2, col: Color, title: String, sub: String, lines: Array, width := 260.0) -> Rect2:
 	var f := UI.font()
 	var inner := width - 20.0
-	var h := 50.0
-	for l in lines:
-		var s: String = l if l is String else l[0]
-		h += f.get_multiline_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, inner, 11).y + 3.0
-	var x := clampf(anchor.get_center().x - width * 0.5, 6.0, 1274.0 - width)
-	var r := Rect2(x, anchor.position.y - h - 10.0, width, h)
+	var r := tip_rect(anchor, sub, lines, width)
 	UI.panel(self, r, Color(0.08, 0.06, 0.05, 0.96), col, 2.0)
 	UI.text_l(self, r.position + Vector2(10, 20), title, 14, Color.WHITE)
 	UI.text_l(self, r.position + Vector2(10, 37), sub, 11, col.lightened(0.3))
-	var y := r.position.y + 46.0
+	var y := r.position.y + (46.0 if sub != "" else 30.0)
 	for l in lines:
 		var s2: String = l if l is String else l[0]
 		var c: Color = Color(1, 1, 1, 0.85) if l is String else l[1]
 		draw_multiline_string(f, Vector2(r.position.x + 10, y + 11), s2, HORIZONTAL_ALIGNMENT_LEFT, inner, 11, -1, c)
 		y += f.get_multiline_string_size(s2, HORIZONTAL_ALIGNMENT_LEFT, inner, 11).y + 3.0
 	return r
+
+
+# ---------------------------------------------------------------------------
+# Roda do Destino
+## A carta da mão continuaria a Cadência (selo de engrenagem dourada).
+func continues_chain(card: String) -> bool:
+	if card == "" or not game.wheel_on:
+		return false
+	var want: int = game.wheel_next_gear(cmd.team)
+	return want >= 0 and Data.gear_of(card) == want
+
+
+## Linhas da dica da roda (7 linhas: título e 6), com os números de data.gd.
+static func wheel_tip_lines() -> Array:
+	return [
+		T.tf("WHEEL_TIP_MOVE_CTRL", [int(round(Data.GEAR_CTRL_BONUS * 100.0))]),
+		T.tf("WHEEL_TIP_CTRL_ATK", [int(round(Data.GEAR_DMG_BONUS * 100.0))]),
+		T.tf("WHEEL_TIP_ATK_DEF", [int(round(Data.GEAR_DEF_BONUS * 100.0))]),
+		T.tf("WHEEL_TIP_DEF_MOVE", [int(Data.GEAR_MOVE_SHIELD)]),
+		T.tf("WHEEL_TIP_WINDOW", [T.num(Data.GEAR_WINDOW, 0), Data.CADENCE_FROM, int(Data.CADENCE_REFUND)]),
+		T.tf("WHEEL_TIP_FULL", [int(Data.FULL_TURN_ULT)]),
+	]
+
+
+func _draw_wheel_tip() -> void:
+	_draw_tip(wheel_rect(), Data.GOLD, T.t("WHEEL_TIP_TITLE"), "", wheel_tip_lines(), 260.0)
+
+
+func _draw_wheel() -> void:
+	var w = game.wheels[cmd.team]
+	var n: int = Data.GEARS.size()
+	draw_circle(WHEEL_C, WHEEL_R + WHEEL_NODE_R + 2.0, Color(0, 0, 0, 0.35))
+	# Elos: arcos entre engrenagens vizinhas; os da Cadência atual ficam acesos.
+	for g in n:
+		var a0 := -PI * 0.5 + g * TAU / n + 0.42
+		var a1 := -PI * 0.5 + (g + 1) * TAU / n - 0.42
+		var lit := false
+		if w.gear >= 0 and w.links > 0:
+			# elo que chega na engrenagem k: (k-1 → k); acesos os `links` últimos até a engatada
+			for j in mini(w.links, n):
+				if (w.gear - j - 1 + n * 4) % n == g:
+					lit = true
+		draw_arc(WHEEL_C, WHEEL_R, a0, a1, 10, Data.GOLD if lit else Color(Data.BRONZE, 0.45), 3.0 if lit else 1.5, true)
+	var nxt: int = game.wheel_next_gear(cmd.team)
+	for g in n:
+		var c := wheel_node(g)
+		var on: bool = w.gear == g
+		var col := Data.GOLD if on else Color(Data.BRONZE, 0.85)
+		if on:
+			var pulse := 0.5 + 0.5 * sin(game.time * 8.0)
+			draw_circle(c, WHEEL_NODE_R + 4.0, Color(Data.GOLD, 0.25 + 0.2 * pulse))
+		UI.gear(self, c, WHEEL_NODE_R, 8, Color(0.12, 0.09, 0.06) if not on else Color(0.35, 0.25, 0.08), game.time * (1.5 if on else 0.0))
+		UI.ring(self, c, WHEEL_NODE_R - 1.0, col, 1.5)
+		UI.effect_icon(self, Data.GEAR_ICON[g], c, 3.6, Color(1, 1, 1, 0.95 if on else 0.6))
+		if on:
+			# Tempo que ainda resta engatada
+			draw_arc(c, WHEEL_NODE_R + 2.5, -PI * 0.5, -PI * 0.5 + TAU * clampf(w.t / Data.GEAR_WINDOW, 0.0, 1.0), 24, Color(1.0, 0.95, 0.7), 2.0, true)
+		elif g == nxt:
+			UI.ring(self, c, WHEEL_NODE_R + 2.5, Color(Data.GOLD, 0.35 + 0.25 * sin(game.time * 5.0)), 1.0)
+
+
+## Selo de engrenagem dourada no canto da carta que continuaria a Cadência.
+func _draw_gear_seal(r: Rect2) -> void:
+	var pulse := 0.5 + 0.5 * sin(game.time * 5.0)
+	draw_rect(r.grow(1.0), Color(Data.GOLD, 0.35 + 0.35 * pulse), false, 2.0)
+	var c := r.position + Vector2(r.size.x - 16.0, 40.0)
+	draw_circle(c, 11.0, Color(0, 0, 0, 0.6))
+	UI.gear(self, c, 10.0, 8, Data.GOLD, game.time * 1.2)
+	draw_circle(c, 4.0, Color(0.3, 0.2, 0.05))
+
+
+## Retângulo da caixa de dica (o mesmo que _draw_tip desenha).
+static func tip_rect(anchor: Rect2, sub: String, lines: Array, width := 260.0) -> Rect2:
+	var f := UI.font()
+	var inner := width - 20.0
+	var h := 50.0 if sub != "" else 34.0
+	for l in lines:
+		var s: String = l if l is String else l[0]
+		h += f.get_multiline_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, inner, 11).y + 3.0
+	var x := clampf(anchor.get_center().x - width * 0.5, 6.0, 1274.0 - width)
+	return Rect2(x, anchor.position.y - h - 10.0, width, h)
 
 
 func _card_sub(card: String) -> String:

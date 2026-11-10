@@ -6,7 +6,7 @@ const T = preload("res://scripts/i18n.gd")
 const Data = preload("res://scripts/data.gd")
 
 ## Linhas da ajuda "Como jogar" (chaves de i18n; "" = linha em branco).
-const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "",
+const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "HELP_15", "",
 	"HELP_09", "HELP_10", "HELP_11", "HELP_12", "", "HELP_13", "HELP_14"]
 
 static func font() -> Font:

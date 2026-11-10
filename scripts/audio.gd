@@ -486,6 +486,14 @@ func _make_sfx() -> void:
 	b = _buf(0.04)
 	_tone(b, 0, 0.03, 1500, 1500, 0.2, "sine", 80.0)
 	_add("click", b)
+	await _maybe_yield()
+	# Roda do Destino: dois "cliques" metálicos de engrenagem encaixando.
+	b = _buf(0.22)
+	_noise(b, 0, 0.03, 0.35, 30.0, 0.5)
+	_tone(b, 0, 0.12, 880, 880, 0.18, "square", 25.0)
+	_noise(b, 0.08, 0.03, 0.35, 30.0, 0.5)
+	_tone(b, 0.08, 0.14, 1320, 1320, 0.2, "sine", 18.0)
+	_add("gear", b)
 	sfx_ready = true
 
 
