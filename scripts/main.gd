@@ -30,7 +30,7 @@ var shot_gallery := ""
 var _shot_done := false
 var shot_team: Array = []
 var shot_tip := ""
-var shot_help := false
+var shot_help := -1
 var shot_select := false
 var _frames := 0
 
@@ -50,9 +50,10 @@ func _ready() -> void:
 		elif a == "--shot-select":
 			shot_menu = true
 			shot_select = true
-		elif a == "--shot-help":
+		elif a == "--shot-help" or a.begins_with("--shot-help="):
+			# --shot-help=N: tela "Como jogar" na aba N (1 a 8)
 			shot_menu = true
-			shot_help = true
+			shot_help = maxi(0, a.substr(12).to_int() - 1) if a.length() > 11 else 0
 		elif a.begins_with("--shot-tip="):
 			shot_tip = a.substr(11)
 		elif a.begins_with("--shot-team="):
@@ -79,8 +80,9 @@ func _ready() -> void:
 	add_child(gallery)
 	menu.open_gallery.connect(_open_gallery)
 	gallery.back.connect(_close_gallery)
-	if shot_help:
-		menu.show_help = true
+	if shot_help >= 0:
+		menu.open_help()
+		menu.howto.tab = shot_help
 	if shot_select:
 		_open_select()
 	if shot_gallery != "":
