@@ -11,7 +11,7 @@ on:
         description: "Sementes do balanceamento principal (16 ≈ 500 partidas por herói; 32 ≈ 1.000, rodada completa)"
         default: "16"
       sementes_extras:
-        description: "Sementes de cada teste extra (peso de cada elo e Difícil × Normal)"
+        description: "Sementes de cada teste da Roda e da IA (só vale com a caixa abaixo marcada)"
         default: "8"
       niveis:
         description: "Níveis dos bots no balanceamento principal"
@@ -24,9 +24,9 @@ on:
         options: ["on", "off"]
         default: "on"
       extras:
-        description: "Rodar os testes extras (peso de cada elo e Difícil × Normal)"
+        description: "Testes da Roda e da IA (peso de cada elo e Difícil × Normal). Ligue só depois de mexer na Roda do Destino ou na IA dos bots"
         type: boolean
-        default: true
+        default: false
 
 env:
   GODOT_VERSION: "4.7.2"
