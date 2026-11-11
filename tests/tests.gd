@@ -2387,6 +2387,8 @@ func test_cover_by_behavior() -> void:
 		z.hp = z.max_hp * 0.5
 		for e in g.alive_heroes(1):
 			e.position = g.spawn_pos(1)
+		for pk in g.packs:
+			pk["t"] = 999.0  # sem frasco disponível: só a cobertura
 		var spot: Vector2 = z.cover_spot(g.alive_heroes(1))
 		check(spot != Vector2.INF, "há cobertura perto")
 		z._think(1.0 / 60.0)

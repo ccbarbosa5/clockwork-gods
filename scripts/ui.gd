@@ -6,7 +6,7 @@ const T = preload("res://scripts/i18n.gd")
 const Data = preload("res://scripts/data.gd")
 
 ## Linhas da ajuda "Como jogar" (chaves de i18n; "" = linha em branco).
-const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "HELP_15", "HELP_16", "",
+const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "HELP_15", "HELP_16", "HELP_17", "",
 	"HELP_09", "HELP_10", "HELP_11", "HELP_12", "", "HELP_13", "HELP_14"]
 
 static func font() -> Font:
@@ -173,5 +173,5 @@ static func draw_help(ci: CanvasItem) -> void:
 	for key in HELP_LINES:
 		if key != "":
 			text_l(ci, Vector2(260, y), T.t(key), 15, Color(1, 1, 1, 0.85))
-		y += 25.0
+		y += 24.0
 	text_c(ci, Vector2(640, 636), T.t("HELP_BACK"), 13, Color(1, 1, 1, 0.5))

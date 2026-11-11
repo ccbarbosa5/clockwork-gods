@@ -159,6 +159,10 @@ func update_hover(m: Vector2) -> void:
 		if beh_rect(k).has_point(m):
 			tip = {"kind": "beh", "i": k}
 			return
+	for k in game.packs.size():
+		if m.distance_to(game.packs[k]["pos"]) <= 22.0:
+			tip = {"kind": "pack", "i": k}
+			return
 
 
 func set_paused(on: bool, auto := false) -> void:
@@ -318,6 +322,7 @@ func _draw() -> void:
 			"next": _draw_next_tip()
 			"beh": _draw_beh_tip(tip["i"])
 			"wheel": _draw_wheel_tip()
+			"pack": _draw_pack_tip(tip["i"])
 	if msg_t > 0.0:
 		UI.text_c(self, Vector2(640, 548), msg, 18, Color(1, 0.5, 0.4, clampf(msg_t, 0.0, 1.0)), 4)
 	if game.paused and not game.ended:
@@ -626,7 +631,20 @@ static func tip_rect(anchor: Rect2, sub: String, lines: Array, width := 260.0) -
 		var s: String = l if l is String else l[0]
 		h += f.get_multiline_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, inner, 11).y + 3.0
 	var x := clampf(anchor.get_center().x - width * 0.5, 6.0, 1274.0 - width)
-	return Rect2(x, anchor.position.y - h - 10.0, width, h)
+	var y := anchor.position.y - h - 10.0
+	if y < 44.0:
+		y = anchor.end.y + 10.0  # sem espaço acima (perto da barra do placar): abre embaixo
+	return Rect2(x, y, width, h)
+
+
+## Frasco de Ambrosia (pacote de vida): cura e, se vazio, o tempo para voltar.
+func _draw_pack_tip(k: int) -> void:
+	var pk: Dictionary = game.packs[k]
+	var anchor := Rect2(pk["pos"] - Vector2(18, 18), Vector2(36, 36))
+	var lines: Array = []
+	if pk["t"] > 0.0:
+		lines.append([T.tf("PACK_EMPTY", [int(ceil(pk["t"]))]), Color(1, 1, 1, 0.75)])
+	_draw_tip(anchor, Color(0.45, 1.0, 0.55), T.tf("PACK_TIP", [int(Data.PACK_HEAL)]), "", lines, 300.0)
 
 
 func _card_sub(card: String) -> String:
@@ -685,8 +703,7 @@ static func behavior_lines(b: String) -> Array:
 	else:
 		lines.append(T.tf("TIP_BEH_CHASE", [T.meters(p["aggro"]), T.meters(p["leash"] + Data.POINT_R)]))
 	lines.append(T.tf("TIP_BEH_RETREAT", [int(round(p["retreat"] * 100.0)), int(round(Data.RETREAT_BACK * 100.0))]))
-	var cov: float = Data.COVER_HP[b]
-	lines.append(T.t("TIP_BEH_NO_COVER") if cov < 0.0 else T.tf("TIP_BEH_COVER", [int(round(cov * 100.0))]))
+	lines.append(T.t("TIP_BEH_HEAL_" + b.to_upper()))
 	return lines
 
 
