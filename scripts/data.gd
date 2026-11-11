@@ -203,14 +203,14 @@ static func missing_gears(team: Array) -> Array:
 const HEROES := {
 	"talos": {
 		"role": "Tanque", "origin": "lenda",
-		"hp": 625.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
+		"hp": 640.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
 		"radius": 22.0, "color": Color(0.96, 0.6, 0.2), "style": "frontline",
 		"splash": 0.5,  # golpe atinge 50% em inimigos a até 45 px do alvo
 		"ult": "furia", "cards": ["muralha", "investida", "valvula"],
 	},
 	"hercules": {
 		"role": "Tanque", "origin": "semideus",
-		"hp": 630.0, "speed": 80.0, "range": 58.0, "dmg": 33.0, "cd": 1.0, "dive_reach": 0.0,
+		"hp": 620.0, "speed": 80.0, "range": 58.0, "dmg": 33.0, "cd": 1.0, "dive_reach": 0.0,
 		"radius": 21.0, "color": Color(0.96, 0.6, 0.2), "style": "dive",
 		"ult": "trabalho", "cards": ["nemeia", "pele", "corrente"],
 	},
