@@ -90,6 +90,7 @@ const FX_EFFECTS := {
 	"feixe_cura": Vector2(64, 6),
 	# Pacote 3 (Hércules, Zeus, Atena)
 	"nemeia_queda": Vector2(150, 150),
+	"nemeia_alvo": Vector2(150, 150),
 	"pele_juba": Vector2(72, 72),
 	"corrente_elo": Vector2(32, 8),
 	"trabalho_impacto": Vector2(60, 60),

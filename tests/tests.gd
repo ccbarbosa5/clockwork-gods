@@ -2179,3 +2179,25 @@ func test_all_texts_have_glyphs_in_font() -> void:
 
 func UI_FONT() -> Font:
 	return ThemeDB.fallback_font
+
+
+func test_art_fx_source_matches_screen_proportion() -> void:
+	# Efeito entregue com a mesma proporção do tamanho na tela (Art.FX_EFFECTS),
+	# para não sair achatado. Faixas repetidas (feixes, corrente, raio) esticam
+	# de propósito e ficam de fora.
+	var beams := ["feixe_cura", "corrente_elo", "raio_cadeia"]
+	var n := 0
+	for name in Art.FX_EFFECTS.keys():
+		if name in beams:
+			continue
+		var path := "res://assets/fx/%s.png" % name
+		if not ResourceLoader.exists(path):
+			continue
+		var t: Texture2D = load(path)
+		var want: Vector2 = Art.FX_EFFECTS[name]
+		var got := Vector2(t.get_size())
+		var r1 := got.x / got.y
+		var r2 := want.x / want.y
+		check(absf(r1 / r2 - 1.0) < 0.12, "fx/%s.png com proporção %.2f; na tela é %.2f" % [name, r1, r2])
+		n += 1
+	print("        (proporção conferida em %d efeitos)" % n)
