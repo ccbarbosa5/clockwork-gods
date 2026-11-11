@@ -2,7 +2,7 @@
 # Uma fatia do balanceamento (usado pelo workflow "Balanceamento" e à mão).
 # Uso: tools/balance_run.sh PARTE TOTAL SEMENTES SEMENTES_EXTRAS NIVEIS RODA EXTRAS SAIDA
 #   PARTE/TOTAL      fatia das 64 combinações de cada semente (--part=PARTE/TOTAL)
-#   SEMENTES         sementes do balanceamento principal (32 ≈ 1.000 partidas por herói)
+#   SEMENTES         sementes do balanceamento principal (16 ≈ 500 partidas por herói; 32 ≈ 1.000)
 #   SEMENTES_EXTRAS  sementes de cada teste extra (peso de cada elo e Difícil × Normal)
 #   NIVEIS           níveis dos bots no principal, ex.: hard,hard
 #   RODA             on ou off
