@@ -26,6 +26,10 @@ on:
       rodada:
         description: "Só refazer o resumo de uma rodada anterior (número da execução, opcional; não joga partidas)"
         default: ""
+      livre:
+        description: "Modo livre (experimental): times com até 2 da mesma função. Desmarcado = padrão 1 Tanque, 1 Dano, 1 Suporte"
+        type: boolean
+        default: false
       extras:
         description: "Testes da Roda e da IA (peso de cada elo e Difícil × Normal). Ligue só depois de mexer na Roda do Destino ou na IA dos bots"
         type: boolean
@@ -38,6 +42,7 @@ env:
   DIFFS: ${{ inputs.niveis || 'hard,hard' }}
   WHEEL: ${{ inputs.roda || 'on' }}
   EXTRAS: ${{ inputs.extras }}
+  FREE: ${{ inputs.livre }}
 
 jobs:
   simular:
@@ -78,7 +83,7 @@ jobs:
         run: ~/godot/godot --headless --path . --import > /dev/null 2>&1 || true
 
       - name: Simular
-        run: GODOT=~/godot/godot tools/balance_run.sh ${{ matrix.part }} 8 "$SEEDS" "$XSEEDS" "$DIFFS" "$WHEEL" "$EXTRAS" logs
+        run: GODOT=~/godot/godot FREE="$FREE" tools/balance_run.sh ${{ matrix.part }} 8 "$SEEDS" "$XSEEDS" "$DIFFS" "$WHEEL" "$EXTRAS" logs
 
       - name: Guardar logs
         uses: actions/upload-artifact@v4

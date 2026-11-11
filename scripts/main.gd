@@ -92,8 +92,9 @@ func _ready() -> void:
 	elif shot_path != "" and not shot_menu:
 		Engine.time_scale = 4.0
 		var o := {"difficulty": "normal", "autotest": true}
-		if Data.valid_team(shot_team):
+		if Data.valid_team(shot_team, true):
 			o["teams"] = [shot_team, Data.DEFAULT_TEAM.duplicate()]
+			o["free"] = not Data.valid_team(shot_team)
 		_on_start(o)
 		if shot_tip != "":
 			game.hud.force_tip = {"kind": shot_tip, "i": 0}
@@ -122,7 +123,8 @@ func _close_gallery() -> void:
 func _on_start(opts: Dictionary) -> void:
 	if opts.has("team") and not opts.has("teams"):
 		# Seu time vem da seleção; o bot sorteia um time pela mesma regra livre.
-		opts["teams"] = [opts["team"], Data.random_team()]
+		# O bot segue o modo escolhido (padrão 1/1/1 ou livre).
+		opts["teams"] = [opts["team"], Data.random_team(opts.get("free", false))]
 	last_opts = opts
 	if game != null:
 		game.queue_free()

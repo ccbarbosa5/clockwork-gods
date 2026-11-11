@@ -1700,24 +1700,27 @@ func test_ability_popups_do_not_overlap() -> void:
 # ---------------------------------------------------------------------------
 # Pacote 3: times por função, Hércules, Zeus e Atena
 
-func test_teams_free_selection_rules() -> void:
-	# Pacote 5: 3 heróis, no máximo 2 da mesma função, sem repetir no time.
+func test_teams_default_and_free_rules() -> void:
+	# Padrão: 1 de cada função. Modo livre (experimental): até 2 da mesma função.
 	check(Data.valid_team(Data.DEFAULT_TEAM) and Data.valid_team(NEW_TEAM), "times padrão e novo válidos")
-	check(Data.valid_team(["talos", "hercules", "atena"]), "dois tanques agora vale")
-	check(Data.valid_team(["artemis", "zeus", "atena"]), "time sem tanque vale")
-	check(not Data.valid_team(["talos", "talos", "atena"]), "herói repetido no time não vale")
-	check(not Data.valid_team(["talos", "hercules"]), "time precisa de 3 heróis")
-	check(Data.team_add_block(["talos", "hercules"], "artemis") == "", "pode pôr um de outra função")
-	check(Data.team_add_block(["artemis", "zeus"], "talos") == "", "2 de dano + 1 vale")
-	check(Data.team_add_block(["talos", "artemis", "zeus"], "atena") == "full", "time cheio")
-	check(Data.all_teams().size() == 20, "6 heróis, até 2 por função: 20 times possíveis")
+	check(not Data.valid_team(["talos", "hercules", "atena"]), "padrão: dois tanques não vale")
+	check(Data.valid_team(["talos", "hercules", "atena"], true), "livre: dois tanques vale")
+	check(Data.valid_team(["artemis", "zeus", "atena"], true), "livre: time sem tanque vale")
+	check(not Data.valid_team(["talos", "talos", "atena"], true), "herói repetido no time não vale")
+	check(not Data.valid_team(["talos", "hercules"], true), "time precisa de 3 heróis")
+	check(Data.team_add_block(["talos"], "hercules") == "role", "padrão: já há um tanque")
+	check(Data.team_add_block(["talos", "hercules"], "artemis", true) == "", "livre: pode pôr um de outra função")
+	check(Data.team_add_block(["talos", "artemis", "zeus"], "atena", true) == "full", "time cheio")
+	check(Data.all_teams().size() == 8, "padrão: 8 times possíveis")
+	check(Data.all_teams(true).size() == 20, "livre: 20 times possíveis")
 	check(Data.sort_team(["atena", "zeus", "talos"]) == ["talos", "zeus", "atena"], "time ordenado por função")
-	var seen := {}
-	for i in 200:
-		var rt := Data.random_team()
-		check(Data.valid_team(rt), "time sorteado válido")
-		seen[",".join(rt)] = true
-	check(seen.size() >= 15, "o bot varia o time (%d times diferentes em 200 sorteios)" % seen.size())
+	for fm in [false, true]:
+		var seen := {}
+		for i in 200:
+			var rt := Data.random_team(fm)
+			check(Data.valid_team(rt, fm), "time sorteado válido")
+			seen[",".join(rt)] = true
+		check(seen.size() >= (15 if fm else 7), "o bot varia o time (%d times diferentes em 200 sorteios)" % seen.size())
 	# Engrenagens da Roda: Talos + Hércules + Atena não têm carta de Ataque.
 	check(Data.missing_gears(["talos", "hercules", "atena"]) == [2], "sem Ataque")
 	check(Data.missing_gears(Data.DEFAULT_TEAM).is_empty(), "time padrão tem as 4 engrenagens")
@@ -1737,7 +1740,7 @@ func test_teams_free_selection_rules() -> void:
 	var bad := new_game({"teams": [["talos", "talos", "talos"], Data.DEFAULT_TEAM]})
 	check(bad.teams[0] == Data.DEFAULT_TEAM, "time inválido cai para o padrão")
 	done(bad)
-	var two := new_game({"teams": [["atena", "hercules", "talos"], ["artemis", "zeus", "asclepio"]]})
+	var two := new_game({"teams": [["atena", "hercules", "talos"], ["artemis", "zeus", "asclepio"]], "free": true})
 	check(two.teams[0] == ["talos", "hercules", "atena"] and two.team_hero(0, 0).hid == "talos", "time com 2 tanques montado em ordem")
 	done(two)
 
@@ -1754,6 +1757,13 @@ func test_select_screen_builds_team_and_starts() -> void:
 	var sel := new_select()
 	var starts: Array = []
 	sel.start.connect(func(o): starts.append(o))
+	sel.team = []
+	check(not sel.free_mode, "modo livre desligado por padrão")
+	sel.handle(_click(sel.card_rect(sel.heroes.find("talos")).get_center()))
+	sel.handle(_click(sel.card_rect(sel.heroes.find("hercules")).get_center()))
+	check(sel.team == ["hercules"], "padrão: escolher outro tanque troca o tanque")
+	sel.handle(_click(sel.free_rect().get_center()))
+	check(sel.free_mode, "caixa liga o modo livre")
 	sel.team = []
 	check(not sel.ready_to_start(), "sem 3 heróis não começa")
 	sel.handle(_key(KEY_ENTER))
@@ -1777,9 +1787,12 @@ func test_select_screen_builds_team_and_starts() -> void:
 	sel.handle(_click(sel.confirm_rect().get_center()))
 	check(starts.size() == 1, "botão de confirmar começa a partida")
 	var o: Dictionary = starts[0]
-	check(o["team"] == ["talos", "zeus", "atena"] and o["difficulty"] == "hard" and o["behavior"] == "defensive", "opções vão para a partida: %s" % str(o))
+	check(o["team"] == ["talos", "zeus", "atena"] and o["difficulty"] == "hard" and o["behavior"] == "defensive" and o["free"], "opções vão para a partida: %s" % str(o))
+	sel.team = ["talos", "hercules", "atena"]
+	sel.set_free(false)
+	check(sel.team == ["talos", "atena"], "desligar o modo livre tira o tanque a mais")
 	# Rótulos e botões dentro da tela e sem sobrepor.
-	var rs: Array = [sel.back_rect(), sel.confirm_rect()]
+	var rs: Array = [sel.back_rect(), sel.confirm_rect(), sel.free_rect()]
 	for i in 3:
 		rs.append(sel.slot_rect(i)); rs.append(sel.diff_rect(i)); rs.append(sel.beh_rect(i))
 	for a in rs.size():
@@ -2404,7 +2417,7 @@ func test_cover_by_behavior() -> void:
 
 
 func test_retreat_takes_close_pack_without_healer() -> void:
-	var g := new_game({"teams": [["talos", "artemis", "zeus"], Data.DEFAULT_TEAM]})
+	var g := new_game({"teams": [["talos", "artemis", "zeus"], Data.DEFAULT_TEAM], "free": true})
 	pin_all_far(g)
 	var a = hero(g, 0, "artemis")
 	a.stun_t = 0.0
@@ -2423,7 +2436,8 @@ func test_retreat_takes_close_pack_without_healer() -> void:
 func test_matches_without_tank_and_with_two_tanks() -> void:
 	# A IA funciona sem tanque e com 2 tanques: a partida anda, ninguém trava.
 	for tm in [["artemis", "zeus", "asclepio"], ["talos", "hercules", "atena"]]:
-		var g := new_game({"teams": [tm, Data.DEFAULT_TEAM], "autotest": true})
+		var g := new_game({"teams": [tm, Data.DEFAULT_TEAM], "autotest": true, "free": true})
+		check(g.teams[0] == Data.sort_team(tm), "modo livre aceita o time %s" % ",".join(tm))
 		g.bots[0] = load("res://scripts/bot.gd").new()
 		g.bots[0].setup(g, 0, g.commanders[0], "hard")
 		step(g, 90.0)
