@@ -49,7 +49,7 @@ def read(folder):
     for path in glob.glob(os.path.join(folder, "**", "*.log"), recursive=True):
         kind = re.sub(r"_s\d+_p\d+\.log$", "", os.path.basename(path))
         d = data.setdefault(kind, {"bal": {}, "side": [0, 0.0, 0.0], "wheel": {}, "runs": 0,
-                                   "comp": {}, "end": {}, "heal": {}})
+                                   "comp": {}, "end": {}, "heal": {}, "dur": [0, 0.0]})
         d["runs"] += 1
         text = open(path, encoding="utf-8", errors="replace").read()
         if "SCRIPT ERROR" in text:
@@ -68,6 +68,9 @@ def read(folder):
             elif f[0] == "COMP" and len(f) == 4:
                 g, w = d["comp"].get(f[1], (0, 0.0))
                 d["comp"][f[1]] = (g + int(f[2]), w + float(f[3]))
+            elif f[0] == "DUR" and len(f) == 3:
+                d["dur"][0] += int(f[1])
+                d["dur"][1] += float(f[2])
             elif f[0] == "END" and len(f) == 3:
                 d["end"][f[1]] = d["end"].get(f[1], 0) + int(f[2])
             elif f[0] == "HEAL" and len(f) == 6:
@@ -115,8 +118,13 @@ def main():
     if ends:
         tot = sum(ends.values())
         out.append("")
-        out.append("Partidas que acabaram por tempo (5 min): %d de %d (%.0f%%); por pontos: %d." %
+        out.append("Partidas decididas pelo relógio (5 min, vence quem tem mais progresso, com prorrogação): "
+                   "%d de %d (%.0f%%); por chegar a 100%%: %d." %
                    (ends.get("time", 0), tot, pct(ends.get("time", 0), tot), ends.get("points", 0)))
+    dur = main_d["dur"]
+    if dur[0]:
+        out.append("")
+        out.append("Duração média: %.0f s (%.1f min)." % (dur[1] / dur[0], dur[1] / dur[0] / 60.0))
 
     comps = main_d["comp"]
     if comps:

@@ -183,6 +183,7 @@ func _run() -> void:
 		print("COMP %s %d %.1f" % [k, comp_games[k], comp_wins[k]])
 	for k in end_counts.keys():
 		print("END %s %d" % [k, end_counts[k]])
+	print("DUR %d %.1f" % [results.size(), _avg(results, "duration") * results.size()])
 	for k in heal_tot.keys():
 		var a3: Array = heal_tot[k]
 		print("HEAL %s %d %.0f %.0f %.0f" % [k, a3[0], a3[1], a3[2], a3[3]])
