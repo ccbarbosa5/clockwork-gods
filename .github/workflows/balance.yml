@@ -2,12 +2,14 @@ name: Balanceamento
 
 # Simulação longa de balanceamento (bots contra bots). Resultado no "Job
 # summary" da execução e no artefato balance.md. Ver claude/balanceamento.md.
+# Só por disparo manual (Actions → Balanceamento → Run workflow): o repositório
+# é privado e os minutos do GitHub Actions são cobrados.
 on:
   workflow_dispatch:
     inputs:
       sementes:
-        description: "Sementes do balanceamento principal (64 partidas cada; 32 ≈ 1.000 partidas por herói)"
-        default: "32"
+        description: "Sementes do balanceamento principal (16 ≈ 500 partidas por herói; 32 ≈ 1.000, rodada completa)"
+        default: "16"
       sementes_extras:
         description: "Sementes de cada teste extra (peso de cada elo e Difícil × Normal)"
         default: "8"
@@ -25,16 +27,14 @@ on:
         description: "Rodar os testes extras (peso de cada elo e Difícil × Normal)"
         type: boolean
         default: true
-  schedule:
-    - cron: "37 8 * * 1"   # segunda-feira, 05:37 em Brasília
 
 env:
   GODOT_VERSION: "4.7.2"
-  SEEDS: ${{ inputs.sementes || '32' }}
+  SEEDS: ${{ inputs.sementes || '16' }}
   XSEEDS: ${{ inputs.sementes_extras || '8' }}
   DIFFS: ${{ inputs.niveis || 'hard,hard' }}
   WHEEL: ${{ inputs.roda || 'on' }}
-  EXTRAS: ${{ github.event_name == 'schedule' && 'true' || inputs.extras }}
+  EXTRAS: ${{ inputs.extras }}
 
 jobs:
   simular:
