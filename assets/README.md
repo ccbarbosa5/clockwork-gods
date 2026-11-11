@@ -158,6 +158,7 @@ Sem o arquivo, cada efeito continua desenhado por código. Tamanho na tela em es
 | Arquivo | Na tela | Uso |
 | --- | --- | --- |
 | `nemeia_queda.png` | 150×150 | Área de queda do Salto de Nemeia (raio 75); cresce e some em 0,5 s. Laranja-bronze, poeira |
+| `nemeia_alvo.png` | 150×150 | Marca no chão onde o Hércules vai cair durante o Salto de Nemeia (raio 75), por cima da sombra que cresce; vai de 50% a 100% de opacidade em 0,45 s. Não gira |
 | `pele_juba.png` | 72×72 (Talos; escala pelo raio do herói) | Aura da Pele do Leão: juba dourada em volta, centro vazio. Gira devagar |
 | `corrente_elo.png` | faixa de 8 px de espessura | Corrente de Cérbero: elos de bronze repetidos do Hércules até o gancho (como o feixe de cura) |
 | `corrente_gancho.png` | 20×20 | Ponta da corrente: gancho de três pontas, apontando para a direita |

@@ -1335,7 +1335,8 @@ func _draw() -> void:
 			"leap_mark":
 				# Sombra que cresce onde o Hércules vai cair.
 				draw_circle(f["pos"], f["r"] * (0.3 + 0.7 * k2), Color(0, 0, 0, 0.25 + 0.15 * k2))
-				UI.ring(self, f["pos"], f["r"], Color(0.95, 0.65, 0.3, 0.5), 2.0)
+				if not Art.draw_fx(self, "nemeia_alvo", f["pos"], Art.FX_EFFECTS["nemeia_alvo"] * (f["r"] / 75.0), 1.0, 0.5 + 0.5 * k2):
+					UI.ring(self, f["pos"], f["r"], Color(0.95, 0.65, 0.3, 0.5), 2.0)
 			"feather":
 				var fp: Vector2 = f["pos"] + Vector2(sin(f["seed"] + k2 * 4.0) * 8.0, 14.0 * k2)
 				if not Art.draw_fx(self, "aguia_pena", fp, Art.FX_EFFECTS["aguia_pena"], 1.0, 1.0 - k2, f["seed"] + k2 * 3.0):
