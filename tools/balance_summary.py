@@ -48,7 +48,8 @@ def read(folder):
     errors = 0
     for path in glob.glob(os.path.join(folder, "**", "*.log"), recursive=True):
         kind = re.sub(r"_s\d+_p\d+\.log$", "", os.path.basename(path))
-        d = data.setdefault(kind, {"bal": {}, "side": [0, 0.0, 0.0], "wheel": {}, "runs": 0})
+        d = data.setdefault(kind, {"bal": {}, "side": [0, 0.0, 0.0], "wheel": {}, "runs": 0,
+                                   "comp": {}, "end": {}, "heal": {}})
         d["runs"] += 1
         text = open(path, encoding="utf-8", errors="replace").read()
         if "SCRIPT ERROR" in text:
@@ -64,6 +65,15 @@ def read(folder):
                 d["side"][0] += int(f[1])
                 d["side"][1] += float(f[2])
                 d["side"][2] += float(f[3])
+            elif f[0] == "COMP" and len(f) == 4:
+                g, w = d["comp"].get(f[1], (0, 0.0))
+                d["comp"][f[1]] = (g + int(f[2]), w + float(f[3]))
+            elif f[0] == "END" and len(f) == 3:
+                d["end"][f[1]] = d["end"].get(f[1], 0) + int(f[2])
+            elif f[0] == "HEAL" and len(f) == 6:
+                acc = d["heal"].setdefault(f[1], [0, 0.0, 0.0, 0.0])
+                for i in range(4):
+                    acc[i] += float(f[2 + i])
             elif f[0] == "WHEEL" and len(f) == 7:
                 acc = d["wheel"].setdefault(f[1], [0, 0, 0, 0, 0])
                 for i in range(5):
@@ -100,6 +110,49 @@ def main():
     s = main_d["side"]
     out.append("")
     out.append("Lado azul (time 0): %s em %d partidas." % (fmt(s[1], s[0], False), s[0]))
+
+    ends = main_d["end"]
+    if ends:
+        tot = sum(ends.values())
+        out.append("")
+        out.append("Partidas que acabaram por tempo (5 min): %d de %d (%.0f%%); por pontos: %d." %
+                   (ends.get("time", 0), tot, pct(ends.get("time", 0), tot), ends.get("points", 0)))
+
+    comps = main_d["comp"]
+    if comps:
+        rows = [(pct(w, g), g, w, k) for k, (g, w) in comps.items() if g >= 10]
+        rows.sort(reverse=True)
+        def comp_name(k):
+            return " + ".join(NAMES.get(h, h) for h in k.split(","))
+        out.append("")
+        out.append("## Times que mais vencem")
+        out.append("")
+        out.append("Seleção livre: %d times diferentes. Só times com 10+ partidas (sem espelhos)." % len(comps))
+        out.append("")
+        out.append("| Time | Vitória | Partidas |")
+        out.append("| --- | --- | --- |")
+        for p, g, w, k in rows[:5]:
+            out.append("| %s | %s | %d |" % (comp_name(k), fmt(w, g, False), g))
+        if len(rows) > 5:
+            out.append("")
+            out.append("Os que menos vencem:")
+            out.append("")
+            out.append("| Time | Vitória | Partidas |")
+            out.append("| --- | --- | --- |")
+            for p, g, w, k in rows[-3:][::-1]:
+                out.append("| %s | %s | %d |" % (comp_name(k), fmt(w, g, False), g))
+
+    heal = main_d["heal"]
+    if heal:
+        out.append("")
+        out.append("## Cura por herói (média por partida em que jogou)")
+        out.append("")
+        out.append("| Herói | Cura dada (habilidades) | Pacotes pegos | Regeneração |")
+        out.append("| --- | --- | --- | --- |")
+        for h in HEROES:
+            if h in heal and heal[h][0]:
+                n = heal[h][0]
+                out.append("| %s | %.0f | %.0f | %.0f |" % (NAMES[h], heal[h][1] / n, heal[h][2] / n, heal[h][3] / n))
 
     base = main_d["side"]
     links = [(g, data.get("nobonus%d" % g)) for g in range(4)]

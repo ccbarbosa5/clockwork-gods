@@ -33,6 +33,10 @@ const OBSTACLES := [
 ]
 
 var heroes: Array = []
+## Pacotes de vida (Data.HEALTH_PACKS): {pos, t}; t > 0 = reaparece em t s.
+var packs: Array = []
+## Como a partida acabou: "points" (alguém chegou a 100%) ou "time" (tempo esgotado).
+var end_reason := ""
 var commanders: Array = [null, null]
 var bots: Array = [null, null]
 var projectiles: Array = []
@@ -96,7 +100,10 @@ func setup(opts: Dictionary) -> void:
 	var opt_teams: Array = opts.get("teams", [])
 	for t in 2:
 		if opt_teams.size() > t and Data.valid_team(opt_teams[t]):
-			teams[t] = opt_teams[t].duplicate()
+			teams[t] = Data.sort_team(opt_teams[t])
+	packs.clear()
+	for pp in Data.HEALTH_PACKS:
+		packs.append({"pos": pp, "t": 0.0})
 	for t in 2:
 		for i in teams[t].size():
 			var h := Node2D.new()
@@ -130,7 +137,7 @@ func _spawn_slot(t: int, i: int) -> Vector2:
 
 # ---------------------------------------------------------------------------
 # Consultas
-## Herói do time na posição i (0 tanque, 1 dano, 2 suporte).
+## Herói do time na posição i (ordem de Data.sort_team: Tanque, Dano, Suporte).
 func team_hero(t: int, i: int):
 	return get_hero(t, teams[t][i])
 
@@ -234,6 +241,7 @@ func _step(dt: float) -> void:
 	_update_zeus_zones(dt)
 	_update_atena_zones(dt)
 	_update_point(dt)
+	_update_packs(dt)
 	_check_end()
 
 
@@ -411,9 +419,11 @@ func _update_point(dt: float) -> void:
 func _check_end() -> void:
 	for t in 2:
 		if progress[t] >= 100.0:
+			end_reason = "points"
 			_end(t)
 			return
 	if time >= Data.MATCH_TIME:
+		end_reason = "time"
 		if contested or (capture_team >= 0 and capture_team != point_owner and capture_prog > 0.0):
 			if not overtime:
 				overtime = true
@@ -439,6 +449,7 @@ func _end(winner: int) -> void:
 func deal_damage(src, victim, amount: float, show_text := true) -> void:
 	if victim == null or not victim.alive or amount <= 0.0:
 		return
+	victim.calm_t = 0.0  # interrompe a regeneração passiva
 	var amt := amount
 	if src != null and is_instance_valid(src) and src.buff_t > 0.0:
 		amt *= 1.2  # Comando de Guerra
@@ -492,6 +503,62 @@ func heal(src, target, amount: float) -> void:
 		src.add_charge(actual * Data.ULT_HEAL)
 	if actual >= 5.0:
 		add_text(target.position + Vector2(randf_range(-10, 10), -target.radius - 18), "+" + str(int(round(actual))), Color(0.5, 1.0, 0.6))
+
+
+# ---------------------------------------------------------------------------
+# Pacotes de vida
+func _update_packs(dt: float) -> void:
+	for pk in packs:
+		if pk["t"] > 0.0:
+			pk["t"] = maxf(0.0, pk["t"] - dt)
+			continue
+		for h in heroes:
+			if not h.alive or h.hp >= h.max_hp or h.leaping:
+				continue
+			if h.position.distance_to(pk["pos"]) <= Data.PACK_PICK_R + h.radius:
+				var before: float = h.hp
+				heal(null, h, Data.PACK_HEAL)
+				h.stats["pack"] += h.hp - before
+				pk["t"] = Data.PACK_RESPAWN
+				_burst(pk["pos"], 30.0, Color(0.5, 1.0, 0.6), 0.45)
+				if h.team == player_team:
+					sfx("sopro", -8.0)
+				break
+
+
+## Pacote disponível mais perto de `p` (a até `max_d` px), ou null.
+func nearest_pack(p: Vector2, max_d: float):
+	var best = null
+	var bd := max_d
+	for pk in packs:
+		if pk["t"] > 0.0:
+			continue
+		var d: float = p.distance_to(pk["pos"])
+		if d < bd:
+			bd = d
+			best = pk
+	return best
+
+
+func _draw_packs() -> void:
+	for pk in packs:
+		var pos: Vector2 = pk["pos"]
+		if pk["t"] > 0.0:
+			# Base vazia, com o tempo para voltar.
+			UI.ring(self, pos, 12.0, Color(0.5, 1.0, 0.6, 0.18), 2.0)
+			var frac: float = 1.0 - pk["t"] / Data.PACK_RESPAWN
+			draw_arc(pos, 12.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 20, Color(0.5, 1.0, 0.6, 0.45), 2.0, true)
+			continue
+		var bob := sin(time * 3.0 + pos.x * 0.01) * 2.0
+		draw_circle(pos + Vector2(0, 6), 12.0, Color(0, 0, 0, 0.3))
+		if Art.draw_map(self, "health_pack", pos + Vector2(0, bob), Data.PACK_PICK_R):
+			continue
+		var c := pos + Vector2(0, bob)
+		draw_circle(c, 15.0, Color(0.5, 1.0, 0.6, 0.18 + 0.08 * sin(time * 4.0)))
+		draw_circle(c, 11.0, Color(0.1, 0.08, 0.06))
+		UI.ring(self, c, 11.0, Data.BRONZE, 2.0)
+		draw_rect(Rect2(c + Vector2(-2.5, -7), Vector2(5, 14)), Color(0.45, 1.0, 0.55))
+		draw_rect(Rect2(c + Vector2(-7, -2.5), Vector2(14, 5)), Color(0.45, 1.0, 0.55))
 
 
 func _kill(victim, killer) -> void:
@@ -1238,6 +1305,7 @@ func _draw() -> void:
 				if not Art.draw_fx(self, "chuva_flecha", p + Vector2(-2, -6), Art.FX_EFFECTS["chuva_flecha"], 1.0, 0.95, Vector2(4, 12).angle()):
 					draw_line(p + Vector2(-4, -12), p, Color(0.9, 0.95, 1.0, 0.85), 2.0)
 
+	_draw_packs()
 	_draw_new_zones()
 
 	# Projéteis

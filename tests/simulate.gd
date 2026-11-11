@@ -37,6 +37,12 @@ var wheel_on := true
 var nobonus := -1
 var bal_diffs: Array = ["hard", "hard"]
 var wheel_tot := {}
+## Por composição de time (a,b,c): partidas e vitórias; como as partidas acabam;
+## cura por herói (habilidades, pacotes e regeneração).
+var comp_games := {}
+var comp_wins := {}
+var end_counts := {}
+var heal_tot := {}
 ## As 8 composições possíveis (um herói por função).
 var comps: Array = []
 ## Por herói: partidas e vitórias (sem contar espelhos, quando está nos dois times).
@@ -72,12 +78,10 @@ func _run() -> void:
 			var kn := a.substr(7).split("/")
 			part_k = kn[0].to_int()
 			part_n = kn[1].to_int()
-	for t in Data.heroes_of_role("Tanque"):
-		for d in Data.heroes_of_role("Dano"):
-			for s in Data.heroes_of_role("Suporte"):
-				comps.append([t, d, s])
+	# Seleção livre (Pacote 5): todos os times válidos (até 2 da mesma função).
+	comps = Data.all_teams()
 	if balance:
-		matches = comps.size() * comps.size()
+		matches = 64  # por semente; os pares de times variam com a semente
 	var results: Array = []
 	var casts := {}
 	var t0 := Time.get_ticks_msec()
@@ -94,11 +98,14 @@ func _run() -> void:
 		if balance:
 			diffs = bal_diffs
 			beh = "balanced"
-			t0c = comps[m / comps.size()]
-			t1c = comps[m % comps.size()]
+			var off := seed_offset / 1000
+			t0c = comps[(m + off * 7) % comps.size()]
+			t1c = comps[(m * 7 + 3 + off * 3) % comps.size()]
 		var r := _play_match(m, diffs[0], diffs[1], beh, casts, [t0c, t1c])
 		if diffs[0] == diffs[1]:
 			_count_heroes(r["winner"], t0c, t1c)
+			_count_comp(r["winner"], t0c, t1c)
+		end_counts[r["end"]] = end_counts.get(r["end"], 0) + 1
 		results.append(r)
 		print("partida %2d  %-6s x %-6s  %s x %s  vencedor=%2d  %5.1fs  progresso %5.1f/%5.1f  abates %2d  cartas %2d/%2d  ults %d/%d  formação %.0f%%  espera %.1fs  livre %.0fs" % [
 			m + 1, diffs[0], diffs[1], "/".join(t0c), "/".join(t1c), r["winner"], r["duration"], r["p0"], r["p1"], r["kills"],
@@ -163,6 +170,13 @@ func _run() -> void:
 		else:
 			side[0] += 0.5; side[1] += 0.5
 	print("SIDE %d %.1f %.1f" % [results.size(), side[0], side[1]])
+	for k in comp_games.keys():
+		print("COMP %s %d %.1f" % [k, comp_games[k], comp_wins[k]])
+	for k in end_counts.keys():
+		print("END %s %d" % [k, end_counts[k]])
+	for k in heal_tot.keys():
+		var a3: Array = heal_tot[k]
+		print("HEAL %s %d %.0f %.0f %.0f" % [k, a3[0], a3[1], a3[2], a3[3]])
 	print("")
 	print("=== Roda do Destino (por time e partida) ===")
 	for d in wheel_tot.keys():
@@ -225,6 +239,16 @@ func _anomaly(kind: String, detail: String) -> void:
 	anomaly_counts[kind] = anomaly_counts.get(kind, 0) + 1
 	if anomaly_counts[kind] <= 3:
 		anomalies.append(kind + "  " + detail)
+
+
+## Conta a partida para a composição de cada lado (espelhos não contam).
+func _count_comp(winner: int, t0c: Array, t1c: Array) -> void:
+	if t0c == t1c:
+		return
+	for side in 2:
+		var key: String = ",".join(t0c if side == 0 else t1c)
+		comp_games[key] = comp_games.get(key, 0) + 1
+		comp_wins[key] = comp_wins.get(key, 0.0) + (1.0 if winner == side else (0.5 if winner < 0 else 0.0))
 
 
 ## Conta a partida para os heróis de cada lado (empate vale meia vitória).
@@ -306,12 +330,17 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 		# Formação: herói de trás não passa muito do tanque vivo.
 		if g.point_unlocked() and int(g.time * 60.0) % 15 == 0:
 			for t in 2:
-				var tank = g.team_hero(t, 0)
+				var tank = null
+				for h2 in g.heroes:
+					if h2.team == t and (h2.style == "frontline" or h2.style == "dive"):
+						tank = h2
+						break
 				if tank == null or not tank.alive or tank.retreating:
 					continue
 				var fwd := 1.0 if t == 0 else -1.0
-				for i in [1, 2]:
-					var b = g.team_hero(t, i)
+				for b in g.heroes:
+					if b.team != t or b.style == "frontline" or b.style == "dive":
+						continue
 					# Flanco (Zeus) contorna pelas laterais de propósito.
 					if b.style != "flank" and b.alive and not b.retreating:
 						form_total += 1
@@ -331,6 +360,13 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 		wheel_tot[d] = acc
 	if not g.ended:
 		_anomaly("partida não terminou", "partida %d" % (idx + 1))
+	for h in g.heroes:
+		var acc2: Array = heal_tot.get(h.hid, [0, 0.0, 0.0, 0.0])
+		acc2[0] += 1
+		acc2[1] += h.stats["healing"]
+		acc2[2] += h.stats["pack"]
+		acc2[3] += h.stats["regen"]
+		heal_tot[h.hid] = acc2
 	var kills := 0
 	for h in g.heroes:
 		kills += h.stats["kills"]
@@ -338,7 +374,8 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 		"kills": kills, "cards0": g.commanders[0].cards_played, "cards1": g.commanders[1].cards_played,
 		"ults0": g.commanders[0].ults_used, "ults1": g.commanders[1].ults_used,
 		"formation": float(form_ok) / maxf(1.0, float(form_total)),
-		"armed_wait": _mean(waits), "uncontested": uncontested}
+		"armed_wait": _mean(waits), "uncontested": uncontested,
+		"end": g.end_reason if g.end_reason != "" else "none"}
 	g.free()
 	return r
 

@@ -1,5 +1,6 @@
 extends Node2D
-## Tela inicial.
+## Tela inicial: logo, Jogar (abre a seleção de personagens), Como jogar,
+## Heróis, idioma e som. Time, dificuldade e comportamento ficam na seleção.
 
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
@@ -7,22 +8,17 @@ const T = preload("res://scripts/i18n.gd")
 const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
-signal start(opts: Dictionary)
+## Botão Jogar: abre a seleção de personagens (scripts/select.gd).
+signal play
 signal open_gallery
 
-const DIFFS := ["easy", "normal", "hard"]
-
-var difficulty := "normal"
-var behavior := "balanced"
-## Seu time: um herói por função (Tanque, Dano, Suporte).
-var team: Array = Data.DEFAULT_TEAM.duplicate()
 var show_help := false
 var t := 0.0
 
 
 ## Versão lida do projeto (BUG-013: o menu mostrava uma versão fixa e antiga).
 static func version_label() -> String:
-	return T.tf("MENU_VERSION", [ProjectSettings.get_setting("application/config/version", "?"), Data.HERO_ORDER.size()])
+	return T.tf("MENU_VERSION", [ProjectSettings.get_setting("application/config/version", "?")])
 
 
 ## Nome do jogo (marca: igual em todos os idiomas), lido do projeto.
@@ -44,37 +40,15 @@ func _audio():
 
 
 func play_rect() -> Rect2:
-	return Rect2(520, 552, 240, 48)
+	return Rect2(520, 584, 240, 52)
 
 
 func help_rect() -> Rect2:
-	return Rect2(356, 557, 150, 38)
+	return Rect2(356, 591, 150, 38)
 
 
 func heroes_rect() -> Rect2:
-	return Rect2(774, 557, 150, 38)
-
-
-func diff_rect(i: int) -> Rect2:
-	return Rect2(340 + i * 98, 628, 92, 30)
-
-
-func beh_rect(i: int) -> Rect2:
-	return Rect2(646 + i * 98, 628, 92, 30)
-
-
-## Botão do herói da função i no seu time (clique troca pelo próximo da função).
-func team_rect(i: int) -> Rect2:
-	return Rect2(450 + i * 130, 676, 120, 34)
-
-
-func cycle_team(i: int) -> void:
-	var opts: Array = Data.heroes_of_role(Data.ROLE_ORDER[i])
-	team[i] = opts[(opts.find(team[i]) + 1) % opts.size()]
-
-
-func start_opts() -> Dictionary:
-	return {"difficulty": difficulty, "behavior": behavior, "team": team.duplicate()}
+	return Rect2(774, 591, 150, 38)
 
 
 func _process(delta: float) -> void:
@@ -106,29 +80,19 @@ func _input(event: InputEvent) -> void:
 		if play_rect().has_point(m):
 			if a != null:
 				a.play("card")
-			start.emit(start_opts())
+			play.emit()
 		elif help_rect().has_point(m):
 			show_help = true
 		elif heroes_rect().has_point(m):
 			if a != null: a.play("click")
 			open_gallery.emit()
 			return
-		for i in 3:
-			if team_rect(i).has_point(m):
-				cycle_team(i)
-				if a != null: a.play("click")
-			if diff_rect(i).has_point(m):
-				difficulty = DIFFS[i]
-				if a != null: a.play("click")
-			if beh_rect(i).has_point(m):
-				behavior = Data.BEHAVIORS[i]
-				if a != null: a.play("click")
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
 			if show_help:
 				show_help = false
 			else:
-				start.emit(start_opts())
+				play.emit()
 		elif event.keycode == KEY_ESCAPE:
 			show_help = false
 		elif event.keycode == KEY_L:
@@ -157,7 +121,6 @@ func _draw() -> void:
 		Art.draw_centered(self, logo, Vector2(640, Art.LOGO_TOP + Art.LOGO_SIZE.y * 0.5), Art.LOGO_SIZE)
 	else:
 		UI.text_c(self, Vector2(640, 135), game_title(), 80, Data.GOLD, 10)
-	UI.text_c(self, Vector2(640, 232), T.t("MENU_TAGLINE"), 16, Color.WHITE, 4)
 	var mouse := get_global_mouse_position()
 	UI.lang_toggle(self, lang_rect(), mouse)
 
@@ -171,25 +134,6 @@ func _draw() -> void:
 	UI.panel(self, gr, Color(Data.BRONZE, 0.35) if gr.has_point(mouse) else Color(0, 0, 0, 0.55), Color(Data.BRONZE, 0.8), 1.5)
 	UI.text_c(self, gr.get_center() + Vector2(0, 5), T.t("MENU_HEROES"), 14, Color.WHITE)
 
-	UI.text_c(self, diff_rect(1).get_center() + Vector2(0, -21), T.t("MENU_DIFFICULTY"), 12, Color(1, 1, 1, 0.75), 3)
-	UI.text_c(self, beh_rect(1).get_center() + Vector2(0, -21), T.t("MENU_BEHAVIOR"), 12, Color(1, 1, 1, 0.75), 3)
-	for i in 3:
-		var r := diff_rect(i)
-		var on: bool = DIFFS[i] == difficulty
-		UI.panel(self, r, Color(Data.BRONZE, 0.6) if on else Color(0, 0, 0, 0.55), Data.GOLD if on else Color(Data.BRONZE, 0.6), 2.0)
-		UI.text_c(self, r.get_center() + Vector2(0, 5), T.t("DIFF_" + String(DIFFS[i]).to_upper()), 13, Color.WHITE)
-		var r2 := beh_rect(i)
-		var on2: bool = Data.BEHAVIORS[i] == behavior
-		UI.panel(self, r2, Color(Data.BRONZE, 0.6) if on2 else Color(0, 0, 0, 0.55), Data.GOLD if on2 else Color(Data.BRONZE, 0.6), 2.0)
-		UI.text_c(self, r2.get_center() + Vector2(0, 5), T.behavior_name(Data.BEHAVIORS[i]), 13, Color.WHITE)
-
-	UI.text_c(self, team_rect(1).get_center() + Vector2(0, -22), T.t("MENU_TEAM"), 12, Color(1, 1, 1, 0.75), 3)
-	for i in 3:
-		var tr := team_rect(i)
-		var rc: Color = Data.ROLE_COLORS[Data.ROLE_ORDER[i]]
-		UI.panel(self, tr, Color(0, 0, 0, 0.55).lerp(rc, 0.35 if tr.has_point(mouse) else 0.2), rc, 2.0)
-		UI.text_c(self, tr.get_center() + Vector2(0, 2), T.hero_name(team[i]), 14, Color.WHITE, 2)
-		UI.text_c(self, tr.get_center() + Vector2(0, 14), "‹ " + T.role_name(Data.ROLE_ORDER[i]) + " ›", 9, rc.lightened(0.3))
 	UI.text_l(self, Vector2(24, 708), version_label(), 12, Color(1, 1, 1, 0.45))
 	_draw_audio()
 

@@ -87,7 +87,13 @@ var heal_cd := 0.0
 var heal_beam_t := 0.0
 var swing_t := 0.0
 var strafe_phase := 0.0
-var stats := {"kills": 0, "deaths": 0, "damage": 0.0, "healing": 0.0, "mitigated": 0.0}
+var stats := {"kills": 0, "deaths": 0, "damage": 0.0, "healing": 0.0, "mitigated": 0.0, "pack": 0.0, "regen": 0.0}
+## Segundos desde o último dano (regeneração passiva depois de Data.REGEN_DELAY).
+var calm_t := 0.0
+## Regenerando agora (desenha o indicador).
+var regenerating := false
+## Indo se esconder atrás de uma coluna para regenerar.
+var covering := false
 
 
 func setup(g, t: int, id: String, idx: int) -> void:
@@ -120,6 +126,7 @@ func clear_status() -> void:
 	undying_t = 0.0; poison_t = 0.0; poison_dps = 0.0; poison_src = null
 	heal_red_t = 0.0; dash_t = 0.0; knock_t = 0.0
 	wall_t = 0.0; wall_hp = 0.0
+	calm_t = 0.0; regenerating = false; covering = false
 	hide_t = 0.0; hide_amt = 0.5; mark_t = 0.0; buff_t = 0.0; empower_t = 0.0; phalanx_t = 0.0
 	leaping = false; knock_stun = 0.0; knock_kind = ""
 	target = null; heal_target = null; retreating = false
@@ -249,6 +256,14 @@ func tick(dt: float) -> void:
 		add_charge(Data.ULT_POINT * dt)
 	if position.distance_to(game.spawn_pos(team)) < game.SPAWN_R:
 		hp = minf(max_hp, hp + Data.SPAWN_REGEN * dt)
+	# Regeneração passiva: depois de REGEN_DELAY s sem dano, fora do ponto.
+	calm_t += dt
+	regenerating = false
+	if calm_t >= Data.REGEN_DELAY and hp < max_hp and not game.in_point(position):
+		var r := minf(max_hp - hp, Data.REGEN_RATE * dt)
+		hp += r
+		stats["regen"] += r
+		regenerating = true
 
 	for a in armed:
 		a["t"] -= dt
@@ -676,6 +691,10 @@ func _think(dt: float) -> Vector2:
 	if retreating:
 		if target != null and position.distance_to(target.position) < 120.0:
 			return _kite(target.position)
+		# Pacote de vida logo ali: pega antes de tudo.
+		var pk0 = game.nearest_pack(position, 150.0)
+		if pk0 != null:
+			return _go(pk0["pos"], 4.0)
 		if not is_healer():
 			var sup = _team_healer()
 			if sup != null and not sup.retreating:
@@ -684,7 +703,34 @@ func _think(dt: float) -> Vector2:
 				var side_dir: Vector2 = position - sup.position
 				side_dir = side_dir.normalized() if side_dir.length() > 1.0 else Vector2(-forward, 0.0)
 				return _hold(sup.position + side_dir * 60.0)
+		# Sem curandeiro: pacote se estiver bem mais perto que a base (o quanto
+		# depende do comportamento); senão, a base.
+		var base_d: float = position.distance_to(game.spawn_pos(team))
+		var pk = game.nearest_pack(position, base_d * Data.PACK_OVER_BASE[beh])
+		if pk != null:
+			return _go(pk["pos"], 4.0)
 		return _go(game.spawn_pos(team), 25.0)
+
+	# Ferido: pega um pacote de vida perto (Agressivo vai mais longe).
+	var det: Dictionary = Data.PACK_DETOUR[beh]
+	if hpf < det["hp"] and not game.desperate(team):
+		var pk2 = game.nearest_pack(position, det["reach"])
+		if pk2 != null and (target == null or position.distance_to(target.position) > 140.0):
+			return _go(pk2["pos"], 4.0)
+
+	# Cobertura: atrás de uma coluna para regenerar (Defensivo usa bastante,
+	# Equilibrado às vezes, Agressivo nunca). Com o inimigo perto de vencer, sai.
+	var cov_hp: float = Data.COVER_HP[beh]
+	if game.desperate(team) or cov_hp < 0.0 or hpf >= Data.COVER_DONE:
+		covering = false
+	elif hpf < cov_hp and _nearest(position, enemies, Data.COVER_SAFE) == null:
+		covering = true
+	if covering:
+		var near_e = _nearest(position, enemies, Data.COVER_SAFE * 0.6)
+		if near_e == null:
+			var spot := cover_spot(enemies)
+			if spot != Vector2.INF:
+				return _hold(spot)
 
 	# Objetivo primeiro: com o ponto do inimigo (ou neutro), vai para o ponto.
 	if game.contest_need(team) and position.distance_to(game.CENTER) > game.POINT_R * 0.75:
@@ -736,6 +782,32 @@ func _think(dt: float) -> Vector2:
 				return _strafe() * 0.5
 
 	return _hold(form)
+
+
+## Lugar atrás da coluna mais próxima, do lado oposto aos inimigos (ou à base
+## inimiga, se não há inimigo vivo). Vector2.INF se nenhuma coluna serve.
+func cover_spot(enemies: Array) -> Vector2:
+	var threat: Vector2 = game.spawn_pos(1 - team)
+	if not enemies.is_empty():
+		threat = Vector2.ZERO
+		for e in enemies:
+			threat += e.position
+		threat /= enemies.size()
+	var best := Vector2.INF
+	var bd := 450.0
+	for o in game.OBSTACLES:
+		var c := Vector2(o.x, o.y)
+		var away := c - threat
+		if away.length() < 1.0:
+			continue
+		var spot: Vector2 = c + away.normalized() * (o.z + radius + 8.0)
+		if not game.ARENA.grow(-radius).has_point(spot) or game.in_point(spot):
+			continue
+		var d := position.distance_to(spot)
+		if d < bd:
+			bd = d
+			best = spot
+	return best
 
 
 ## Lugar dentro do ponto para contestar, mantendo a formação.
@@ -1145,6 +1217,13 @@ func _draw() -> void:
 	draw_rect(Rect2(-bw * 0.5, by, bw * clampf(hp / max_hp, 0.0, 1.0), 5), tc.lerp(Color.WHITE, 0.15))
 	if shield_hp > 0.0:
 		draw_rect(Rect2(-bw * 0.5, by - 4, bw * clampf(shield_hp / max_hp, 0.0, 1.0), 3), Color(0.7, 1.0, 0.85))
+	if regenerating:
+		# Regenerando: "+" verde pulsando à direita da barra de vida.
+		var rp := Vector2(bw * 0.5 + 8.0, by + 2.0)
+		var ra := 0.55 + 0.45 * sin(t * 6.0)
+		draw_circle(rp, 6.0, Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(rp + Vector2(-1.2, -4.0), Vector2(2.4, 8.0)), Color(0.45, 1.0, 0.55, ra))
+		draw_rect(Rect2(rp + Vector2(-4.0, -1.2), Vector2(8.0, 2.4)), Color(0.45, 1.0, 0.55, ra))
 
 	# Habilidades armadas (aguardando o momento)
 	var n := armed.size()

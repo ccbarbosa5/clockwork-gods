@@ -12,6 +12,26 @@ const CONTESTED_RATE := 0.5         # fração do progresso quando disputado com
 const RESPAWN := 6.0               # tempo de renascimento (s)
 const SPAWN_REGEN := 90.0          # cura por segundo dentro da própria base
 
+# --- Pacotes de vida e regeneração (Pacote 5) --------------------------------
+## 5 pontos espelhados: 2 de cada lado e 1 no meio (longe do ponto e das bases).
+const HEALTH_PACKS := [Vector2(330, 110), Vector2(330, 490), Vector2(950, 110), Vector2(950, 490), Vector2(640, 520)]
+const PACK_HEAL := 100.0           # cura na hora ao pegar
+const PACK_RESPAWN := 20.0         # s até o pacote voltar
+const PACK_PICK_R := 18.0          # raio do pacote para pegar (mais o raio do herói)
+## Pacote fora do recuo: vai buscar se a vida estiver abaixo de `hp` e o pacote
+## a até `reach` px (Agressivo vai mais longe para ficar perto da luta).
+const PACK_DETOUR := {"aggressive": {"hp": 0.7, "reach": 220.0}, "balanced": {"hp": 0.65, "reach": 160.0}, "defensive": {"hp": 0.6, "reach": 120.0}}
+## No recuo, troca a base pelo pacote se ele estiver a menos desta fração da
+## distância até a base.
+const PACK_OVER_BASE := {"aggressive": 1.0, "balanced": 0.7, "defensive": 0.45}
+const REGEN_DELAY := 5.0           # s sem levar dano para começar a regenerar
+const REGEN_RATE := 8.0            # vida por segundo (base: 90/s; pacote: 100 na hora)
+## Cobertura: abaixo desta fração da vida, sem inimigo a COVER_SAFE px, o herói
+## se esconde atrás de uma coluna para regenerar (até COVER_DONE). -1 = nunca.
+const COVER_HP := {"aggressive": -1.0, "balanced": 0.4, "defensive": 0.6}
+const COVER_DONE := 0.85
+const COVER_SAFE := 230.0
+
 # --- Ícor -----------------------------------------------------------------
 const ICHOR_MAX := 10.0
 const ICHOR_START := 5.0
@@ -45,7 +65,8 @@ const FULL_TURN_LINKS := 4         # elos seguidos para a volta completa
 const FULL_TURN_ULT := 10.0        # carga de ultimate para cada herói do time
 
 # --- Comportamento da IA ----------------------------------------------------
-const BEHAVIOR_CD := 10.0
+## Espera para trocar de comportamento (0 = troca na hora; Pacote 5).
+const BEHAVIOR_CD := 0.0
 const BEHAVIORS := ["aggressive", "balanced", "defensive"]
 ## Parâmetros de cada comportamento (px; a dica mostra em metros).
 ##   retreat      recua abaixo desta fração da vida (volta com RETREAT_BACK)
@@ -85,8 +106,11 @@ const STYLES := ["frontline", "backline_dps", "backline_support", "dive", "flank
 
 ## Todos os heróis (ordem da galeria).
 const HERO_ORDER := ["talos", "artemis", "asclepio", "hercules", "zeus", "atena"]
-## Cada time tem um herói de cada função, nesta ordem (posição = tecla da ultimate).
+## Funções, na ordem de exibição (seleção, galeria e time na partida).
 const ROLE_ORDER := ["Tanque", "Dano", "Suporte"]
+## Seleção livre: 3 heróis, no máximo 2 da mesma função, sem repetir herói.
+const TEAM_SIZE := 3
+const MAX_PER_ROLE := 2
 const DEFAULT_TEAM := ["talos", "artemis", "asclepio"]
 
 
@@ -99,22 +123,77 @@ static func heroes_of_role(role: String) -> Array:
 	return out
 
 
-## Time válido: 3 heróis, um de cada função, na ordem de ROLE_ORDER.
+## Heróis agrupados por função (ROLE_ORDER); dentro da função, os originais
+## primeiro (ordem de HERO_ORDER).
+static func heroes_by_role() -> Array:
+	var out: Array = []
+	for role in ROLE_ORDER:
+		out.append_array(heroes_of_role(role))
+	return out
+
+
+## Pode pôr `hid` no time? Retorna "" ou o motivo: "full", "dup", "role".
+static func team_add_block(team: Array, hid: String) -> String:
+	if team.has(hid):
+		return "dup"
+	if team.size() >= TEAM_SIZE:
+		return "full"
+	var n := 0
+	for h in team:
+		if HEROES[h]["role"] == HEROES[hid]["role"]:
+			n += 1
+	return "role" if n >= MAX_PER_ROLE else ""
+
+
+## Time válido: 3 heróis, no máximo 2 da mesma função, sem repetir herói.
 static func valid_team(team: Array) -> bool:
-	if team.size() != ROLE_ORDER.size():
+	if team.size() != TEAM_SIZE:
 		return false
-	for i in team.size():
-		if not HEROES.has(team[i]) or HEROES[team[i]]["role"] != ROLE_ORDER[i]:
+	var seen: Array = []
+	for hid in team:
+		if not HEROES.has(hid) or team_add_block(seen, hid) != "":
 			return false
+		seen.append(hid)
 	return true
 
 
-## Time sorteado (um herói por função).
-static func random_team() -> Array:
+## Time na ordem de exibição: Tanque, Dano, Suporte; originais primeiro.
+static func sort_team(team: Array) -> Array:
+	var order := heroes_by_role()
+	var out := team.duplicate()
+	out.sort_custom(func(a, b): return order.find(a) < order.find(b))
+	return out
+
+
+## Todos os times possíveis (ordenados), para a simulação.
+static func all_teams() -> Array:
 	var out: Array = []
-	for role in ROLE_ORDER:
-		var opts := heroes_of_role(role)
-		out.append(opts[randi() % opts.size()])
+	var hs := heroes_by_role()
+	for i in hs.size():
+		for j in range(i + 1, hs.size()):
+			for k in range(j + 1, hs.size()):
+				var tm := [hs[i], hs[j], hs[k]]
+				if valid_team(tm):
+					out.append(tm)
+	return out
+
+
+## Time sorteado pela regra livre (qualquer time válido, com a mesma chance).
+static func random_team() -> Array:
+	var all := all_teams()
+	return all[randi() % all.size()].duplicate()
+
+
+## Engrenagens da Roda do Destino que faltam no time (índices de GEARS).
+static func missing_gears(team: Array) -> Array:
+	var has := {}
+	for hid in team:
+		for c in HEROES[hid]["cards"]:
+			has[gear_of(c)] = true
+	var out: Array = []
+	for g in GEARS.size():
+		if not has.has(g):
+			out.append(g)
 	return out
 
 ## Textos (nome, epíteto, bio, frase) ficam em i18n/textos.csv (HERO_<ID>_*).

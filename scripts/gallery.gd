@@ -10,6 +10,7 @@ const UI = preload("res://scripts/ui.gd")
 const T = preload("res://scripts/i18n.gd")
 const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
+const Cards = preload("res://scripts/hero_cards.gd")
 
 signal back
 
@@ -35,13 +36,13 @@ var used_full := false
 
 
 func _ready() -> void:
-	heroes = Data.HERO_ORDER.duplicate()
+	heroes = Data.heroes_by_role()
 
 
 ## Abre a galeria (opcionalmente num herói).
 func open(hid := "") -> void:
 	if heroes.is_empty():
-		heroes = Data.HERO_ORDER.duplicate()
+		heroes = Data.heroes_by_role()
 	visible = true
 	if hid != "" and heroes.has(hid):
 		select(heroes.find(hid))
@@ -66,22 +67,35 @@ func select(i: int) -> void:
 # ---------------------------------------------------------------------------
 # Layout da lista
 
+## Lista agrupada por função (scripts/hero_cards.gd), sem a rolagem.
+func _layout() -> Dictionary:
+	return Cards.layout(heroes, LIST_RECT, COLS, CARD_SIZE, CARD_GAP)
+
+
+## Linhas de cartões (somando as funções).
 func rows() -> int:
-	return int(ceil(float(heroes.size()) / COLS))
+	var n := 0
+	var role := ""
+	var col := COLS
+	for hid in heroes:
+		var r: String = Data.HEROES[hid]["role"]
+		if r != role or col >= COLS:
+			n += 1
+			col = 0
+			role = r
+		col += 1
+	return n
 
 
 func max_scroll() -> float:
-	var content := rows() * (CARD_SIZE.y + CARD_GAP) - CARD_GAP
-	return maxf(0.0, content - (LIST_RECT.size.y - 12.0))
+	return maxf(0.0, _layout()["height"] - (LIST_RECT.size.y - 12.0))
 
 
 ## Retângulo do cartão `i` na tela (já com a rolagem).
 func card_rect(i: int) -> Rect2:
-	var col := i % COLS
-	var row := i / COLS
-	var x0 := LIST_RECT.position.x + (LIST_RECT.size.x - (COLS * CARD_SIZE.x + (COLS - 1) * CARD_GAP)) * 0.5
-	var p := Vector2(x0 + col * (CARD_SIZE.x + CARD_GAP), LIST_RECT.position.y + 6.0 + row * (CARD_SIZE.y + CARD_GAP) - scroll)
-	return Rect2(p, CARD_SIZE)
+	var r: Rect2 = _layout()["cards"][i]
+	r.position.y -= scroll
+	return r
 
 
 func card_visible(i: int) -> bool:
@@ -90,8 +104,10 @@ func card_visible(i: int) -> bool:
 
 func _scroll_to(i: int) -> void:
 	var r := card_rect(i)
-	if r.position.y < LIST_RECT.position.y:
-		scroll -= LIST_RECT.position.y + 6.0 - r.position.y
+	# Deixa à mostra também a faixa da função logo acima do cartão.
+	var top := r.position.y - Cards.HEADER_H - 6.0
+	if top < LIST_RECT.position.y:
+		scroll -= LIST_RECT.position.y + 6.0 - top
 	elif r.end.y > LIST_RECT.end.y:
 		scroll += r.end.y - LIST_RECT.end.y + 6.0
 	scroll = clampf(scroll, 0.0, max_scroll())
@@ -199,21 +215,17 @@ func _draw_header() -> void:
 func _draw_list() -> void:
 	UI.panel(self, LIST_RECT, Color(0, 0, 0, 0.3), Color(Data.BRONZE, 0.4), 1.5)
 	var m := get_global_mouse_position()
+	var lay := _layout()
+	for hd in lay["headers"]:
+		var hr: Rect2 = hd[1]
+		hr.position.y -= scroll
+		if LIST_RECT.encloses(hr):
+			Cards.draw_header(self, hr, hd[0])
 	for i in heroes.size():
 		if not card_visible(i):
 			continue
 		var r := card_rect(i)
-		var hid: String = heroes[i]
-		var role_col: Color = Data.ROLE_COLORS[Data.HEROES[hid]["role"]]
-		var on := i == selected
-		var hov := r.has_point(m) and LIST_RECT.has_point(m)
-		var bg := Color(role_col, 0.28) if on else Color(0.12, 0.09, 0.07, 0.95)
-		var border := role_col if on else (Color(Data.GOLD, 0.7) if hov else Color(Data.BRONZE, 0.5))
-		UI.panel(self, r, bg, border, 3.0 if on else 1.5)
-		var c := r.position + Vector2(r.size.x * 0.5, 58)
-		_portrait(hid, c, 44.0, role_col)
-		UI.text_c(self, Vector2(c.x, r.position.y + 126), T.hero_name(hid), 15, Color.WHITE, 2)
-		UI.text_c(self, Vector2(c.x, r.position.y + 141), T.role_name(Data.HEROES[hid]["role"]), 11, role_col.lightened(0.2))
+		Cards.draw_card(self, r, heroes[i], i == selected, r.has_point(m) and LIST_RECT.has_point(m))
 	# Barra de rolagem (só quando a lista não cabe).
 	var ms := max_scroll()
 	if ms > 0.0:
@@ -223,16 +235,8 @@ func _draw_list() -> void:
 		draw_rect(Rect2(track.position.x, track.position.y + (track.size.y - h) * scroll / ms, 3, h), Color(Data.GOLD, 0.7))
 
 
-## Retrato redondo; sem a imagem, emblema do herói num círculo da cor da função.
 func _portrait(hid: String, c: Vector2, r: float, role_col: Color) -> void:
-	draw_circle(c, r + 3.0, Color(0, 0, 0, 0.6))
-	var p := Art.hero_portrait(hid)
-	if p != null:
-		Art.draw_circle_tex(self, p, c, r)
-	else:
-		draw_circle(c, r, role_col.darkened(0.45))
-		UI.hero_glyph(self, hid, c, r * 0.45, role_col.lightened(0.3))
-	UI.ring(self, c, r + 1.0, role_col, 2.5)
+	Cards.portrait(self, hid, c, r, role_col)
 
 
 func _draw_full(hid: String) -> void:

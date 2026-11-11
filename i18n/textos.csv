@@ -1,5 +1,4 @@
 ﻿chave,pt,en
-MENU_TAGLINE,Seus heróis lutam sozinhos. Você decide o destino com cartas de habilidade.,Your heroes fight on their own. You decide their fate with ability cards.
 MENU_DIFFICULTY,Dificuldade do bot,Bot difficulty
 DIFF_EASY,Fácil,Easy
 DIFF_NORMAL,Normal,Normal
@@ -8,7 +7,7 @@ MENU_BEHAVIOR,Comportamento inicial do seu time,Your team's starting behavior
 MENU_PLAY,JOGAR CONTRA BOT,PLAY VS BOT
 MENU_HELP,Como jogar,How to play
 MENU_HEROES,Heróis,Heroes
-MENU_VERSION,Protótipo v%s  ·  %d heróis,Prototype v%s  ·  %d heroes
+MENU_VERSION,Protótipo v%s,Prototype v%s
 SOUND_LABEL,Som,Sound
 SOUND_HINT,(M para mudo),(M to mute)
 SOUND_MUTED_HINT,(mudo — M),(muted — M)
@@ -19,7 +18,7 @@ LANG_PT,PT,PT
 LANG_EN,EN,EN
 HELP_TITLE,Como jogar,How to play
 HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
-HELP_02,"Seus 3 heróis (um Tanque, um Dano e um Suporte) andam e atacam sozinhos.","Your 3 heroes (one Tank, one Damage, one Support) move and attack on their own."
+HELP_02,Seus 3 heróis (até 2 da mesma função) andam e atacam sozinhos.,Your 3 heroes (up to 2 of the same role) move and attack on their own.
 HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
 HELP_04,"   O herói guarda a habilidade e a usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
 HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
@@ -33,6 +32,7 @@ HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,A downed h
 HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
 HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
 HELP_15,Roda do Destino: jogue Movimento › Controle › Ataque › Defesa para ganhar bônus.,Wheel of Fate: play Move › Control › Attack › Defense in order for bonuses.
+HELP_16,"Pacotes de vida curam na hora; fora do ponto, quem fica 5 s sem dano regenera devagar.","Health packs heal instantly; off the point, heroes slowly regenerate after 5 s unhurt."
 HELP_BACK,Clique para voltar,Click to go back
 HUD_YOU,VOCÊ,YOU
 HUD_BOT,BOT,BOT
@@ -45,7 +45,6 @@ HUD_MUTED,Mudo (M),Muted (M)
 HUD_NEXT,Próxima,Next
 HUD_ICHOR,%d Ícor,%d Ichor
 HUD_BEHAVIOR,Comportamento da IA,AI behavior
-HUD_BEH_CD,Nova troca em %d s,Next switch in %d s
 HUD_FOOTER,Clique na carta: o herói a usa no melhor momento · ESC pausa,Click a card: the hero uses it at the best moment · ESC pauses
 HUD_RESPAWN,%d s,%d s
 ULT_READY,PRONTA,READY
@@ -74,7 +73,7 @@ TIP_BEH_DPS,Dano fica %s atrás do tanque,Damage stays %s behind the tank
 TIP_BEH_CHASE,"Persegue inimigos a até %s, até %s do centro do ponto","Chases enemies up to %s away, up to %s from the point's center"
 TIP_BEH_CHASE_FREE,"Persegue inimigos a até %s, a qualquer distância do ponto","Chases enemies up to %s away, at any distance from the point"
 TIP_BEH_RETREAT,Recua com menos de %d%% de vida (volta com %d%%),Retreats below %d%% health (returns at %d%%)
-TIP_BEH_KEY,Tecla %s · pode trocar a cada %d s,Key %s · can switch every %d s
+TIP_BEH_KEY,Tecla %s · troca na hora,Key %s · switches instantly
 ANN_UNLOCK,O ponto libera em %d s,Point unlocks in %d s
 ANN_POINT_OPEN,PONTO LIBERADO!,POINT UNLOCKED!
 ANN_OVERTIME,PRORROGAÇÃO!,OVERTIME!
@@ -184,7 +183,6 @@ AB_ENGRENAGEM_DESC,Escudo de 150 em um aliado por 5 s.,150 shield on one ally fo
 AB_SEGUNDA_NAME,Segunda Chance,Second Chance
 AB_SEGUNDA_SHORT,Ninguém morre,No one dies
 AB_SEGUNDA_DESC,Aliados próximos não podem morrer por 3 s.,Nearby allies can't die for 3 s.
-MENU_TEAM,Seu time (clique para trocar o herói),Your team (click to swap the hero)
 HERO_HERCULES_NAME,Hércules,Hercules
 HERO_HERCULES_EPITHET,O Leão do Olimpo,The Lion of Olympus
 HERO_HERCULES_BIO,"Filho de Zeus, venceu doze trabalhos e subiu ao Olimpo. Deu seu Ícor à Grande Engrenagem como os deuses e agora trata cada rito como o décimo terceiro: mais uma prova para o pai.","Son of Zeus, he survived twelve labors and rose to Olympus. He gave his Ichor to the Great Gear like the gods, and now treats every rite as the thirteenth: one more trial for his father."
@@ -244,3 +242,21 @@ WHEEL_TIP_ATK_DEF,Ataque › Defesa: +%d%% de defesa,Attack › Defense: +%d%% d
 WHEEL_TIP_DEF_MOVE,Defesa › Movimento: +%d de escudo,Defense › Move: +%d shield
 WHEEL_TIP_WINDOW,Janela: %s s · Cadência %d+: +%d Ícor,Window: %s s · Cadence %d+: +%d Ichor
 WHEEL_TIP_FULL,Volta completa: +%d de ultimate,Full turn: +%d ultimate charge
+TIP_BEH_COVER,Se esconde atrás de colunas com menos de %d%% de vida,Hides behind pillars below %d%% health
+TIP_BEH_NO_COVER,Não se esconde para regenerar,Never hides to regenerate
+SEL_TITLE,MONTE SEU TIME,BUILD YOUR TEAM
+SEL_HINT,Clique num herói para pôr ou tirar do time · até 2 da mesma função,Click a hero to add or remove · up to 2 of the same role
+SEL_TEAM,SEU TIME,YOUR TEAM
+SEL_EMPTY,Vazio,Empty
+SEL_CONFIRM,COMEÇAR PARTIDA,START MATCH
+SEL_NEED,Escolha mais %d,Pick %d more
+SEL_IN_TEAM,NO TIME,IN TEAM
+SEL_BLOCK_ROLE,Já há 2 heróis desta função,Already 2 heroes of this role
+SEL_BLOCK_FULL,Time completo: tire um herói para trocar,Team full: remove a hero to swap
+SEL_WARN_GEAR,Seu time não tem cartas de %s,Your team has no %s cards
+SEL_AND, e , and 
+SEL_REMOVE,Clique para tirar,Click to remove
+GEAR_MOVE,Movimento,Move
+GEAR_CONTROL,Controle,Control
+GEAR_ATTACK,Ataque,Attack
+GEAR_DEFENSE,Defesa,Defense

@@ -467,8 +467,6 @@ func _draw_panel() -> void:
 		UI.panel(self, r2, Color(Data.BRONZE, 0.45) if active else Color(0, 0, 0, 0.4), Data.GOLD if active else Color(Data.BRONZE, 0.5), 2.0 if active else 1.0)
 		UI.text_c(self, r2.get_center() + Vector2(0, 2), T.behavior_name(b), 12, Color.WHITE)
 		UI.text_c(self, r2.get_center() + Vector2(0, 15), Data.BEHAVIOR_KEYS[k], 9, Color(1, 1, 1, 0.5))
-	if cmd.behavior_cd > 0.0:
-		UI.text_c(self, Vector2(1128, 676), T.tf("HUD_BEH_CD", [int(ceil(cmd.behavior_cd))]), 11, Color(1, 1, 1, 0.6))
 	UI.text_c(self, Vector2(1128, 702), T.t("HUD_FOOTER"), 10, Color(1, 1, 1, 0.4))
 
 
@@ -687,13 +685,15 @@ static func behavior_lines(b: String) -> Array:
 	else:
 		lines.append(T.tf("TIP_BEH_CHASE", [T.meters(p["aggro"]), T.meters(p["leash"] + Data.POINT_R)]))
 	lines.append(T.tf("TIP_BEH_RETREAT", [int(round(p["retreat"] * 100.0)), int(round(Data.RETREAT_BACK * 100.0))]))
+	var cov: float = Data.COVER_HP[b]
+	lines.append(T.t("TIP_BEH_NO_COVER") if cov < 0.0 else T.tf("TIP_BEH_COVER", [int(round(cov * 100.0))]))
 	return lines
 
 
 func _draw_beh_tip(k: int) -> void:
 	var b: String = Data.BEHAVIORS[k]
 	var lines := behavior_lines(b)
-	lines.append([T.tf("TIP_BEH_KEY", [Data.BEHAVIOR_KEYS[k], int(Data.BEHAVIOR_CD)]), Color(1, 1, 1, 0.6)])
+	lines.append([T.tf("TIP_BEH_KEY", [Data.BEHAVIOR_KEYS[k]]), Color(1, 1, 1, 0.6)])
 	_draw_tip(beh_rect(k), Data.GOLD, T.behavior_name(b), T.t("BEH_%s_DESC" % b.to_upper()), lines, 300.0)
 
 
