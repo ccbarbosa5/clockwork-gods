@@ -23,6 +23,9 @@ on:
         type: choice
         options: ["on", "off"]
         default: "on"
+      rodada:
+        description: "Só refazer o resumo de uma rodada anterior (número da execução, opcional; não joga partidas)"
+        default: ""
       extras:
         description: "Testes da Roda e da IA (peso de cada elo e Difícil × Normal). Ligue só depois de mexer na Roda do Destino ou na IA dos bots"
         type: boolean
@@ -39,6 +42,7 @@ env:
 jobs:
   simular:
     name: Partidas (fatia ${{ matrix.part }}/8)
+    if: inputs.rodada == ''
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -88,6 +92,9 @@ jobs:
     needs: simular
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -95,11 +102,15 @@ jobs:
         with:
           pattern: logs-*
           path: logs
+          run-id: ${{ inputs.rodada || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Juntar resultados
         run: |
           python3 tools/balance_summary.py logs "$DIFFS" "$WHEEL" > balance.md
           cat balance.md >> "$GITHUB_STEP_SUMMARY"
+          echo "===== RESUMO ====="
+          cat balance.md
 
       - name: Guardar resumo
         uses: actions/upload-artifact@v4
