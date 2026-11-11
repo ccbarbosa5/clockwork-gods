@@ -1406,8 +1406,6 @@ func _draw_bolt(pts: PackedVector2Array, w: float, sd: float, a: float) -> void:
 	for i in pts.size() - 1:
 		var p0: Vector2 = pts[i]
 		var p1: Vector2 = pts[i + 1]
-		if Art.draw_beam(self, "raio_cadeia", p0, p1, w * 3.0, Color(1, 1, 1, a)):
-			continue
 		var line := PackedVector2Array([p0])
 		var n := maxi(2, int(p0.distance_to(p1) / 18.0))
 		var perp := (p1 - p0).orthogonal().normalized()
@@ -1415,6 +1413,13 @@ func _draw_bolt(pts: PackedVector2Array, w: float, sd: float, a: float) -> void:
 			var off := sin(sd + k * 7.7 + i * 3.1) * 7.0
 			line.append(p0.lerp(p1, float(k) / n) + perp * off)
 		line.append(p1)
+		# Com imagem (fx/raio_cadeia.png), a faixa segue o mesmo zigue-zague.
+		if Art.fx("raio_cadeia") != null:
+			for k in line.size() - 1:
+				# 2 px a mais em cada ponta para não abrir fresta nas dobras.
+				var dk: Vector2 = (line[k + 1] - line[k]).normalized() * 2.0
+				Art.draw_beam(self, "raio_cadeia", line[k] - dk, line[k + 1] + dk, w * 3.0, Color(1, 1, 1, a))
+			continue
 		draw_polyline(line, Color(Data.GOLD, 0.55 * a), w + 3.0, true)
 		draw_polyline(line, Color(1.0, 0.97, 0.8, a), maxf(1.0, w * 0.6), true)
 

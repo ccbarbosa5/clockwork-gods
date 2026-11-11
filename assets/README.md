@@ -19,7 +19,7 @@ Tamanhos na tela são para a base 1280×720.
 | `talos_full.png` | 512×768 | 340×510 | Galeria de heróis: corpo inteiro, de frente, fundo transparente, pés perto da base da imagem (sombra elíptica desenhada pelo código). Sem o arquivo, a galeria usa o retrato ampliado (círculo de 300 px) |
 | `artemis_full.png` | 512×768 | 340×510 | Idem |
 | `asclepio_full.png` | 512×768 | 340×510 | Idem |
-| `hercules_top.png` | 256×256 | 60×60 | Pacote 3. Como os outros sprites (virado para a direita, anel do time a 80%) |
+| `hercules_top.png` | 256×256 | 62×62 | Pacote 3. Como os outros sprites (virado para a direita, anel do time a 80%) |
 | `zeus_top.png` | 256×256 | 47×47 | Idem |
 | `atena_top.png` | 256×256 | 50×50 | Idem |
 | `hercules_portrait.png`, `zeus_portrait.png`, `atena_portrait.png` | 256×256 | círculo de 50 px (medidor) e 88 px (galeria) | Idem aos outros retratos |
@@ -174,5 +174,5 @@ Sem o arquivo, cada efeito continua desenhado por código. Tamanho na tela em es
 | `coruja_olho.png` | 20×12 | Olho dourado acima do inimigo marcado pelo Olhar da Coruja |
 | `coruja_voo.png` | 24×24 | Coruja de latão voando da Atena até o alvo (aponta para a direita) |
 | `falange_area.png` | 360×360 | Falange de Atenas (raio 180): anel de escudos de prata na borda, lança no centro |
-| `escudo_palas.png` | 68×68 (escala pelo raio) | Escudo dado pela Atena (Palas e Falange): anel de prata, centro vazio |
+| `escudo_palas.png` | 88×88 no Talos; 2 × (raio + 4) / 0,59 em cada herói, para a faixa começar fora do anel do time | Escudo dado pela Atena (Palas e Falange): anel de prata, centro vazio |
 | `lanca_projetil.png` | 34×8 | Lança arremessada (básico da Atena), apontando para a direita |

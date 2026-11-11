@@ -44,7 +44,7 @@ const PILLAR_LARGE_MIN_R := 28.0
 
 ## Lado da imagem inteira do herói na tela (px, base 1280×720). A imagem-fonte
 ## (256×256) é feita para o anel do time ocupar 80% dela: 2 × (raio + 3) / 0,8.
-const HERO_SPRITE_PX := {"talos": 62.0, "artemis": 45.0, "asclepio": 48.0, "hercules": 60.0, "zeus": 47.5, "atena": 50.0}
+const HERO_SPRITE_PX := {"talos": 62.0, "artemis": 45.0, "asclepio": 48.0, "hercules": 62.0, "zeus": 47.5, "atena": 50.0}
 ## Giro máximo do sprite do herói (graus por segundo).
 const HERO_TURN_DEG := 720.0
 
@@ -105,13 +105,15 @@ const FX_EFFECTS := {
 	"coruja_olho": Vector2(20, 12),
 	"coruja_voo": Vector2(24, 24),
 	"falange_area": Vector2(360, 360),
-	"escudo_palas": Vector2(68, 68),
+	"escudo_palas": Vector2(88, 88),  # Talos; para cada herói: 2 × (raio + 4) / ESCUDO_PALAS_INNER
 }
 
 ## Opacidade máxima das áreas grandes no chão (Válvula, Fúria, Sopro, Segunda
 ## Chance e Chuva de Prata): o efeito continua visível, mas heróis e cores dos
 ## times leem por cima dele.
 const AREA_ALPHA := 0.55
+## Escudo de Palas: a faixa de prata entregue começa a 59% do raio da imagem.
+const ESCUDO_PALAS_INNER := 0.59
 const RAIN_ALPHA := 0.45
 
 ## Distância do centro da imagem da Muralha até o centro do Talos (px).
