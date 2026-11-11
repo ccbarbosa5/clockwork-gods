@@ -1071,7 +1071,10 @@ func _draw() -> void:
 	var gear_shield: bool = shield_hp > 0.0 and is_instance_valid(shield_src) and shield_src.hid == "asclepio"
 	if shield_hp > 0.0 and not gear_shield:
 		# Escudo da Atena (Palas ou Falange): anel de prata com placas.
-		if not Art.draw_fx(self, "escudo_palas", Vector2.ZERO, Art.FX_EFFECTS["escudo_palas"], aura_k, 0.9, t * 0.6):
+		# A faixa de prata da imagem vai de 59% a 89% do raio dela: o tamanho é
+		# calculado para a faixa começar logo fora do anel do time (raio + 4).
+		var pk := 2.0 * (radius + 4.0) / Art.ESCUDO_PALAS_INNER
+		if not Art.draw_fx(self, "escudo_palas", Vector2.ZERO, Vector2(pk, pk), 1.0, 0.9, t * 0.6):
 			UI.ring(self, Vector2.ZERO, radius + 7.0, Color(0.85, 0.9, 0.95, 0.85), 2.5)
 			for k in 4:
 				var angp := t * 0.6 + k * TAU / 4.0
