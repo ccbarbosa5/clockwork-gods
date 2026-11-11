@@ -7,12 +7,15 @@ const UI = preload("res://scripts/ui.gd")
 const T = preload("res://scripts/i18n.gd")
 const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
+const HowTo = preload("res://scripts/howto.gd")
 
 ## Botão Jogar: abre a seleção de personagens (scripts/select.gd).
 signal play
 signal open_gallery
 
+## Tela "Como jogar" aberta (scripts/howto.gd).
 var show_help := false
+var howto = HowTo.new()
 var t := 0.0
 
 
@@ -51,6 +54,11 @@ func heroes_rect() -> Rect2:
 	return Rect2(774, 591, 150, 38)
 
 
+func open_help() -> void:
+	howto.open()
+	show_help = true
+
+
 func _process(delta: float) -> void:
 	t += delta
 	queue_redraw()
@@ -59,11 +67,15 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var m := get_global_mouse_position()
-		if show_help:
+	if show_help:
+		var hm := get_global_mouse_position()
+		if event is InputEventMouse:
+			hm = (make_input_local(event) as InputEventMouse).position
+		if howto.handle(event, hm) == "close":
 			show_help = false
-			return
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var m := (make_input_local(event) as InputEventMouse).position
 		var a = _audio()
 		var l := UI.lang_at(lang_rect(), m)
 		if l != "":
@@ -82,19 +94,15 @@ func _input(event: InputEvent) -> void:
 				a.play("card")
 			play.emit()
 		elif help_rect().has_point(m):
-			show_help = true
+			if a != null: a.play("click")
+			open_help()
 		elif heroes_rect().has_point(m):
 			if a != null: a.play("click")
 			open_gallery.emit()
 			return
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
-			if show_help:
-				show_help = false
-			else:
-				play.emit()
-		elif event.keycode == KEY_ESCAPE:
-			show_help = false
+			play.emit()
 		elif event.keycode == KEY_L:
 			T.toggle()
 		elif event.keycode == KEY_M and _audio() != null:
@@ -138,7 +146,7 @@ func _draw() -> void:
 	_draw_audio()
 
 	if show_help:
-		UI.draw_help(self)
+		howto.draw(self, mouse)
 
 
 func _draw_audio() -> void:

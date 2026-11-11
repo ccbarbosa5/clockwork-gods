@@ -1396,10 +1396,14 @@ func test_i18n_every_key_in_code_exists() -> void:
 
 
 func UI_HELP_KEYS() -> Array:
-	var out: Array = []
-	for k in load("res://scripts/ui.gd").HELP_LINES:
-		if k != "":
-			out.append(k)
+	var H = load("res://scripts/howto.gd")
+	var out: Array = ["HOWTO_TITLE", "HOWTO_BACK", "HOWTO_KEYS"]
+	for i in H.TABS:
+		out.append("HOWTO_TAB_%d" % (i + 1))
+		out.append("HOWTO_OPEN_%d" % (i + 1))
+		out.append_array(H.bullet_keys(i))
+		for mk in H.marks(i):
+			out.append(mk["key"])
 	return out
 
 
@@ -1549,6 +1553,8 @@ func test_pause_menu_flow() -> void:
 	check(g.paused, "P pausa")
 	h.pause_click(h.pause_button("help").get_center())
 	check(h.pause_view == "help", "Como jogar abre a ajuda")
+	h._input(_key(KEY_RIGHT))
+	check(h.pause_view == "help" and g.paused, "seta troca de aba sem fechar a ajuda nem a pausa")
 	h._input(_key(KEY_ESCAPE))
 	check(g.paused and h.pause_view == "main", "ESC na ajuda volta à pausa")
 	h.pause_click(h.pause_button("quit").get_center())
@@ -2274,7 +2280,7 @@ func test_wheel_hud_seal_tip_and_layout() -> void:
 func test_wheel_texts_in_both_languages() -> void:
 	for key in ["WHEEL_IN_GEAR", "WHEEL_CADENCE", "WHEEL_FULL_TURN", "WHEEL_FULL_TURN_SUB", "WHEEL_TIP_TITLE",
 			"WHEEL_TIP_MOVE_CTRL", "WHEEL_TIP_CTRL_ATK", "WHEEL_TIP_ATK_DEF", "WHEEL_TIP_DEF_MOVE",
-			"WHEEL_TIP_WINDOW", "WHEEL_TIP_FULL", "HELP_15"]:
+			"WHEEL_TIP_WINDOW", "WHEEL_TIP_FULL", "HOWTO_4_1"]:
 		for l in T.LANGS:
 			var s := T.in_lang(key, l)
 			check(s != key and s != "", "%s sem texto em %s" % [key, l])
@@ -2448,3 +2454,142 @@ func test_matches_without_tank_and_with_two_tanks() -> void:
 		var cards: int = g.commanders[0].cards_played
 		check(cards >= 10, "time %s joga cartas (%d)" % [",".join(tm), cards])
 		done(g)
+
+
+# ---------------------------------------------------------------------------
+# Tela "Como jogar" (pacote 5, etapa 2)
+
+func _howto_settings(fn: Callable) -> void:
+	var old_path := T.settings_path
+	T.settings_path = "user://test_howto_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(T.settings_path))
+	fn.call()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(T.settings_path))
+	T.settings_path = old_path
+
+
+func test_howto_navigation_and_memory() -> void:
+	_howto_settings(func():
+		var H = load("res://scripts/howto.gd")
+		var h = H.new()
+		h.open()
+		check(h.tab == 0, "primeira vez abre na aba 1")
+		h.handle(_key(KEY_RIGHT), Vector2.ZERO)
+		check(h.tab == 1, "seta direita vai para a próxima aba")
+		h.handle(_key(KEY_LEFT), Vector2.ZERO)
+		h.handle(_key(KEY_LEFT), Vector2.ZERO)
+		check(h.tab == 7, "seta esquerda na aba 1 volta para a 8")
+		for i in 8:
+			h.handle(_key(KEY_1 + i), Vector2.ZERO)
+			check(h.tab == i, "tecla %d abre a aba %d" % [i + 1, i + 1])
+		h.handle(_click(h.tab_rect(5).get_center()), h.tab_rect(5).get_center())
+		check(h.tab == 5, "clique na aba abre a aba")
+		h.handle(_click(H.NEXT.get_center()), H.NEXT.get_center())
+		check(h.tab == 6, "botão da próxima aba")
+		h.handle(_click(H.PREV.get_center()), H.PREV.get_center())
+		check(h.tab == 5, "botão da aba anterior")
+		check(h.handle(_key(KEY_ESCAPE), Vector2.ZERO) == "close", "ESC fecha")
+		check(h.handle(_click(H.BACK.get_center()), H.BACK.get_center()) == "close", "Voltar fecha")
+		var h2 = H.new()
+		h2.open()
+		check(h2.tab == 5, "lembra a última aba aberta")
+		check(T.lang() == T.lang(), "idioma intacto"))
+
+
+func test_howto_texts_have_game_numbers() -> void:
+	var H = load("res://scripts/howto.gd")
+	var old := T.lang()
+	for l in T.LANGS:
+		T.set_lang(l, false)
+		for i in H.TABS:
+			for k in [("HOWTO_TAB_%d" % (i + 1)), ("HOWTO_OPEN_%d" % (i + 1))] + H.bullet_keys(i):
+				var s: String = H.bullet_text(k)
+				check(s != k and s != "", "%s sem texto em %s" % [k, l])
+				check(not s.contains("%d") and not s.contains("{valor}"), "%s com número faltando em %s" % [k, l])
+				check(not s.contains("(confirm"), "%s ainda com (confirmar)" % k)
+		check(H.bullet_text("HOWTO_7_3").contains(str(int(Data.PACK_HEAL))) and H.bullet_text("HOWTO_7_3").contains(str(int(Data.PACK_RESPAWN))), "frasco com os números do jogo")
+		check(H.bullet_text("HOWTO_1_1").contains(str(int(Data.UNLOCK_TIME))), "abertura do ponto com o número do jogo")
+		check(H.bullet_text("HOWTO_4_4").contains(str(Data.CADENCE_FROM)), "Cadência com o elo do jogo")
+		check(H.link_bonus().size() == 4 and H.link_bonus()[0].contains(str(int(round(Data.GEAR_CTRL_BONUS * 100.0)))), "bônus dos elos da roda")
+	T.set_lang(old, false)
+
+
+func test_howto_text_fits_panel() -> void:
+	var H = load("res://scripts/howto.gd")
+	var old := T.lang()
+	for l in T.LANGS:
+		T.set_lang(l, false)
+		for i in H.TABS:
+			var h: float = H._text_height(T.t("HOWTO_OPEN_%d" % (i + 1)), H.bullet_keys(i), H.TEXT.size.x - 36, 12)
+			check(h <= H.TEXT.size.y - 70, "aba %d (%s) não cabe no painel" % [i + 1, l])
+			check(UI_FONT().get_string_size(T.t("HOWTO_TAB_%d" % (i + 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x <= 108, "nome da aba %d (%s) cabe na aba" % [i + 1, l])
+	T.set_lang(old, false)
+
+
+func test_howto_marks_match_game_layout() -> void:
+	var H = load("res://scripts/howto.gd")
+	var g := new_game()
+	var hud = g.hud
+	check(H.HUD_ICHOR == hud.ICHOR_BAR and H.HUD_NEXT == hud.NEXT_RECT, "barra de Ícor e próxima carta")
+	check(H.HUD_CARDS.position == hud.base_card_rect(0).position and H.HUD_CARDS.end == hud.base_card_rect(3).end, "cartas na mão")
+	check(hud.base_card_rect(1).position.x - hud.base_card_rect(0).position.x == H.HUD_CARD_W, "passo das cartas")
+	check(H.HUD_ULT == hud.ult_center(0) and hud.ult_center(1).x - hud.ult_center(0).x == H.HUD_ULT_STEP, "ultimates")
+	check(H.HUD_BEH.position == hud.beh_rect(0).position and H.HUD_BEH.end == hud.beh_rect(2).end, "comportamentos")
+	check(hud.beh_rect(1).position.x - hud.beh_rect(0).position.x == H.HUD_BEH_W, "passo dos comportamentos")
+	check(H.HUD_WHEEL == hud.WHEEL_C and H.HUD_WHEEL_R == hud.WHEEL_R, "Roda do Destino")
+	check(H.HUD_PAUSE == hud.PAUSE_PANEL and H.HUD_PAUSE_LANG == hud.pause_lang_rect(), "menu de pausa")
+	check(H.HUD_POINT == g.CENTER, "ponto de controle")
+	done(g)
+	var S = load("res://scripts/select.gd")
+	var sel = S.new()
+	check(H.SEL_LIST == S.LIST_RECT, "lista de heróis")
+	check(H.SEL_SLOTS.position == sel.slot_rect(0).position and H.SEL_SLOTS.end == sel.slot_rect(2).end, "seu time")
+	check(H.SEL_FREE == sel.free_rect() and H.SEL_CONFIRM == sel.confirm_rect(), "modo livre e começar")
+	sel.free()
+	var img: Rect2 = H.IMG
+	for i in H.TABS:
+		check(H.marks(i).size() >= 3, "aba %d com marcações" % (i + 1))
+		for mk in H.marks(i):
+			for sh in mk["shapes"]:
+				var p: Vector2 = sh.get_center() if sh is Rect2 else sh[0]
+				check(img.grow(1).has_point(H.to_screen(p)), "marcação %s dentro da imagem" % mk["key"])
+
+
+func test_howto_shots_exist() -> void:
+	var H = load("res://scripts/howto.gd")
+	for i in H.TABS:
+		for l in T.LANGS:
+			check(ResourceLoader.exists(H.shot_path(i, l)), "captura da aba %d em %s" % [i + 1, l])
+			if H.ZOOMS.has(i):
+				check(ResourceLoader.exists(H.zoom_path(i, l)), "lupa da aba %d em %s" % [i + 1, l])
+
+
+func test_menu_opens_howto() -> void:
+	_howto_settings(func():
+		var Menu = load("res://scripts/menu.gd")
+		var m: Node2D = Menu.new()
+		root.add_child(m)
+		m._input(_click(m.help_rect().get_center()))
+		check(m.show_help, "Como jogar abre pelo menu")
+		m._input(_key(KEY_3))
+		check(m.show_help and m.howto.tab == 2, "tecla 3 troca a aba sem fechar")
+		m._input(_key(KEY_ENTER))
+		check(m.show_help, "Enter não começa a partida com a ajuda aberta")
+		m._input(_key(KEY_ESCAPE))
+		check(not m.show_help, "ESC fecha a ajuda")
+		m.free())
+
+
+func test_howto_draws_every_tab() -> void:
+	after_draw(func():
+		scene = Node2D.new()
+		scene.set_script(load("res://scripts/menu.gd"))
+		root.add_child(scene)
+		scene.open_help()
+		scene.howto.tab = 3
+		scene.queue_redraw(),
+	func():
+		check(scene.show_help, "ajuda desenhada (aba da roda)")
+		scene.free()
+		scene = null)
+

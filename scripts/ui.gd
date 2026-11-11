@@ -5,12 +5,6 @@ const Art = preload("res://scripts/art.gd")
 const T = preload("res://scripts/i18n.gd")
 const Data = preload("res://scripts/data.gd")
 
-## Linhas da ajuda "Como jogar" (chaves de i18n; "" = linha em branco).
-## Linhas de "Como jogar" com números do jogo (%d no texto).
-static var HELP_ARGS := {"HELP_17": [int(Data.REGEN_DELAY)]}
-const HELP_LINES := ["HELP_01", "HELP_02", "", "HELP_03", "HELP_04", "HELP_05", "HELP_06", "HELP_07", "HELP_08", "HELP_15", "HELP_16", "HELP_17", "",
-	"HELP_09", "HELP_10", "HELP_11", "HELP_12", "", "HELP_13", "HELP_14"]
-
 static func font() -> Font:
 	return ThemeDB.fallback_font
 
@@ -163,18 +157,3 @@ static func lang_at(r: Rect2, p: Vector2) -> String:
 	if not r.has_point(p):
 		return ""
 	return T.LANGS[0] if p.x < r.get_center().x else T.LANGS[1]
-
-
-## Tela "Como jogar" (menu e pausa).
-static func draw_help(ci: CanvasItem) -> void:
-	ci.draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.8))
-	var r := Rect2(220, 70, 840, 580)
-	panel(ci, r, Color(0.1, 0.08, 0.06), Data.BRONZE, 3.0)
-	text_c(ci, Vector2(640, 115), T.t("HELP_TITLE"), 30, Data.GOLD, 4)
-	var y := 160.0
-	for key in HELP_LINES:
-		if key != "":
-			var txt := T.tf(key, HELP_ARGS[key]) if HELP_ARGS.has(key) else T.t(key)
-			text_l(ci, Vector2(260, y), txt, 15, Color(1, 1, 1, 0.85))
-		y += 24.0
-	text_c(ci, Vector2(640, 636), T.t("HELP_BACK"), 13, Color(1, 1, 1, 0.5))

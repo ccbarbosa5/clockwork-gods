@@ -16,25 +16,6 @@ MUSIC_OFF,Música: desligada,Music: off
 LANG_LABEL,Idioma,Language
 LANG_PT,PT,PT
 LANG_EN,EN,EN
-HELP_TITLE,Como jogar,How to play
-HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
-HELP_02,Seus 3 heróis (um de cada função) andam e atacam sozinhos.,Your 3 heroes (one per role) move and attack on their own.
-HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
-HELP_04,"   O herói guarda a habilidade e a usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
-HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
-HELP_06,"   Cor da carta = função (laranja Tanque, roxo Dano, verde Suporte).","   Card color = role (orange Tank, purple Damage, green Support)."
-HELP_07,Ícor: recarrega com o tempo e ao abater inimigos.,Ichor: recharges over time and when you take down enemies.
-HELP_08,   Abater um herói do time que está na frente rende Ícor extra.,   Taking down a hero from the leading team gives extra Ichor.
-HELP_09,"Ultimates: botões redondos (Q, W, E), também usadas no melhor momento.","Ultimates: round buttons (Q, W, E), also used at the best moment."
-HELP_10,"   Carregam com dano, cura, dano evitado e tempo no ponto. Sem custo de Ícor.","   Charged by damage, healing, damage prevented and time on the point. No Ichor cost."
-HELP_11,"Comportamento da IA (Z, X, C): Agressivo, Equilibrado ou Defensivo.","AI behavior (Z, X, C): Aggressive, Balanced or Defensive."
-HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,A downed hero respawns in 6 s; their cards return to the deck.
-HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
-HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
-HELP_15,Roda do Destino: jogue Movimento › Controle › Ataque › Defesa para ganhar bônus.,Wheel of Fate: play Move › Control › Attack › Defense in order for bonuses.
-HELP_16,Frascos de Ambrosia no mapa recuperam vida e reaparecem depois de um tempo.,Ambrosia Flasks on the map restore health and reappear after a while.
-HELP_17,"Centelha Viva: %d s sem dano, o herói recupera vida devagar (fora do ponto).",Living Spark: %d s without damage and heroes slowly heal (off the point).
-HELP_BACK,Clique para voltar,Click to go back
 HUD_YOU,VOCÊ,YOU
 HUD_BOT,BOT,BOT
 HUD_OVERTIME,PRORROGAÇÃO,OVERTIME
@@ -96,6 +77,101 @@ END_YOUR_TEAM,Seu time,Your team
 END_BOT,Bot,Bot
 END_AGAIN,Jogar novamente,Play again
 END_MENU,Menu,Menu
+HOWTO_TITLE,COMO JOGAR,HOW TO PLAY
+HOWTO_BACK,‹ Voltar  (ESC),‹ Back  (ESC)
+HOWTO_KEYS,Setas ou teclas 1 a 8: trocar de aba  ·  ESC: voltar,Arrows or keys 1 to 8: switch tab  ·  ESC: go back
+HOWTO_WHEEL_LOOP,e volta ao Movimento,and back to Move
+HOWTO_TAB_1,Objetivo,Goal
+HOWTO_TAB_2,Seu time,Your team
+HOWTO_TAB_3,Cartas e Ícor,Cards and Ichor
+HOWTO_TAB_4,Roda do Destino,Wheel of Fate
+HOWTO_TAB_5,Ultimates,Ultimates
+HOWTO_TAB_6,Comportamentos,Behaviors
+HOWTO_TAB_7,Vida e cura,Health and healing
+HOWTO_TAB_8,Controles,Controls
+HOWTO_OPEN_1,Os Ritos da Engrenagem se decidem num só lugar: o ponto no centro da arena.,The Rites of the Gear are decided in one place: the point at the center of the arena.
+HOWTO_1_1,"O ponto abre %d s depois do início. Até lá, prepare o seu time.","The point opens %d s after the start. Until then, get your team ready."
+HOWTO_1_2,"Fique %d s no ponto sem inimigos para capturá-lo. Enquanto ele for seu, seu progresso enche.","Stay %d s on the point with no enemies to capture it. While it's yours, your progress fills."
+HOWTO_1_3,"Com os dois times no ponto, ele fica disputado: só o dono avança, à metade, se tiver mais heróis lá.","With both teams on it, the point is contested: only the owner advances, at half speed, with more heroes there."
+HOWTO_1_4,"Chegou a 100%, venceu. Se o tempo acabar, vence quem tiver mais progresso.","Reach 100% and you win. If time runs out, the team with more progress wins."
+HOWTO_1_5,"Se o tempo acabar com o ponto disputado ou sendo capturado, vem a prorrogação.","If time runs out while the point is contested or being captured, overtime begins."
+HOWTO_M_1_1,Ponto de controle,Control point
+HOWTO_M_1_2,Progresso dos times,Team progress
+HOWTO_M_1_3,Tempo da partida,Match time
+HOWTO_M_1_4,Dono do ponto,Point owner
+HOWTO_OPEN_2,Todo rito é um duelo de três campeões contra três. Escolha bem os seus.,Every rite is a duel of three champions against three. Choose yours well.
+HOWTO_2_1,"Tanque segura a linha, Dano derruba inimigos, Suporte mantém o time de pé.","Tanks hold the line, Damage takes enemies down, Support keeps the team standing."
+HOWTO_2_2,Padrão: um herói de cada função. Clicar em outro da mesma função faz a troca.,Standard: one hero per role. Clicking another of the same role swaps them.
+HOWTO_2_3,"Modo livre (experimental): até %d da mesma função, sem repetir herói.","Free mode (experimental): up to %d of the same role, no repeated heroes."
+HOWTO_2_4,"No Modo livre, fique de olho no aviso de engrenagem que falta na Roda.","In Free mode, watch for the warning about a missing gear on the Wheel."
+HOWTO_2_5,O mesmo herói pode lutar nos dois times: são ecos da mesma centelha.,The same hero can fight on both teams: they are echoes of the same spark.
+HOWTO_M_2_1,Heróis por função,Heroes by role
+HOWTO_M_2_2,Ficha do herói,Hero sheet
+HOWTO_M_2_3,Seu time,Your team
+HOWTO_M_2_4,Modo livre,Free mode
+HOWTO_M_2_5,Começar partida,Start match
+HOWTO_OPEN_3,"Você não luta: você intervém. Cada carta é um empurrão do destino, pago em Ícor.","You don't fight: you intervene. Each card is a nudge of fate, paid in Ichor."
+HOWTO_3_1,Clique numa carta (ou tecla 1 a 4) para gastar Ícor e armar a habilidade.,Click a card (or press 1 to 4) to spend Ichor and ready the ability.
+HOWTO_3_2,"O herói usa sozinho, no melhor momento, em até %d s.","The hero uses it alone, at the best moment, within %d s."
+HOWTO_3_3,"Se o herói cair antes de usar, o Ícor volta para você.","If the hero falls before using it, the Ichor comes back to you."
+HOWTO_3_4,O Ícor goteja com o tempo (até %d) e jorra a cada inimigo abatido.,Ichor drips in over time (up to %d) and gushes with every enemy taken down.
+HOWTO_3_5,Abater alguém do time que está na frente rende Ícor extra.,Taking down someone from the leading team gives extra Ichor.
+HOWTO_M_3_1,Barra de Ícor,Ichor bar
+HOWTO_M_3_2,Cartas na mão,Cards in hand
+HOWTO_M_3_3,Custo da carta,Card cost
+HOWTO_M_3_4,Cor da função,Role color
+HOWTO_M_3_5,Próxima carta,Next card
+HOWTO_OPEN_4,"Cartas na ordem certa encaixam como engrenagens, e o Ícor passa de uma para a outra sem se perder.","Cards in the right order mesh like gears, and Ichor flows from one to the next without loss."
+HOWTO_4_1,A ordem é Movimento › Controle › Ataque › Defesa › e volta ao Movimento.,The order is Move › Control › Attack › Defense › and back to Move.
+HOWTO_4_2,Jogue a próxima engrenagem em até %d s e ela engrena: a carta fica mais forte.,Play the next gear within %d s and it gets in gear: the card grows stronger.
+HOWTO_4_3,Cartas com selo de engrenagem dourada engrenariam agora.,Cards with a golden gear seal would get in gear right now.
+HOWTO_4_4,"Cadência: do %dº encaixe seguido em diante, cada um devolve %d de Ícor.","Cadence: from link %d in a row on, each one refunds %d Ichor."
+HOWTO_4_5,Volta completa: o time inteiro ganha %d de carga de ultimate.,Full Turn: the whole team gains %d ultimate charge.
+HOWTO_M_4_1,Roda do Destino,Wheel of Fate
+HOWTO_M_4_2,Engrenagem engatada,Engaged gear
+HOWTO_M_4_3,Tempo para engrenar,Time to get in gear
+HOWTO_M_4_4,Carta que engrena,Card that gets in gear
+HOWTO_M_4_5,Elos da Cadência,Cadence links
+HOWTO_OPEN_5,Cada campeão guarda um poder que cresce no calor da luta.,Every champion holds a power that grows in the heat of battle.
+HOWTO_5_1,"Botões redondos, um por herói (teclas Q, W e E, na ordem Tanque, Dano, Suporte).","Round buttons, one per hero (keys Q, W and E, in Tank, Damage, Support order)."
+HOWTO_5_2,"Carregam com dano, cura, dano evitado e tempo no ponto.","They charge with damage, healing, damage prevented and time on the point."
+HOWTO_5_3,Não custam Ícor.,They cost no Ichor.
+HOWTO_5_4,"Pronta, ganha um anel dourado; clique e o herói solta no melhor momento.","When ready, it gets a golden ring; click and the hero unleashes it at the best moment."
+HOWTO_M_5_1,Ultimate pronta,Ultimate ready
+HOWTO_M_5_2,Carga da ultimate,Ultimate charge
+HOWTO_M_5_3,Retrato do herói,Hero portrait
+HOWTO_M_5_4,Tecla,Key
+HOWTO_OPEN_6,"Você é o Arquiteto: diga ao seu time como lutar, e ele decide o resto.","You are the Architect: tell your team how to fight, and they handle the rest."
+HOWTO_6_1,Agressivo (Z): avança além do ponto e quase nunca recua para se curar.,Aggressive (Z): pushes past the point and rarely falls back to heal.
+HOWTO_6_2,Equilibrado (X): segura o ponto e busca cura quando o frasco está mais perto.,Balanced (X): holds the point and seeks healing when a flask is closer.
+HOWTO_6_3,"Defensivo (C): fica no ponto, recua cedo e usa frascos e cobertura sempre que pode.","Defensive (C): stays on the point, falls back early and uses flasks and cover often."
+HOWTO_6_4,A troca é na hora. Mude conforme a partida pedir.,Switching is instant. Change it as the match demands.
+HOWTO_6_5,"Com o inimigo perto de vencer, todos largam a cura e correm para o ponto.","When the enemy is close to winning, everyone drops healing and rushes the point."
+HOWTO_M_6_1,Botões de comportamento,Behavior buttons
+HOWTO_M_6_2,Comportamento atual,Current behavior
+HOWTO_M_6_3,Dica do comportamento,Behavior tip
+HOWTO_OPEN_7,"Corpos forjados quebram, mas a forja de Hefesto sempre os traz de volta.","Forged bodies break, but Hephaestus's forge always brings them back."
+HOWTO_7_1,Herói abatido renasce no altar-forja da base em %d s.,A downed hero is rekindled at the base's Forge Altar in %d s.
+HOWTO_7_2,O altar-forja cura rápido quem está nele.,The Forge Altar quickly heals whoever stands on it.
+HOWTO_7_3,Frascos de Ambrosia no mapa curam %d de vida e voltam %d s depois.,Ambrosia Flasks on the map heal %d health and return %d s later.
+HOWTO_7_4,"Centelha Viva: %d s sem levar dano e o herói regenera devagar, fora do ponto.","Living Spark: %d s without damage and the hero slowly heals, off the point."
+HOWTO_7_5,Feridos no Equilibrado ou Defensivo se escondem atrás das colunas para regenerar.,Hurt heroes on Balanced or Defensive hide behind columns to regenerate.
+HOWTO_M_7_1,Altar-forja,Forge Altar
+HOWTO_M_7_2,Frasco de Ambrosia,Ambrosia Flask
+HOWTO_M_7_3,Frasco vazio,Empty flask
+HOWTO_M_7_4,Centelha Viva,Living Spark
+HOWTO_M_7_5,Cobertura,Cover
+HOWTO_OPEN_8,Poucos comandos bastam para mudar o destino de um rito.,A few commands are all it takes to change the fate of a rite.
+HOWTO_8_1,Cartas: clique ou teclas 1 a 4.,Cards: click or keys 1 to 4.
+HOWTO_8_2,"Ultimates: clique ou teclas Q, W e E.","Ultimates: click or keys Q, W and E."
+HOWTO_8_3,"Comportamento: clique ou teclas Z, X e C.","Behavior: click or keys Z, X and C."
+HOWTO_8_4,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
+HOWTO_8_5,"Na dúvida, passe o mouse: cartas, ultimates, a roda e os frascos explicam o que fazem.","When in doubt, hover: cards, ultimates, the wheel and flasks explain what they do."
+HOWTO_M_8_1,Cartas (1 a 4),Cards (1 to 4)
+HOWTO_M_8_2,"Ultimates (Q, W, E)","Ultimates (Q, W, E)"
+HOWTO_M_8_3,"Comportamento (Z, X, C)","Behavior (Z, X, C)"
+HOWTO_M_8_4,Pausa (ESC ou P),Pause (ESC or P)
+HOWTO_M_8_5,Idioma,Language
 PAUSE_TITLE,PAUSADO,PAUSED
 PAUSE_AUTO,Pausado porque a janela perdeu o foco,Paused because the window lost focus
 PAUSE_CONTINUE,Continuar,Resume

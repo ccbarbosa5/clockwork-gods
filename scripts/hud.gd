@@ -7,6 +7,7 @@ const UI = preload("res://scripts/ui.gd")
 const T = preload("res://scripts/i18n.gd")
 const Art = preload("res://scripts/art.gd")
 const AudioScript = preload("res://scripts/audio.gd")
+const HowTo = preload("res://scripts/howto.gd")
 
 const PANEL := Rect2(0, 560, 1280, 160)
 const ICHOR_BAR := Rect2(350, 700, 504, 14)
@@ -29,6 +30,8 @@ var tip := {}
 var force_tip := {}
 ## Menu de pausa: "main", "help" ou "confirm" (sair para o menu).
 var pause_view := "main"
+## Tela "Como jogar" do menu de pausa (scripts/howto.gd).
+var howto = HowTo.new()
 ## Pausa causada pela janela/aba perder o foco.
 var auto_paused := false
 
@@ -165,6 +168,19 @@ func update_hover(m: Vector2) -> void:
 			return
 
 
+func open_help() -> void:
+	howto.open()
+	pause_view = "help"
+
+
+static func _click(m: Vector2) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = true
+	e.position = m
+	return e
+
+
 func set_paused(on: bool, auto := false) -> void:
 	if game.ended:
 		return
@@ -192,6 +208,10 @@ func _input(event: InputEvent) -> void:
 				game.request.emit("restart")
 			elif end_button(1).has_point(m):
 				game.request.emit("menu")
+		return
+	if game.paused and pause_view == "help":
+		if howto.handle(event, m) == "close":
+			pause_view = "main"
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_P or event.keycode == KEY_ESCAPE):
 		if not game.paused:
@@ -244,7 +264,8 @@ func pause_click(m: Vector2) -> void:
 	var a = AudioScript.instance
 	match pause_view:
 		"help":
-			pause_view = "main"
+			if howto.handle(_click(m), m) == "close":
+				pause_view = "main"
 		"confirm":
 			if confirm_button(0).has_point(m):
 				set_paused(false)
@@ -255,7 +276,7 @@ func pause_click(m: Vector2) -> void:
 			if pause_button("continue").has_point(m):
 				set_paused(false)
 			elif pause_button("help").has_point(m):
-				pause_view = "help"
+				open_help()
 			elif pause_button("quit").has_point(m):
 				pause_view = "confirm"
 			elif a != null and pause_sound_rect(0).has_point(m):
@@ -717,7 +738,7 @@ func _draw_beh_tip(k: int) -> void:
 func _draw_pause() -> void:
 	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.6))
 	if pause_view == "help":
-		UI.draw_help(self)
+		howto.draw(self, get_global_mouse_position())
 		return
 	var m := get_global_mouse_position()
 	UI.panel(self, PAUSE_PANEL, Color(0.1, 0.08, 0.06, 0.97), Data.BRONZE, 3.0)
