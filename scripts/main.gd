@@ -13,12 +13,14 @@ const GameScript = preload("res://scripts/game.gd")
 const MenuScript = preload("res://scripts/menu.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 const GalleryScript = preload("res://scripts/gallery.gd")
+const SelectScript = preload("res://scripts/select.gd")
 const T = preload("res://scripts/i18n.gd")
 const Data = preload("res://scripts/data.gd")
 
 var game: Node2D = null
 var menu: Node2D = null
 var gallery: Node2D = null
+var select: Node2D = null
 var last_opts := {}
 var autotest := false
 var shot_path := ""
@@ -29,6 +31,7 @@ var _shot_done := false
 var shot_team: Array = []
 var shot_tip := ""
 var shot_help := false
+var shot_select := false
 var _frames := 0
 
 
@@ -44,6 +47,9 @@ func _ready() -> void:
 			shot_at = a.substr(10).to_float()
 		elif a == "--shot-menu":
 			shot_menu = true
+		elif a == "--shot-select":
+			shot_menu = true
+			shot_select = true
 		elif a == "--shot-help":
 			shot_menu = true
 			shot_help = true
@@ -60,7 +66,13 @@ func _ready() -> void:
 	menu = Node2D.new()
 	menu.set_script(MenuScript)
 	add_child(menu)
-	menu.start.connect(_on_start)
+	menu.play.connect(_open_select)
+	select = Node2D.new()
+	select.set_script(SelectScript)
+	select.visible = false
+	add_child(select)
+	select.start.connect(_on_start)
+	select.back.connect(_close_select)
 	gallery = Node2D.new()
 	gallery.set_script(GalleryScript)
 	gallery.visible = false
@@ -69,6 +81,8 @@ func _ready() -> void:
 	gallery.back.connect(_close_gallery)
 	if shot_help:
 		menu.show_help = true
+	if shot_select:
+		_open_select()
 	if shot_gallery != "":
 		_open_gallery()
 		gallery.open(shot_gallery)
@@ -90,6 +104,16 @@ func _open_gallery() -> void:
 	gallery.open()
 
 
+func _open_select() -> void:
+	menu.visible = false
+	select.open()
+
+
+func _close_select() -> void:
+	select.visible = false
+	menu.visible = true
+
+
 func _close_gallery() -> void:
 	gallery.visible = false
 	menu.visible = true
@@ -97,12 +121,13 @@ func _close_gallery() -> void:
 
 func _on_start(opts: Dictionary) -> void:
 	if opts.has("team") and not opts.has("teams"):
-		# Seu time vem do menu; o bot sorteia um herói por função.
+		# Seu time vem da seleção; o bot sorteia um time pela mesma regra livre.
 		opts["teams"] = [opts["team"], Data.random_team()]
 	last_opts = opts
 	if game != null:
 		game.queue_free()
 	menu.visible = false
+	select.visible = false
 	game = Node2D.new()
 	game.set_script(GameScript)
 	add_child(game)

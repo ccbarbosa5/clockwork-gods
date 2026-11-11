@@ -703,13 +703,14 @@ func test_bug012_map_gaps_fit_largest_hero() -> void:
 	done(g)
 
 
-func test_behavior_cooldown() -> void:
+func test_behavior_switches_instantly() -> void:
+	# Pacote 5: sem tempo de espera entre trocas de comportamento.
 	var g := new_game()
 	var c = g.commanders[0]
 	check(c.set_behavior("aggressive"), "primeira troca de comportamento")
-	check(not c.set_behavior("defensive"), "troca bloqueada durante a recarga")
-	step(g, Data.BEHAVIOR_CD + 0.1)
-	check(c.set_behavior("defensive"), "troca liberada após a recarga")
+	check(c.set_behavior("defensive") and c.behavior == "defensive", "troca de novo na hora")
+	check(c.set_behavior("balanced") and c.behavior == "balanced", "e de novo")
+	check(not c.set_behavior("balanced"), "o mesmo comportamento não conta como troca")
 	done(g)
 
 
@@ -1230,9 +1231,10 @@ func test_gallery_list_supports_many_heroes() -> void:
 	# Com 9 heróis a grade rola, os cartões não se sobrepõem e o selecionado fica visível.
 	var g := new_gallery()
 	g.heroes = []
-	for i in 9:
-		g.heroes.append(Data.HERO_ORDER[i % 3])
-	check(g.rows() == 5, "9 heróis em 2 colunas = 5 linhas")
+	for role in Data.ROLE_ORDER:
+		for i in 3:
+			g.heroes.append(Data.heroes_of_role(role)[i % 2])
+	check(g.rows() == 6, "3 heróis por função em 2 colunas = 2 linhas por função")
 	check(g.max_scroll() > 0.0, "lista com 9 heróis deveria rolar")
 	for i in 9:
 		var r: Rect2 = g.card_rect(i)
@@ -1253,10 +1255,11 @@ func test_gallery_click_selects_and_esc_returns() -> void:
 	var backs := [0]
 	g.back.connect(func(): backs[0] += 1)
 	check(g.selected_id() == "talos", "abre no primeiro herói")
-	g.handle(_click(g.card_rect(1).get_center()))
+	check(g.heroes == Data.heroes_by_role(), "lista agrupada por função, originais primeiro")
+	g.handle(_click(g.card_rect(2).get_center()))
 	check(g.selected_id() == "artemis", "clique no cartão seleciona o herói")
 	g.handle(_key(KEY_RIGHT))
-	check(g.selected_id() == "asclepio", "seta para a direita vai ao próximo")
+	check(g.selected_id() == "zeus", "seta para a direita vai ao próximo")
 	g.handle(_key(KEY_ESCAPE))
 	check(backs[0] == 1 and not g.visible, "ESC volta ao menu")
 	g.open("artemis")
@@ -1594,7 +1597,7 @@ func test_menu_language_button() -> void:
 	var Menu = load("res://scripts/menu.gd")
 	var m: Node2D = Menu.new()
 	var lr: Rect2 = m.lang_rect()
-	for r in [m.play_rect(), m.help_rect(), m.heroes_rect(), m.team_rect(0), m.team_rect(2)]:
+	for r in [m.play_rect(), m.help_rect(), m.heroes_rect()]:
 		check(not lr.intersects(r), "botão de idioma não cobre outros botões")
 	check(lr.end.x <= 1280 and lr.position.y >= 0, "botão de idioma dentro da tela")
 	check(UI_lang_at(lr, Vector2(lr.position.x + 2, lr.get_center().y)) == "pt" and UI_lang_at(lr, Vector2(lr.end.x - 2, lr.get_center().y)) == "en", "metades PT e EN")
@@ -1697,11 +1700,27 @@ func test_ability_popups_do_not_overlap() -> void:
 # ---------------------------------------------------------------------------
 # Pacote 3: times por função, Hércules, Zeus e Atena
 
-func test_teams_one_hero_per_role() -> void:
+func test_teams_free_selection_rules() -> void:
+	# Pacote 5: 3 heróis, no máximo 2 da mesma função, sem repetir no time.
 	check(Data.valid_team(Data.DEFAULT_TEAM) and Data.valid_team(NEW_TEAM), "times padrão e novo válidos")
-	check(not Data.valid_team(["talos", "hercules", "atena"]), "dois tanques não é um time válido")
-	for i in 20:
-		check(Data.valid_team(Data.random_team()), "time sorteado válido")
+	check(Data.valid_team(["talos", "hercules", "atena"]), "dois tanques agora vale")
+	check(Data.valid_team(["artemis", "zeus", "atena"]), "time sem tanque vale")
+	check(not Data.valid_team(["talos", "talos", "atena"]), "herói repetido no time não vale")
+	check(not Data.valid_team(["talos", "hercules"]), "time precisa de 3 heróis")
+	check(Data.team_add_block(["talos", "hercules"], "artemis") == "", "pode pôr um de outra função")
+	check(Data.team_add_block(["artemis", "zeus"], "talos") == "", "2 de dano + 1 vale")
+	check(Data.team_add_block(["talos", "artemis", "zeus"], "atena") == "full", "time cheio")
+	check(Data.all_teams().size() == 20, "6 heróis, até 2 por função: 20 times possíveis")
+	check(Data.sort_team(["atena", "zeus", "talos"]) == ["talos", "zeus", "atena"], "time ordenado por função")
+	var seen := {}
+	for i in 200:
+		var rt := Data.random_team()
+		check(Data.valid_team(rt), "time sorteado válido")
+		seen[",".join(rt)] = true
+	check(seen.size() >= 15, "o bot varia o time (%d times diferentes em 200 sorteios)" % seen.size())
+	# Engrenagens da Roda: Talos + Hércules + Atena não têm carta de Ataque.
+	check(Data.missing_gears(["talos", "hercules", "atena"]) == [2], "sem Ataque")
+	check(Data.missing_gears(Data.DEFAULT_TEAM).is_empty(), "time padrão tem as 4 engrenagens")
 	var g := new_game({"teams": [NEW_TEAM, Data.DEFAULT_TEAM]})
 	check(hero(g, 0, "zeus") != null and hero(g, 0, "talos") == null, "time azul montado com a composição pedida")
 	check(deck_ok(g.commanders[0]) and deck_ok(g.commanders[1]), "deck de 9 cartas dos heróis do próprio time")
@@ -1718,21 +1737,104 @@ func test_teams_one_hero_per_role() -> void:
 	var bad := new_game({"teams": [["talos", "talos", "talos"], Data.DEFAULT_TEAM]})
 	check(bad.teams[0] == Data.DEFAULT_TEAM, "time inválido cai para o padrão")
 	done(bad)
+	var two := new_game({"teams": [["atena", "hercules", "talos"], ["artemis", "zeus", "asclepio"]]})
+	check(two.teams[0] == ["talos", "hercules", "atena"] and two.team_hero(0, 0).hid == "talos", "time com 2 tanques montado em ordem")
+	done(two)
 
 
-func test_menu_team_picker_cycles_role() -> void:
+func new_select() -> Node2D:
+	var sel := Node2D.new()
+	sel.set_script(load("res://scripts/select.gd"))
+	root.add_child(sel)
+	sel.open()
+	return sel
+
+
+func test_select_screen_builds_team_and_starts() -> void:
+	var sel := new_select()
+	var starts: Array = []
+	sel.start.connect(func(o): starts.append(o))
+	sel.team = []
+	check(not sel.ready_to_start(), "sem 3 heróis não começa")
+	sel.handle(_key(KEY_ENTER))
+	check(starts.is_empty(), "ENTER não começa com time incompleto")
+	# Clicar nos cartões põe no time (agrupados por função: talos, hercules, ...).
+	var ih: int = sel.heroes.find("talos")
+	sel.handle(_click(sel.card_rect(ih).get_center()))
+	sel.handle(_click(sel.card_rect(sel.heroes.find("hercules")).get_center()))
+	check(sel.team == ["talos", "hercules"], "dois tanques no time")
+	sel.handle(_click(sel.card_rect(sel.heroes.find("atena")).get_center()))
+	check(sel.ready_to_start(), "time completo")
+	check(sel.gear_warning().contains(T.t("GEAR_ATTACK")), "aviso: sem cartas de Ataque")
+	sel.handle(_click(sel.card_rect(sel.heroes.find("zeus")).get_center()))
+	check(sel.team.size() == 3 and sel.flash_t > 0.0, "time cheio bloqueia com aviso")
+	sel.handle(_click(sel.slot_rect(1).get_center()))
+	check(sel.team == ["talos", "atena"], "clique no espaço do time tira o herói")
+	sel.handle(_click(sel.card_rect(sel.heroes.find("zeus")).get_center()))
+	check(sel.gear_warning() == "", "com o Zeus, o time tem as 4 engrenagens")
+	sel.handle(_click(sel.diff_rect(2).get_center()))
+	sel.handle(_click(sel.beh_rect(2).get_center()))
+	sel.handle(_click(sel.confirm_rect().get_center()))
+	check(starts.size() == 1, "botão de confirmar começa a partida")
+	var o: Dictionary = starts[0]
+	check(o["team"] == ["talos", "zeus", "atena"] and o["difficulty"] == "hard" and o["behavior"] == "defensive", "opções vão para a partida: %s" % str(o))
+	# Rótulos e botões dentro da tela e sem sobrepor.
+	var rs: Array = [sel.back_rect(), sel.confirm_rect()]
+	for i in 3:
+		rs.append(sel.slot_rect(i)); rs.append(sel.diff_rect(i)); rs.append(sel.beh_rect(i))
+	for a in rs.size():
+		check(Rect2(0, 0, 1280, 720).encloses(rs[a]), "botão %d dentro da tela" % a)
+		for b in range(a + 1, rs.size()):
+			check(not rs[a].intersects(rs[b]), "botões %d e %d sobrepostos" % [a, b])
+	for i in sel.heroes.size():
+		check(sel.LIST_RECT.encloses(sel.card_rect(i)), "cartão %d dentro da lista" % i)
+	sel.free()
+
+
+func test_select_role_limit_and_esc() -> void:
+	var sel := new_select()
+	var backs := [0]
+	sel.back.connect(func(): backs[0] += 1)
+	sel.team = ["artemis", "zeus"]
+	check(sel.toggle("talos") == "", "terceiro de outra função entra")
+	sel.team = ["artemis", "zeus"]
+	check(sel.toggle("artemis") == "" and sel.team == ["zeus"], "clicar de novo tira do time")
+	sel.team = ["talos", "hercules"]
+	check(sel.toggle("talos") == "" and sel.team == ["hercules"], "tirar um tanque")
+	sel.team = ["artemis", "zeus", "talos"]
+	sel.team.remove_at(2)
+	sel.team = ["artemis", "zeus"]
+	check(Data.team_add_block(["artemis", "zeus"], "artemis") == "dup", "não repete herói")
+	check(Data.team_add_block(["talos", "hercules"], "talos") == "dup", "não repete herói (tanque)")
+	sel.handle(_key(KEY_ESCAPE))
+	check(backs[0] == 1 and not sel.visible, "ESC volta à tela inicial")
+	sel.free()
+
+
+func test_menu_play_opens_select_then_match() -> void:
+	var m := Node2D.new()
+	m.set_script(load("res://scripts/main.gd"))
+	root.add_child(m)
+	var menu = m.menu
+	menu.play.emit()
+	check(m.select.visible and not menu.visible, "Jogar abre a seleção de personagens")
+	check(m.game == null, "a partida só começa ao confirmar")
+	m.select.handle(_key(KEY_ESCAPE))
+	check(menu.visible and not m.select.visible, "ESC volta à tela inicial")
+	menu.play.emit()
+	m.select.team = ["talos", "artemis", "asclepio"]
+	m.select.confirm()
+	check(m.game != null and not m.select.visible, "confirmar começa a partida")
+	check(Data.valid_team(m.game.teams[1]), "o bot monta um time válido")
+	m.free()
+
+
+func test_menu_is_clean() -> void:
 	var Menu = load("res://scripts/menu.gd")
 	var m: Node2D = Menu.new()
-	m.cycle_team(0)
-	check(m.team[0] == "hercules", "tanque troca para Hércules")
-	m.cycle_team(0)
-	check(m.team[0] == "talos", "e volta para Talos")
-	m.cycle_team(1)
-	m.cycle_team(2)
-	check(m.start_opts()["team"] == ["talos", "zeus", "atena"], "time vai para a partida")
-	for i in 3:
-		for r in [m.play_rect(), m.help_rect(), m.heroes_rect(), m.vol_rect(2)]:
-			check(not m.team_rect(i).intersects(r), "botão do time %d não cobre outro botão" % i)
+	check(not m.has_method("team_rect") and not m.has_method("diff_rect"), "time e dificuldade saíram da tela inicial")
+	check(not Menu.version_label().contains(str(Data.HERO_ORDER.size()) + " "), "versão sem o número de heróis")
+	check(Menu.version_label().contains(str(ProjectSettings.get_setting("application/config/version"))), "versão aparece")
 	m.free()
 
 
@@ -2205,3 +2307,128 @@ func test_art_fx_source_matches_screen_proportion() -> void:
 		check(absf(r1 / r2 - 1.0) < 0.12, "fx/%s.png com proporção %.2f; na tela é %.2f" % [name, r1, r2])
 		n += 1
 	print("        (proporção conferida em %d efeitos)" % n)
+
+
+# ---------------------------------------------------------------------------
+# Pacote 5: pacotes de vida, regeneração, cobertura e times livres na partida
+
+func test_health_packs_heal_and_respawn() -> void:
+	var g := new_game()
+	pin_all_far(g)
+	check(g.packs.size() == 5, "5 pacotes no mapa")
+	# Espelhados: cada pacote tem o par do outro lado (ou está no meio).
+	for pk in g.packs:
+		var mirror := Vector2(1280.0 - pk["pos"].x, pk["pos"].y)
+		var found := false
+		for pk2 in g.packs:
+			if pk2["pos"].distance_to(mirror) < 1.0:
+				found = true
+		check(found, "pacote %s tem o par espelhado" % str(pk["pos"]))
+		check(pk["pos"].distance_to(g.CENTER) > g.POINT_R + 100.0, "pacote longe do ponto")
+		for sp in g.SPAWNS:
+			check(pk["pos"].distance_to(sp) > g.SPAWN_R + 150.0, "pacote longe das bases")
+		for o in g.OBSTACLES:
+			check(pk["pos"].distance_to(Vector2(o.x, o.y)) > o.z + 40.0, "pacote longe das colunas")
+	var a = hero(g, 0, "artemis")
+	var pk0: Dictionary = g.packs[0]
+	a.hp = 50.0
+	a.position = pk0["pos"]
+	g._step(1.0 / 60.0)
+	check(is_equal_approx(a.hp, 50.0 + Data.PACK_HEAL), "pacote cura %d na hora (vida %.0f)" % [int(Data.PACK_HEAL), a.hp])
+	check(pk0["t"] > 0.0 and a.stats["pack"] > 0.0, "pacote some e conta na estatística")
+	var hp1: float = a.hp
+	g._step(1.0 / 60.0)
+	check(a.hp - hp1 < 1.0, "pacote pego não cura de novo")
+	step(g, Data.PACK_RESPAWN)
+	check(pk0["t"] == 0.0, "pacote volta depois de %d s" % int(Data.PACK_RESPAWN))
+	a.hp = a.max_hp
+	a.position = Vector2(600, 600)
+	done(g)
+
+
+func test_passive_regen_after_calm_and_not_on_point() -> void:
+	var g := new_game()
+	pin_all_far(g)
+	var a = hero(g, 0, "artemis")
+	a.position = Vector2(400, 300)
+	a.hp = 100.0
+	a.calm_t = 0.0
+	step(g, Data.REGEN_DELAY - 0.5)
+	check(a.hp < 101.0 and not a.regenerating, "não regenera antes de %d s sem dano" % int(Data.REGEN_DELAY))
+	step(g, 1.5)
+	check(a.regenerating and a.hp > 100.0, "regenera depois de %d s sem dano" % int(Data.REGEN_DELAY))
+	var hp0: float = a.hp
+	step(g, 1.0)
+	check(absf(a.hp - hp0 - Data.REGEN_RATE) < 0.5, "regenera %d por segundo" % int(Data.REGEN_RATE))
+	check(Data.REGEN_RATE < Data.SPAWN_REGEN and Data.REGEN_RATE * 5.0 < Data.PACK_HEAL, "mais devagar que a base e os pacotes")
+	g.deal_damage(null, a, 5.0, false)
+	check(a.calm_t == 0.0, "dano zera o tempo")
+	g._step(1.0 / 60.0)
+	check(not a.regenerating, "dano interrompe a regeneração")
+	a.position = g.CENTER
+	a.calm_t = 10.0
+	var hp2: float = a.hp
+	g._step(1.0 / 60.0)
+	check(not a.regenerating and a.hp <= hp2 + 0.01, "não regenera dentro do ponto")
+	done(g)
+
+
+func test_cover_by_behavior() -> void:
+	# Defensivo ferido e sem inimigo perto vai para trás de uma coluna;
+	# Agressivo não; com o inimigo perto de vencer, ninguém fica na cobertura.
+	for beh in ["defensive", "aggressive"]:
+		var g := new_game()
+		pin_all_far(g)
+		g.time = Data.UNLOCK_TIME + 1.0
+		g.commanders[0].behavior = beh
+		var z = hero(g, 0, "asclepio")
+		z.position = Vector2(420, 230)
+		z.stun_t = 0.0
+		z.hp = z.max_hp * 0.5
+		for e in g.alive_heroes(1):
+			e.position = g.spawn_pos(1)
+		var spot: Vector2 = z.cover_spot(g.alive_heroes(1))
+		check(spot != Vector2.INF, "há cobertura perto")
+		z._think(1.0 / 60.0)
+		if beh == "defensive":
+			check(z.covering, "Defensivo com 50% de vida se esconde")
+			g.point_owner = 1
+			g.progress[1] = 90.0
+			z._think(1.0 / 60.0)
+			check(not z.covering, "inimigo perto de vencer: larga a cobertura")
+		else:
+			check(not z.covering, "Agressivo não se esconde")
+		done(g)
+
+
+func test_retreat_takes_close_pack_without_healer() -> void:
+	var g := new_game({"teams": [["talos", "artemis", "zeus"], Data.DEFAULT_TEAM]})
+	pin_all_far(g)
+	var a = hero(g, 0, "artemis")
+	a.stun_t = 0.0
+	var pk: Dictionary = g.packs[0]
+	a.position = pk["pos"] + Vector2(120, 0)
+	a.hp = a.max_hp * 0.1
+	for i in 120:
+		a.hp = minf(a.hp, a.max_hp * 0.1)
+		g._step(1.0 / 60.0)
+		if pk["t"] > 0.0:
+			break
+	check(pk["t"] > 0.0, "herói recuando pegou o pacote perto em vez de ir à base")
+	done(g)
+
+
+func test_matches_without_tank_and_with_two_tanks() -> void:
+	# A IA funciona sem tanque e com 2 tanques: a partida anda, ninguém trava.
+	for tm in [["artemis", "zeus", "asclepio"], ["talos", "hercules", "atena"]]:
+		var g := new_game({"teams": [tm, Data.DEFAULT_TEAM], "autotest": true})
+		g.bots[0] = load("res://scripts/bot.gd").new()
+		g.bots[0].setup(g, 0, g.commanders[0], "hard")
+		step(g, 90.0)
+		var on_point := 0
+		for h in g.heroes:
+			check(h.position.x == h.position.x, "posição válida")
+		check(g.progress[0] + g.progress[1] > 0.0 or g.contested, "time %s disputa o ponto" % ",".join(tm))
+		var cards: int = g.commanders[0].cards_played
+		check(cards >= 10, "time %s joga cartas (%d)" % [",".join(tm), cards])
+		done(g)

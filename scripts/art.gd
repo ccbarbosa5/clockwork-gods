@@ -38,6 +38,7 @@ const MAP_IMAGES := {
 	"pillar_small": {"src": Vector2i(112, 112), "fill": 0.92},   # colunas de raio 22 e 20
 	"control_point": {"src": Vector2i(512, 512), "fill": 0.9},   # ponto de raio 95
 	"spawn_base": {"src": Vector2i(384, 384), "fill": 0.94},      # bases de raio 75
+	"health_pack": {"src": Vector2i(128, 128), "fill": 0.75},     # pacote de vida: 48 px na tela
 }
 ## Colunas com raio a partir deste valor usam pillar_large.
 const PILLAR_LARGE_MIN_R := 28.0

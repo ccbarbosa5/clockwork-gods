@@ -77,6 +77,7 @@ esquerdo e ícone no centro (círculo em y ≈ 108 px na fonte). A miniatura da 
 | `pillar_small.png` | 112×112 | 48×48 (raio 22) e 43×43 (raio 20) | Idem, 92% (103 px da fonte) |
 | `control_point.png` | 512×512 | 211×211 (ponto de raio 95) | Plataforma neutra, transparente fora do círculo. A borda do ponto fica a 90% da imagem (461 px da fonte). O código desenha por cima o anel na cor do dono, o pulso de disputa, o arco de captura e a contagem; antes de liberar, a imagem fica acinzentada |
 | `spawn_base.png` | 384×384 | 160×160 (base de raio 75) | Neutra (sem azul nem vermelho). Borda a 94% da imagem (a pedra entregue vai até 96%). O código tinge de leve e contorna com a cor do time. A base azul (x 62) sai em parte da tela pela esquerda e a vermelha pela direita |
+| `health_pack.png` | 128×128 | 48×48 (raio de coleta 18 px = 75% da imagem) | Pacote de vida (Pacote 5): 5 no mapa, espelhados. Visto de cima, sem sombra (o código desenha a sombra e o balanço). Some quando é pego e volta em 20 s; enquanto isso, o código desenha a base vazia com o tempo |
 
 As colunas, o ponto e a base não giram; luz de cima, neutra. Sem a imagem, cada peça continua desenhada por código.
 
