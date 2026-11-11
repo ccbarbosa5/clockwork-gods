@@ -127,6 +127,10 @@ def main():
                     diff = "**%s**" % diff
             out.append("| %s | %s | %s | %d |" % (GEARS[g], fmt(w, n, False), diff, n))
 
+    if not any(d for _, d in links) and not data.get("hardnormal"):
+        out.append("")
+        out.append("Testes da Roda e da IA desligados nesta rodada (só o equilíbrio dos heróis).")
+
     hn = data.get("hardnormal")
     if hn:
         n, w = hn["side"][0], hn["side"][1]
