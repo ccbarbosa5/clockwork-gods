@@ -203,20 +203,20 @@ static func missing_gears(team: Array) -> Array:
 const HEROES := {
 	"talos": {
 		"role": "Tanque", "origin": "lenda",
-		"hp": 625.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
+		"hp": 640.0, "speed": 72.0, "range": 62.0, "dmg": 26.0, "cd": 0.9,
 		"radius": 22.0, "color": Color(0.96, 0.6, 0.2), "style": "frontline",
 		"splash": 0.5,  # golpe atinge 50% em inimigos a até 45 px do alvo
 		"ult": "furia", "cards": ["muralha", "investida", "valvula"],
 	},
 	"hercules": {
 		"role": "Tanque", "origin": "semideus",
-		"hp": 630.0, "speed": 80.0, "range": 58.0, "dmg": 33.0, "cd": 1.0, "dive_reach": 0.0,
+		"hp": 620.0, "speed": 80.0, "range": 58.0, "dmg": 33.0, "cd": 1.0, "dive_reach": 0.0,
 		"radius": 21.0, "color": Color(0.96, 0.6, 0.2), "style": "dive",
 		"ult": "trabalho", "cards": ["nemeia", "pele", "corrente"],
 	},
 	"zeus": {
 		"role": "Dano", "origin": "deus",
-		"hp": 320.0, "speed": 92.0, "range": 270.0, "dmg": 18.5, "cd": 0.7, "kite": 180.0, "group_bias": 0.0,
+		"hp": 320.0, "speed": 92.0, "range": 270.0, "dmg": 18.0, "cd": 0.7, "kite": 180.0, "group_bias": 0.0,
 		"radius": 16.0, "color": Color(0.72, 0.45, 1.0), "style": "flank",
 		# Ataque básico: raio instantâneo que salta para 1 inimigo a até 90 px (7 de dano).
 		"basic": "chain", "chain_dmg": 8.0, "chain_range": 90.0,
@@ -225,7 +225,7 @@ const HEROES := {
 	},
 	"atena": {
 		"role": "Suporte", "origin": "deusa",
-		"hp": 320.0, "speed": 88.0, "range": 180.0, "dmg": 16.0, "cd": 0.8,
+		"hp": 330.0, "speed": 88.0, "range": 180.0, "dmg": 16.0, "cd": 0.8,
 		"radius": 17.0, "color": Color(0.33, 0.85, 0.45), "style": "battle_support",
 		"proj_speed": 700.0, "basic": "spear",
 		# Passiva Escudo de Palas: cada acerto do básico dá 10 de escudo ao aliado
@@ -235,7 +235,7 @@ const HEROES := {
 	},
 	"artemis": {
 		"role": "Dano", "origin": "deusa",
-		"hp": 250.0, "speed": 96.0, "range": 300.0, "dmg": 17.5, "cd": 0.55,
+		"hp": 250.0, "speed": 96.0, "range": 300.0, "dmg": 18.0, "cd": 0.55,
 		"radius": 15.0, "color": Color(0.72, 0.45, 1.0), "style": "backline_dps",
 		"proj_speed": 900.0,
 		"ult": "chuva", "cards": ["disparo", "armadilha", "salto"],
@@ -244,7 +244,7 @@ const HEROES := {
 		"role": "Suporte", "origin": "semideus",
 		"hp": 280.0, "speed": 90.0, "range": 230.0, "dmg": 10.0, "cd": 0.75,
 		"radius": 16.0, "color": Color(0.33, 0.85, 0.45), "style": "backline_support",
-		"proj_speed": 620.0, "heal": 15.0, "heal_range": 260.0,
+		"proj_speed": 620.0, "heal": 14.4, "heal_range": 260.0,
 		"ult": "segunda", "cards": ["sopro", "veneno", "engrenagem"],
 	},
 }

@@ -43,13 +43,16 @@ def fmt(w, n, bold_out=True):
     return s
 
 
+MATCH_RE = re.compile(r"^partida\s+\d+\s+(\S+)\s+x\s+(\S+)\s+(\S+/\S+/\S+) x (\S+/\S+/\S+)\s+vencedor=\s*(-?\d)")
+
+
 def read(folder):
     data = {}
     errors = 0
     for path in glob.glob(os.path.join(folder, "**", "*.log"), recursive=True):
         kind = re.sub(r"_s\d+_p\d+\.log$", "", os.path.basename(path))
         d = data.setdefault(kind, {"bal": {}, "side": [0, 0.0, 0.0], "wheel": {}, "runs": 0,
-                                   "comp": {}, "end": {}, "heal": {}, "dur": [0, 0.0]})
+                                   "comp": {}, "end": {}, "heal": {}, "dur": [0, 0.0], "recount": {}})
         d["runs"] += 1
         text = open(path, encoding="utf-8", errors="replace").read()
         if "SCRIPT ERROR" in text:
@@ -58,6 +61,17 @@ def read(folder):
             f = line.split()
             if not f:
                 continue
+            m = MATCH_RE.search(line)
+            if m:
+                # Conferência: recontagem por partida, independente das linhas BAL.
+                a, b, win = m.group(3).split("/"), m.group(4).split("/"), int(m.group(5))
+                if m.group(1) == m.group(2):
+                    for side, (me, ot) in enumerate([(a, b), (b, a)]):
+                        for h in me:
+                            if h in ot:
+                                continue
+                            g, w = d["recount"].get(h, (0, 0.0))
+                            d["recount"][h] = (g + 1, w + (1.0 if win == side else (0.5 if win < 0 else 0.0)))
             if f[0] == "BAL" and len(f) == 4:
                 g, w = d["bal"].get(f[1], (0, 0.0))
                 d["bal"][f[1]] = (g + int(f[2]), w + float(f[3]))
@@ -105,11 +119,29 @@ def main():
     out.append("")
     out.append("## Taxa de vitória por herói")
     out.append("")
-    out.append("| Herói | Vitória | Partidas |")
+    out.append("| Herói | Vitória | Vitórias / partidas |")
     out.append("| --- | --- | --- |")
     for h in HEROES:
         g, w = main_d["bal"].get(h, (0, 0.0))
-        out.append("| %s | %s | %d |" % (NAMES[h], fmt(w, g), g))
+        out.append("| %s | %s | %s / %d |" % (NAMES[h], fmt(w, g), ("%.1f" % w).rstrip("0").rstrip("."), g))
+    out.append("")
+    duel = []
+    for role, (x, y) in [("Tanque", ("talos", "hercules")), ("Dano", ("artemis", "zeus")), ("Suporte", ("asclepio", "atena"))]:
+        gx, wx = main_d["bal"].get(x, (0, 0.0))
+        gy, wy = main_d["bal"].get(y, (0, 0.0))
+        if gx and gy:
+            dv = abs(pct(wx, gx) - pct(wy, gy))
+            duel.append(("**%s %.1f**" if dv > 8.0 else "%s %.1f") % (role, dv))
+    if duel:
+        out.append("Diferença nos duelos de cada função (pontos; em **negrito** acima de 8): " + " · ".join(duel) + ".")
+    rc = main_d["recount"]
+    if rc:
+        ok = all(abs(rc.get(h, (0, 0.0))[0] - main_d["bal"].get(h, (0, 0.0))[0]) == 0 and
+                 abs(rc.get(h, (0, 0.0))[1] - main_d["bal"].get(h, (0, 0.0))[1]) < 0.01 for h in HEROES)
+        out.append("")
+        out.append("Conferência da contagem (recontada partida a partida): %s." %
+                   ("bate com a tabela" if ok else "**NÃO bate** — " + ", ".join(
+                       "%s %s" % (NAMES[h], rc.get(h)) for h in HEROES)))
     s = main_d["side"]
     out.append("")
     out.append("Lado azul (time 0): %s em %d partidas." % (fmt(s[1], s[0], False), s[0]))
