@@ -173,6 +173,6 @@ Sem o arquivo, cada efeito continua desenhado por código. Tamanho na tela em es
 | `comando_aura.png` | 72×72 (escala pelo raio) | Aliado sob o Comando: setas prateadas girando, centro vazio |
 | `coruja_olho.png` | 20×12 | Olho dourado acima do inimigo marcado pelo Olhar da Coruja |
 | `coruja_voo.png` | 24×24 | Coruja de latão voando da Atena até o alvo (aponta para a direita) |
-| `falange_area.png` | 360×360 | Falange de Atenas (raio 180): anel de escudos de prata na borda, lança no centro |
+| `falange_area.png` | 360×360 | Falange de Atenas (raio 180): anel de escudos de prata na borda, lança no centro. Desenhada a 40% (a parede entregue é bem opaca) |
 | `escudo_palas.png` | 88×88 no Talos; 2 × (raio + 4) / 0,59 em cada herói, para a faixa começar fora do anel do time | Escudo dado pela Atena (Palas e Falange): anel de prata, centro vazio |
 | `lanca_projetil.png` | 34×8 | Lança arremessada (básico da Atena), apontando para a direita |
