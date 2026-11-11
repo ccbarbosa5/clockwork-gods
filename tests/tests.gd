@@ -1219,7 +1219,11 @@ func test_gallery_stat_bars_come_from_data() -> void:
 			check(fr > 0.0 and fr <= 1.0, "barra de %s de %s fora de 0..1" % [key, hid])
 			top = maxf(top, fr)
 		check(is_equal_approx(top, 1.0), "o maior %s deveria encher a barra" % key)
-	check(is_equal_approx(GalleryScript.stat_fraction("talos", "hp"), 1.0), "Talos tem a maior vida")
+	var top_hp := ""
+	for hid in Data.HERO_ORDER:
+		if top_hp == "" or Data.HEROES[hid]["hp"] > Data.HEROES[top_hp]["hp"]:
+			top_hp = hid
+	check(is_equal_approx(GalleryScript.stat_fraction(top_hp, "hp"), 1.0), "%s tem a maior vida" % top_hp)
 
 
 func test_gallery_list_supports_many_heroes() -> void:
@@ -1465,7 +1469,7 @@ func test_meters_display() -> void:
 	check(T.meters(300.0) == "10,0 m", "300 px = 10,0 m (veio %s)" % T.meters(300.0))
 	check(T.mps(72.0) == "2,4 m/s", "72 px/s = 2,4 m/s (veio %s)" % T.mps(72.0))
 	check(GalleryScript.stat_text("artemis", "range") == "10,0 m", "alcance da Ártemis em metros")
-	check(GalleryScript.stat_text("talos", "hp") == "650", "vida continua número")
+	check(GalleryScript.stat_text("talos", "hp") == str(int(Data.HEROES["talos"]["hp"])), "vida continua número")
 	T.set_lang("en", false)
 	check(T.meters(62.0) == "2.1 m", "EN usa ponto (veio %s)" % T.meters(62.0))
 	T.set_lang("pt", false)
