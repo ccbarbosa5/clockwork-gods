@@ -18,12 +18,13 @@ const HEALTH_PACKS := [Vector2(330, 110), Vector2(330, 490), Vector2(950, 110), 
 const PACK_HEAL := 100.0           # cura na hora ao pegar
 const PACK_RESPAWN := 20.0         # s até o pacote voltar
 const PACK_PICK_R := 18.0          # raio do pacote para pegar (mais o raio do herói)
-## Pacote fora do recuo: vai buscar se a vida estiver abaixo de `hp` e o pacote
-## a até `reach` px (Agressivo vai mais longe para ficar perto da luta).
-const PACK_DETOUR := {"aggressive": {"hp": 0.7, "reach": 220.0}, "balanced": {"hp": 0.65, "reach": 160.0}, "defensive": {"hp": 0.6, "reach": 120.0}}
-## No recuo, troca a base pelo pacote se ele estiver a menos desta fração da
-## distância até a base.
-const PACK_OVER_BASE := {"aggressive": 1.0, "balanced": 0.7, "defensive": 0.45}
+## Frasco de Ambrosia fora do recuo: vai buscar se a vida estiver abaixo de `hp`
+## e o frasco a até `reach` px. Segue os textos da Lore (claude/textos-pacote-5.md):
+## Agressivo só pega no caminho; Defensivo usa sempre que pode.
+const PACK_DETOUR := {"aggressive": {"hp": 0.5, "reach": 90.0}, "balanced": {"hp": 0.65, "reach": 160.0}, "defensive": {"hp": 0.8, "reach": 240.0}}
+## No recuo, troca a base pelo frasco se ele estiver a menos desta fração da
+## distância até a base (Equilibrado e Defensivo: qualquer frasco mais perto).
+const PACK_OVER_BASE := {"aggressive": 0.5, "balanced": 1.0, "defensive": 1.0}
 const REGEN_DELAY := 5.0           # s sem levar dano para começar a regenerar
 const REGEN_RATE := 8.0            # vida por segundo (base: 90/s; pacote: 100 na hora)
 ## Cobertura: abaixo desta fração da vida, sem inimigo a COVER_SAFE px, o herói

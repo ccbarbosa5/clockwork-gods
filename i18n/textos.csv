@@ -32,7 +32,8 @@ HELP_12,Herói abatido renasce em 6 s; as cartas dele voltam ao deck.,A downed h
 HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the match. M toggles sound.
 HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
 HELP_15,Roda do Destino: jogue Movimento › Controle › Ataque › Defesa para ganhar bônus.,Wheel of Fate: play Move › Control › Attack › Defense in order for bonuses.
-HELP_16,"Pacotes de vida curam na hora; fora do ponto, quem fica 5 s sem dano regenera devagar.","Health packs heal instantly; off the point, heroes slowly regenerate after 5 s unhurt."
+HELP_16,Frascos de Ambrosia no mapa recuperam vida e reaparecem depois de um tempo.,Ambrosia Flasks on the map restore health and reappear after a while.
+HELP_17,"Centelha Viva: 5 s sem dano, o herói recupera vida devagar (fora do ponto).",Living Spark: 5 s without damage and heroes slowly heal (off the point).
 HELP_BACK,Clique para voltar,Click to go back
 HUD_YOU,VOCÊ,YOU
 HUD_BOT,BOT,BOT
@@ -242,8 +243,6 @@ WHEEL_TIP_ATK_DEF,Ataque › Defesa: +%d%% de defesa,Attack › Defense: +%d%% d
 WHEEL_TIP_DEF_MOVE,Defesa › Movimento: +%d de escudo,Defense › Move: +%d shield
 WHEEL_TIP_WINDOW,Janela: %s s · Cadência %d+: +%d Ícor,Window: %s s · Cadence %d+: +%d Ichor
 WHEEL_TIP_FULL,Volta completa: +%d de ultimate,Full turn: +%d ultimate charge
-TIP_BEH_COVER,Se esconde atrás de colunas com menos de %d%% de vida,Hides behind pillars below %d%% health
-TIP_BEH_NO_COVER,Não se esconde para regenerar,Never hides to regenerate
 SEL_TITLE,MONTE SEU TIME,BUILD YOUR TEAM
 SEL_HINT,Clique num herói para pôr ou tirar do time · até 2 da mesma função,Click a hero to add or remove · up to 2 of the same role
 SEL_TEAM,SEU TIME,YOUR TEAM
@@ -260,3 +259,8 @@ GEAR_MOVE,Movimento,Move
 GEAR_CONTROL,Controle,Control
 GEAR_ATTACK,Ataque,Attack
 GEAR_DEFENSE,Defesa,Defense
+TIP_BEH_HEAL_AGGRESSIVE,Quase nunca recua para se curar; só pega Ambrosia no caminho.,Rarely falls back to heal; grabs Ambrosia only on the way.
+TIP_BEH_HEAL_BALANCED,"Ferido, busca o frasco mais perto se estiver mais perto que a base.","When hurt, takes the nearest flask if it is closer than the base."
+TIP_BEH_HEAL_DEFENSIVE,Recua cedo para regenerar e usa os frascos sempre que pode.,Falls back early to regenerate and uses flasks often.
+PACK_TIP,Frasco de Ambrosia: recupera %d de vida.,Ambrosia Flask: restores %d health.
+PACK_EMPTY,Volta em %d s,Back in %d s
