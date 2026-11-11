@@ -34,6 +34,8 @@ var seed_offset := 0
 ## engrenagem g (0 Movimento, 1 Controle, 2 Ataque, 3 Defesa) para ver se algum
 ## elo é obrigatório; --diffs=a,b troca os níveis dos bots no --balance.
 var wheel_on := true
+## --free: times do modo livre (até 2 da mesma função); padrão: 1 de cada função.
+var free_mode := false
 var nobonus := -1
 var bal_diffs: Array = ["hard", "hard"]
 var wheel_tot := {}
@@ -66,6 +68,8 @@ func _run() -> void:
 			matches = a.substr(10).to_int()
 		elif a == "--balance":
 			balance = true
+		elif a == "--free":
+			free_mode = true
 		elif a == "--wheel=off":
 			wheel_on = false
 		elif a.begins_with("--nobonus="):
@@ -78,10 +82,11 @@ func _run() -> void:
 			var kn := a.substr(7).split("/")
 			part_k = kn[0].to_int()
 			part_n = kn[1].to_int()
-	# Seleção livre (Pacote 5): todos os times válidos (até 2 da mesma função).
-	comps = Data.all_teams()
+	# Padrão: os 8 times de 1 por função (todos contra todos = 64 por semente).
+	# --free: os 20 times do modo livre, 64 pares por semente que variam com ela.
+	comps = Data.all_teams(free_mode)
 	if balance:
-		matches = 64  # por semente; os pares de times variam com a semente
+		matches = 64
 	var results: Array = []
 	var casts := {}
 	var t0 := Time.get_ticks_msec()
@@ -98,9 +103,13 @@ func _run() -> void:
 		if balance:
 			diffs = bal_diffs
 			beh = "balanced"
-			var off := seed_offset / 1000
-			t0c = comps[(m + off * 7) % comps.size()]
-			t1c = comps[(m * 7 + 3 + off * 3) % comps.size()]
+			if free_mode:
+				var off := seed_offset / 1000
+				t0c = comps[(m + off * 7) % comps.size()]
+				t1c = comps[(m * 7 + 3 + off * 3) % comps.size()]
+			else:
+				t0c = comps[m / comps.size()]
+				t1c = comps[m % comps.size()]
 		var r := _play_match(m, diffs[0], diffs[1], beh, casts, [t0c, t1c])
 		if diffs[0] == diffs[1]:
 			_count_heroes(r["winner"], t0c, t1c)
@@ -268,7 +277,7 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 	var g := Node2D.new()
 	g.set_script(GameScript)
 	root.add_child(g)
-	var o := {"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams, "wheel": wheel_on}
+	var o := {"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams, "wheel": wheel_on, "free": free_mode}
 	if nobonus >= 0:
 		o["wheel_nobonus"] = [0, nobonus]
 	g.setup(o)

@@ -9,6 +9,7 @@
 #   EXTRAS           true ou false
 #   SAIDA            pasta dos logs
 # Roda até $JOBS processos ao mesmo tempo (padrão: número de CPUs).
+# FREE=true joga times do modo livre (até 2 da mesma função).
 set -u
 PART=$1; TOTAL=$2; SEEDS=$3; XSEEDS=$4; DIFFS=$5; WHEEL=$6; EXTRAS=$7; OUT=$8
 GODOT=${GODOT:-godot}
@@ -16,6 +17,8 @@ JOBS=${JOBS:-$(nproc)}
 mkdir -p "$OUT"
 WARG=""
 [ "$WHEEL" = "off" ] && WARG="--wheel=off"
+# Modo livre (experimental): FREE=true no ambiente.
+[ "${FREE:-false}" = "true" ] && WARG="$WARG --free"
 
 tasks=()
 for s in $(seq 0 $((SEEDS - 1))); do

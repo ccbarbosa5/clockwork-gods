@@ -127,7 +127,7 @@ def main():
         out.append("")
         out.append("## Times que mais vencem")
         out.append("")
-        out.append("Seleção livre: %d times diferentes. Só times com 10+ partidas (sem espelhos)." % len(comps))
+        out.append("%d times diferentes. Só times com 10+ partidas (sem espelhos)." % len(comps))
         out.append("")
         out.append("| Time | Vitória | Partidas |")
         out.append("| --- | --- | --- |")

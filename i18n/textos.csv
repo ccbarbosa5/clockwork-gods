@@ -18,7 +18,7 @@ LANG_PT,PT,PT
 LANG_EN,EN,EN
 HELP_TITLE,Como jogar,How to play
 HELP_01,Objetivo: controle o ponto central até chegar a 100% de progresso.,Goal: control the central point until it reaches 100% progress.
-HELP_02,Seus 3 heróis (até 2 da mesma função) andam e atacam sozinhos.,Your 3 heroes (up to 2 of the same role) move and attack on their own.
+HELP_02,Seus 3 heróis (um de cada função) andam e atacam sozinhos.,Your 3 heroes (one per role) move and attack on their own.
 HELP_03,Cartas: clique numa carta (ou tecla 1-4) gastando Ícor (barra dourada).,Cards: click a card (or press 1-4) to spend Ichor (gold bar).
 HELP_04,"   O herói guarda a habilidade e a usa sozinho no melhor momento,","   The hero holds the ability and uses it alone at the best moment,"
 HELP_05,"   escolhendo o alvo (em até 5 s). Se ele morrer antes, o Ícor volta.","   choosing the target (within 5 s). If the hero dies first, the Ichor returns."
@@ -33,7 +33,7 @@ HELP_13,ESC ou P pausa a partida. M liga e desliga o som.,ESC or P pauses the ma
 HELP_14,"Passe o mouse sobre cartas, ultimates e comportamentos para ver o que fazem.","Hover over cards, ultimates and behaviors to see what they do."
 HELP_15,Roda do Destino: jogue Movimento › Controle › Ataque › Defesa para ganhar bônus.,Wheel of Fate: play Move › Control › Attack › Defense in order for bonuses.
 HELP_16,Frascos de Ambrosia no mapa recuperam vida e reaparecem depois de um tempo.,Ambrosia Flasks on the map restore health and reappear after a while.
-HELP_17,"Centelha Viva: 5 s sem dano, o herói recupera vida devagar (fora do ponto).",Living Spark: 5 s without damage and heroes slowly heal (off the point).
+HELP_17,"Centelha Viva: %d s sem dano, o herói recupera vida devagar (fora do ponto).",Living Spark: %d s without damage and heroes slowly heal (off the point).
 HELP_BACK,Clique para voltar,Click to go back
 HUD_YOU,VOCÊ,YOU
 HUD_BOT,BOT,BOT
@@ -244,7 +244,7 @@ WHEEL_TIP_DEF_MOVE,Defesa › Movimento: +%d de escudo,Defense › Move: +%d shi
 WHEEL_TIP_WINDOW,Janela: %s s · Cadência %d+: +%d Ícor,Window: %s s · Cadence %d+: +%d Ichor
 WHEEL_TIP_FULL,Volta completa: +%d de ultimate,Full turn: +%d ultimate charge
 SEL_TITLE,MONTE SEU TIME,BUILD YOUR TEAM
-SEL_HINT,Clique num herói para pôr ou tirar do time · até 2 da mesma função,Click a hero to add or remove · up to 2 of the same role
+SEL_HINT,Clique num herói para pôr no time · um de cada função,Click a hero to add them · one per role
 SEL_TEAM,SEU TIME,YOUR TEAM
 SEL_EMPTY,Vazio,Empty
 SEL_CONFIRM,COMEÇAR PARTIDA,START MATCH
@@ -264,3 +264,5 @@ TIP_BEH_HEAL_BALANCED,"Ferido, busca o frasco mais perto se estiver mais perto q
 TIP_BEH_HEAL_DEFENSIVE,Recua cedo para regenerar e usa os frascos sempre que pode.,Falls back early to regenerate and uses flasks often.
 PACK_TIP,Frasco de Ambrosia: recupera %d de vida.,Ambrosia Flask: restores %d health.
 PACK_EMPTY,Volta em %d s,Back in %d s
+SEL_HINT_FREE,Modo livre: clique para pôr ou tirar · até 2 da mesma função,Free mode: click to add or remove · up to 2 of the same role
+SEL_FREE,Modo livre (experimental),Free mode (experimental)

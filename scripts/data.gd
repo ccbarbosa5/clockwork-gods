@@ -15,8 +15,8 @@ const SPAWN_REGEN := 90.0          # cura por segundo dentro da própria base
 # --- Pacotes de vida e regeneração (Pacote 5) --------------------------------
 ## 5 pontos espelhados: 2 de cada lado e 1 no meio (longe do ponto e das bases).
 const HEALTH_PACKS := [Vector2(330, 110), Vector2(330, 490), Vector2(950, 110), Vector2(950, 490), Vector2(640, 520)]
-const PACK_HEAL := 100.0           # cura na hora ao pegar
-const PACK_RESPAWN := 20.0         # s até o pacote voltar
+const PACK_HEAL := 60.0            # cura na hora ao pegar (100 até 11 nov.: cura demais, partidas por tempo)
+const PACK_RESPAWN := 30.0         # s até o frasco voltar (era 20)
 const PACK_PICK_R := 18.0          # raio do pacote para pegar (mais o raio do herói)
 ## Frasco de Ambrosia fora do recuo: vai buscar se a vida estiver abaixo de `hp`
 ## e o frasco a até `reach` px. Segue os textos da Lore (claude/textos-pacote-5.md):
@@ -25,8 +25,8 @@ const PACK_DETOUR := {"aggressive": {"hp": 0.5, "reach": 90.0}, "balanced": {"hp
 ## No recuo, troca a base pelo frasco se ele estiver a menos desta fração da
 ## distância até a base (Equilibrado e Defensivo: qualquer frasco mais perto).
 const PACK_OVER_BASE := {"aggressive": 0.5, "balanced": 1.0, "defensive": 1.0}
-const REGEN_DELAY := 5.0           # s sem levar dano para começar a regenerar
-const REGEN_RATE := 8.0            # vida por segundo (base: 90/s; pacote: 100 na hora)
+const REGEN_DELAY := 7.0           # s sem levar dano para começar a regenerar (era 5)
+const REGEN_RATE := 5.0            # vida por segundo (era 8; base: 90/s; frasco: 60 na hora)
 ## Cobertura: abaixo desta fração da vida, sem inimigo a COVER_SAFE px, o herói
 ## se esconde atrás de uma coluna para regenerar (até COVER_DONE). -1 = nunca.
 const COVER_HP := {"aggressive": -1.0, "balanced": 0.4, "defensive": 0.6}
@@ -109,7 +109,8 @@ const STYLES := ["frontline", "backline_dps", "backline_support", "dive", "flank
 const HERO_ORDER := ["talos", "artemis", "asclepio", "hercules", "zeus", "atena"]
 ## Funções, na ordem de exibição (seleção, galeria e time na partida).
 const ROLE_ORDER := ["Tanque", "Dano", "Suporte"]
-## Seleção livre: 3 heróis, no máximo 2 da mesma função, sem repetir herói.
+## Times: 3 heróis sem repetir. Padrão (modo equilibrado): 1 de cada função.
+## Modo livre (experimental): no máximo 2 da mesma função.
 const TEAM_SIZE := 3
 const MAX_PER_ROLE := 2
 const DEFAULT_TEAM := ["talos", "artemis", "asclepio"]
@@ -134,7 +135,8 @@ static func heroes_by_role() -> Array:
 
 
 ## Pode pôr `hid` no time? Retorna "" ou o motivo: "full", "dup", "role".
-static func team_add_block(team: Array, hid: String) -> String:
+## Padrão: 1 por função; `free` (modo livre): até MAX_PER_ROLE por função.
+static func team_add_block(team: Array, hid: String, free_mode := false) -> String:
 	if team.has(hid):
 		return "dup"
 	if team.size() >= TEAM_SIZE:
@@ -143,16 +145,16 @@ static func team_add_block(team: Array, hid: String) -> String:
 	for h in team:
 		if HEROES[h]["role"] == HEROES[hid]["role"]:
 			n += 1
-	return "role" if n >= MAX_PER_ROLE else ""
+	return "role" if n >= (MAX_PER_ROLE if free_mode else 1) else ""
 
 
-## Time válido: 3 heróis, no máximo 2 da mesma função, sem repetir herói.
-static func valid_team(team: Array) -> bool:
+## Time válido: 3 heróis sem repetir; 1 de cada função (ou até 2, no modo livre).
+static func valid_team(team: Array, free_mode := false) -> bool:
 	if team.size() != TEAM_SIZE:
 		return false
 	var seen: Array = []
 	for hid in team:
-		if not HEROES.has(hid) or team_add_block(seen, hid) != "":
+		if not HEROES.has(hid) or team_add_block(seen, hid, free_mode) != "":
 			return false
 		seen.append(hid)
 	return true
@@ -167,21 +169,21 @@ static func sort_team(team: Array) -> Array:
 
 
 ## Todos os times possíveis (ordenados), para a simulação.
-static func all_teams() -> Array:
+static func all_teams(free_mode := false) -> Array:
 	var out: Array = []
 	var hs := heroes_by_role()
 	for i in hs.size():
 		for j in range(i + 1, hs.size()):
 			for k in range(j + 1, hs.size()):
 				var tm := [hs[i], hs[j], hs[k]]
-				if valid_team(tm):
+				if valid_team(tm, free_mode):
 					out.append(tm)
 	return out
 
 
-## Time sorteado pela regra livre (qualquer time válido, com a mesma chance).
-static func random_team() -> Array:
-	var all := all_teams()
+## Time sorteado (qualquer time válido do modo, com a mesma chance).
+static func random_team(free_mode := false) -> Array:
+	var all := all_teams(free_mode)
 	return all[randi() % all.size()].duplicate()
 
 

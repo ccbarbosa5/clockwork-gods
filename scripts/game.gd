@@ -99,7 +99,7 @@ func setup(opts: Dictionary) -> void:
 	wheels = [Wheel.new(), Wheel.new()]
 	var opt_teams: Array = opts.get("teams", [])
 	for t in 2:
-		if opt_teams.size() > t and Data.valid_team(opt_teams[t]):
+		if opt_teams.size() > t and Data.valid_team(opt_teams[t], opts.get("free", false)):
 			teams[t] = Data.sort_team(opt_teams[t])
 	packs.clear()
 	for pp in Data.HEALTH_PACKS:

@@ -29,6 +29,8 @@ var heroes: Array = []
 var team: Array = Data.DEFAULT_TEAM.duplicate()
 var difficulty := "normal"
 var behavior := "balanced"
+## Modo livre (experimental): até 2 da mesma função. Desligado = 1 de cada função.
+var free_mode := false
 ## Herói mostrado na ficha (o último clicado; o mouse por cima tem prioridade).
 var focus := ""
 ## Aviso curto depois de um clique que não pôde pôr o herói no time.
@@ -73,6 +75,10 @@ func beh_rect(i: int) -> Rect2:
 	return Rect2(940 + i * 98, 578, 92, 30)
 
 
+func free_rect() -> Rect2:
+	return Rect2(X, 642, 300, 34)
+
+
 func confirm_rect() -> Rect2:
 	return Rect2(1000, 634, 236, 50)
 
@@ -81,11 +87,24 @@ func confirm_rect() -> Rect2:
 # Regras do time
 
 func ready_to_start() -> bool:
-	return Data.valid_team(team)
+	return Data.valid_team(team, free_mode)
 
 
 func start_opts() -> Dictionary:
-	return {"difficulty": difficulty, "behavior": behavior, "team": Data.sort_team(team)}
+	return {"difficulty": difficulty, "behavior": behavior, "team": Data.sort_team(team), "free": free_mode}
+
+
+## Liga ou desliga o modo livre. Ao desligar, tira os heróis que repetem função
+## (fica o primeiro de cada função).
+func set_free(on: bool) -> void:
+	free_mode = on
+	if free_mode:
+		return
+	var kept: Array = []
+	for hid in team:
+		if Data.team_add_block(kept, hid) == "":
+			kept.append(hid)
+	team = kept
 
 
 ## Põe ou tira o herói do time. Retorna "" (mudou) ou o motivo do bloqueio.
@@ -94,7 +113,14 @@ func toggle(hid: String) -> String:
 	if team.has(hid):
 		team.erase(hid)
 		return ""
-	var why := Data.team_add_block(team, hid)
+	var why := Data.team_add_block(team, hid, free_mode)
+	if why == "role" and not free_mode:
+		# Modo padrão: troca o herói da mesma função.
+		for h in team:
+			if Data.HEROES[h]["role"] == Data.HEROES[hid]["role"]:
+				team.erase(h)
+				break
+		why = ""
 	if why == "":
 		team.append(hid)
 		team = Data.sort_team(team)
@@ -103,7 +129,7 @@ func toggle(hid: String) -> String:
 
 ## Texto do aviso de engrenagens que faltam ("" se o time tem todas).
 func gear_warning() -> String:
-	if team.size() < Data.TEAM_SIZE:
+	if team.size() < Data.TEAM_SIZE or not free_mode:
 		return ""
 	var miss := Data.missing_gears(team)
 	if miss.is_empty():
@@ -165,6 +191,10 @@ func handle(event: InputEvent) -> bool:
 				behavior = Data.BEHAVIORS[i]
 				_sound("click")
 				return true
+		if free_rect().has_point(m):
+			set_free(not free_mode)
+			_sound("click")
+			return true
 		if confirm_rect().has_point(m):
 			confirm()
 		return true
@@ -208,7 +238,7 @@ func _draw() -> void:
 	UI.gear(self, Vector2(1180, 640), 90.0, 11, Color(Data.BRONZE, 0.06), t * 0.2)
 	var m := get_global_mouse_position()
 	UI.text_c(self, Vector2(640, 52), T.t("SEL_TITLE"), 30, Data.GOLD, 5)
-	UI.text_c(self, Vector2(640, 80), T.t("SEL_HINT"), 13, Color(1, 1, 1, 0.6))
+	UI.text_c(self, Vector2(640, 80), T.t("SEL_HINT_FREE" if free_mode else "SEL_HINT"), 13, Color(1, 1, 1, 0.6))
 	var br := back_rect()
 	UI.panel(self, br, Color(Data.BRONZE, 0.35) if br.has_point(m) else Color(0, 0, 0, 0.4), Color(Data.BRONZE, 0.7), 1.5)
 	UI.text_c(self, br.get_center() + Vector2(0, 5), T.t("GAL_BACK"), 14, Color.WHITE)
@@ -226,7 +256,8 @@ func _draw() -> void:
 		if hov:
 			hover = hid
 		var in_team := team.has(hid)
-		var dim := not in_team and Data.team_add_block(team, hid) != ""
+		var why := Data.team_add_block(team, hid, free_mode)
+		var dim := not in_team and why != "" and not (why == "role" and not free_mode)
 		Cards.draw_card(self, r, hid, in_team, hov, dim, T.t("SEL_IN_TEAM") if in_team else "")
 
 	UI.panel(self, PANEL, Color(0, 0, 0, 0.3), Color(Data.BRONZE, 0.4), 1.5)
@@ -305,11 +336,19 @@ func _draw_options(m: Vector2) -> void:
 		var on2: bool = Data.BEHAVIORS[i] == behavior
 		UI.panel(self, r2, Color(Data.BRONZE, 0.6) if on2 else Color(0, 0, 0, 0.55), Data.GOLD if on2 else Color(Data.BRONZE, 0.6), 2.0)
 		UI.text_c(self, r2.get_center() + Vector2(0, 5), T.behavior_name(Data.BEHAVIORS[i]), 13, Color.WHITE)
+	# Caixa do modo livre
+	var fr := free_rect()
+	var box := Rect2(fr.position + Vector2(0, 7), Vector2(20, 20))
+	UI.panel(self, box, Color(0, 0, 0, 0.6), Data.GOLD if fr.has_point(m) else Color(Data.BRONZE, 0.8), 2.0)
+	if free_mode:
+		draw_line(box.position + Vector2(4, 10), box.position + Vector2(8, 15), Data.GOLD, 3.0, true)
+		draw_line(box.position + Vector2(8, 15), box.position + Vector2(16, 5), Data.GOLD, 3.0, true)
+	UI.text_l(self, Vector2(box.end.x + 10, box.get_center().y + 5), T.t("SEL_FREE"), 14, Color(1, 1, 1, 0.85))
 	var cr := confirm_rect()
 	var ok := ready_to_start()
 	var hov := cr.has_point(m) and ok
 	UI.panel(self, cr, Color(Data.GOLD, (0.55 if hov else 0.4) if ok else 0.08), Data.GOLD if ok else Color(Data.BRONZE, 0.4), 3.0 if ok else 1.5)
 	UI.text_c(self, cr.get_center() + Vector2(0, 7), T.t("SEL_CONFIRM"), 18, Color.WHITE if ok else Color(1, 1, 1, 0.35), 3)
 	if not ok:
-		UI.text_r(self, Vector2(cr.position.x - 14, cr.get_center().y + 5), T.tf("SEL_NEED", [Data.TEAM_SIZE - team.size()]), 14, Color(1, 1, 1, 0.6))
+		UI.text_c(self, Vector2(cr.get_center().x, cr.position.y - 8), T.tf("SEL_NEED", [Data.TEAM_SIZE - team.size()]), 13, Color(1, 1, 1, 0.6))
 
