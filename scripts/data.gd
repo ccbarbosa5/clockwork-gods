@@ -225,7 +225,7 @@ const HEROES := {
 	},
 	"atena": {
 		"role": "Suporte", "origin": "deusa",
-		"hp": 340.0, "speed": 88.0, "range": 180.0, "dmg": 16.0, "cd": 0.8,
+		"hp": 330.0, "speed": 88.0, "range": 180.0, "dmg": 16.0, "cd": 0.8,
 		"radius": 17.0, "color": Color(0.33, 0.85, 0.45), "style": "battle_support",
 		"proj_speed": 700.0, "basic": "spear",
 		# Passiva Escudo de Palas: cada acerto do básico dá 10 de escudo ao aliado
@@ -244,7 +244,7 @@ const HEROES := {
 		"role": "Suporte", "origin": "semideus",
 		"hp": 280.0, "speed": 90.0, "range": 230.0, "dmg": 10.0, "cd": 0.75,
 		"radius": 16.0, "color": Color(0.33, 0.85, 0.45), "style": "backline_support",
-		"proj_speed": 620.0, "heal": 13.5, "heal_range": 260.0,
+		"proj_speed": 620.0, "heal": 14.4, "heal_range": 260.0,
 		"ult": "segunda", "cards": ["sopro", "veneno", "engrenagem"],
 	},
 }
