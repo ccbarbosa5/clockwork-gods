@@ -114,6 +114,8 @@ const FX_EFFECTS := {
 const AREA_ALPHA := 0.55
 ## Escudo de Palas: a faixa de prata entregue começa a 59% do raio da imagem.
 const ESCUDO_PALAS_INNER := 0.59
+## Falange de Atenas: a parede de escudos entregue é bem opaca; mais leve que as outras áreas.
+const FALANGE_ALPHA := 0.4
 const RAIN_ALPHA := 0.45
 
 ## Distância do centro da imagem da Muralha até o centro do Talos (px).

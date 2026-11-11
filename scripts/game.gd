@@ -1454,7 +1454,7 @@ func _draw_new_zones() -> void:
 	for z2 in phalanxes:
 		var tc3: Color = Data.TEAM_COLORS[z2["team"]]
 		var a3: float = clampf(z2["life"] * 2.0, 0.0, 1.0)
-		if not Art.draw_fx(self, "falange_area", z2["pos"], Art.FX_EFFECTS["falange_area"], 1.0, Art.AREA_ALPHA * a3):
+		if not Art.draw_fx(self, "falange_area", z2["pos"], Art.FX_EFFECTS["falange_area"], 1.0, Art.FALANGE_ALPHA * a3):
 			draw_circle(z2["pos"], z2["r"], Color(0.55, 0.65, 0.35, 0.12 * a3))
 			for j in 14:
 				var ang2 := j * TAU / 14.0
