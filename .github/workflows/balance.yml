@@ -1,0 +1,116 @@
+name: Balanceamento
+
+# Simulação longa de balanceamento (bots contra bots). Resultado no "Job
+# summary" da execução e no artefato balance.md. Ver claude/balanceamento.md.
+on:
+  workflow_dispatch:
+    inputs:
+      sementes:
+        description: "Sementes do balanceamento principal (64 partidas cada; 32 ≈ 1.000 partidas por herói)"
+        default: "32"
+      sementes_extras:
+        description: "Sementes de cada teste extra (peso de cada elo e Difícil × Normal)"
+        default: "8"
+      niveis:
+        description: "Níveis dos bots no balanceamento principal"
+        type: choice
+        options: ["hard,hard", "normal,normal", "easy,easy", "hard,normal"]
+        default: "hard,hard"
+      roda:
+        description: "Roda do Destino"
+        type: choice
+        options: ["on", "off"]
+        default: "on"
+      extras:
+        description: "Rodar os testes extras (peso de cada elo e Difícil × Normal)"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "37 8 * * 1"   # segunda-feira, 05:37 em Brasília
+
+env:
+  GODOT_VERSION: "4.7.2"
+  SEEDS: ${{ inputs.sementes || '32' }}
+  XSEEDS: ${{ inputs.sementes_extras || '8' }}
+  DIFFS: ${{ inputs.niveis || 'hard,hard' }}
+  WHEEL: ${{ inputs.roda || 'on' }}
+  EXTRAS: ${{ github.event_name == 'schedule' && 'true' || inputs.extras }}
+
+jobs:
+  simular:
+    name: Partidas (fatia ${{ matrix.part }}/8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesmo cache do publish.yml (Godot + templates web).
+      - name: Cache do Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Baixar Godot e templates web
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          V="${GODOT_VERSION}-stable"
+          mkdir -p ~/godot/templates
+          cd ~/godot
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/$V/Godot_v${V}_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv "Godot_v${V}_linux.x86_64" godot
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/$V/Godot_v${V}_export_templates.tpz"
+          unzip -q -j templates.tpz 'templates/web_nothreads_release.zip' 'templates/web_nothreads_debug.zip' 'templates/version.txt' -d templates
+          rm templates.tpz
+
+      - name: Importar o projeto
+        run: ~/godot/godot --headless --path . --import > /dev/null 2>&1 || true
+
+      - name: Simular
+        run: GODOT=~/godot/godot tools/balance_run.sh ${{ matrix.part }} 8 "$SEEDS" "$XSEEDS" "$DIFFS" "$WHEEL" "$EXTRAS" logs
+
+      - name: Guardar logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.part }}
+          path: logs
+          retention-days: 14
+
+  resumo:
+    name: Resumo
+    needs: simular
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          path: logs
+
+      - name: Juntar resultados
+        run: |
+          python3 tools/balance_summary.py logs "$DIFFS" "$WHEEL" > balance.md
+          cat balance.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar resumo
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance
+          path: balance.md
+          retention-days: 90
+
+      - name: Guardar todos os logs juntos
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-logs
+          path: logs
+          retention-days: 14
