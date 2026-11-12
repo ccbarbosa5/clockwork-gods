@@ -62,6 +62,17 @@ func _process(_d: float) -> bool:
 			# Lupa: recorte em tamanho real (sem a redução para 800 × 450).
 			var zr: Rect2 = HowTo.ZOOMS[tb]["src"]
 			var crop := img.get_region(Rect2i(zr))
+			if HowTo.ZOOMS[tb].get("circle", false):
+				# Só a roda: fora do círculo fica transparente (borda suave de 1,5 px).
+				crop.convert(Image.FORMAT_RGBA8)
+				var c := Vector2(crop.get_width(), crop.get_height()) * 0.5
+				var rad: float = c.x * HowTo.ZOOM_CIRCLE
+				for y in crop.get_height():
+					for x in crop.get_width():
+						var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
+						var px := crop.get_pixel(x, y)
+						px.a = clampf((rad - d) / 1.5 + 0.5, 0.0, 1.0)
+						crop.set_pixel(x, y, px)
 			var zp := ProjectSettings.globalize_path(HowTo.zoom_path(tb, jobs[cur][1]))
 			crop.save_png(zp)
 			print("SHOT ", zp)

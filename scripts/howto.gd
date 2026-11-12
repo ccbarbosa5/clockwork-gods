@@ -21,7 +21,15 @@ const SHOT := "res://assets/help/howto_%d_%s.jpg"
 ## Lupa: recorte da captura em tamanho real (howto_N_zoom_<idioma>.png),
 ## mostrado ampliado em `dst` (coordenadas 1280 × 720 da captura).
 ## aba (0 a 7) → {"src": recorte, "dst": onde aparece}.
-const ZOOMS := {3: {"src": Rect2(250, 612, 104, 104), "dst": Rect2(270, 130, 346, 346)}}
+## "circle": recorte redondo (o resto fica transparente), para pegar só a roda.
+const ZOOMS := {
+	3: {"src": Rect2(266, 628, 72, 72), "dst": Rect2(245, 60, 240, 240), "circle": true},
+	4: {"src": Rect2(12, 628, 264, 88), "dst": Rect2(150, 389, 449, 150)},
+}
+## Raio do recorte redondo, em fração da metade do lado.
+const ZOOM_CIRCLE := 0.88
+const ZOOM_PAD := 6.0
+const MARK_FONT := 13
 const ZOOM_SHOT := "res://assets/help/howto_%d_zoom_%s.png"
 
 ## Imagem: captura 1280 × 720 reduzida para 800 × 450 (escala 0,625).
@@ -39,6 +47,8 @@ const HUD_PROGRESS := [Rect2(20, 13, 470, 14), Rect2(790, 13, 470, 14)]
 const HUD_CLOCK := Rect2(610, 3, 60, 22)
 const HUD_STATUS := Rect2(560, 26, 160, 13)
 const HUD_ICHOR := Rect2(350, 700, 504, 14)
+## Barra de Ícor com o número ao lado ("5 Ícor").
+const HUD_ICHOR_ALL := Rect2(350, 698, 560, 18)
 const HUD_CARDS := Rect2(350, 576, 504, 118)
 const HUD_CARD_W := 128.0
 const HUD_NEXT := Rect2(872, 604, 78, 90)
@@ -46,12 +56,16 @@ const HUD_WHEEL := Vector2(302, 664)
 const HUD_WHEEL_R := 17.0
 const HUD_ULT := Vector2(50, 668)
 const HUD_ULT_STEP := 94.0
+## Letra da tecla da ultimate, em relação ao centro do botão.
+const HUD_ULT_KEY := Vector2(-20, -18)
 const HUD_BEH := Rect2(984, 614, 282, 40)
 const HUD_BEH_W := 96.0
 const HUD_PAUSE := Rect2(430, 120, 420, 470)
 const HUD_PAUSE_LANG := Rect2(560, 424, 110, 32)
+## Botões de idioma com a palavra "Idioma" à esquerda.
+const HUD_PAUSE_LANG_ALL := Rect2(486, 422, 186, 36)
 const SEL_LIST := Rect2(24, 96, 560, 600)
-const SEL_SHEET := Rect2(612, 104, 636, 280)
+const SEL_SHEET := Rect2(612, 104, 636, 298)
 const SEL_SLOTS := Rect2(626, 432, 604, 80)
 const SEL_FREE := Rect2(626, 642, 300, 34)
 const SEL_CONFIRM := Rect2(1000, 634, 236, 50)
@@ -148,6 +162,9 @@ static func bullet_text(key: String) -> String:
 
 ## Marcações de cada aba, em coordenadas da tela do jogo (1280 × 720):
 ## {"key": legenda, "at": centro da legenda, "shapes": [Rect2 ou [centro, raio]]}.
+## Uma legenda pode ter várias setas (uma por forma). Raio 0 = só a seta.
+## Regras (conferidas em tests/tests.gd): a legenda não cobre nenhum alvo da aba,
+## nem outra legenda, nem a lupa; setas de legendas diferentes não se cruzam.
 static func marks(i: int) -> Array:
 	var ult := func(j: int) -> Vector2: return HUD_ULT + Vector2(j * HUD_ULT_STEP, 0)
 	var card := func(j: int) -> Rect2: return Rect2(HUD_CARDS.position + Vector2(j * HUD_CARD_W, 0), Vector2(120, 118))
@@ -156,22 +173,24 @@ static func marks(i: int) -> Array:
 		0:
 			return [
 				{"key": "HOWTO_M_1_1", "at": Vector2(640, 452), "shapes": [[HUD_POINT, Data.POINT_R + 8.0]]},
-				{"key": "HOWTO_M_1_2", "at": Vector2(255, 100), "shapes": [HUD_PROGRESS[0]]},
-				{"key": "HOWTO_M_1_2", "at": Vector2(1025, 100), "shapes": [HUD_PROGRESS[1]]},
-				{"key": "HOWTO_M_1_3", "at": Vector2(500, 90), "shapes": [HUD_CLOCK]},
-				{"key": "HOWTO_M_1_4", "at": Vector2(800, 100), "shapes": [HUD_STATUS]},
+				# Uma legenda, duas setas: para a ponta de fora de cada barra,
+				# passando por baixo das legendas do tempo e do dono do ponto.
+				{"key": "HOWTO_M_1_2", "at": Vector2(640, 135), "shapes": HUD_PROGRESS.duplicate(),
+					"to": [Vector2(60, 29), Vector2(1220, 29)]},
+				{"key": "HOWTO_M_1_3", "at": Vector2(420, 55), "shapes": [HUD_CLOCK]},
+				{"key": "HOWTO_M_1_4", "at": Vector2(850, 55), "shapes": [HUD_STATUS]},
 			]
 		1:
 			return [
-				{"key": "HOWTO_M_2_1", "at": Vector2(304, 640), "shapes": [SEL_LIST]},
-				{"key": "HOWTO_M_2_2", "at": Vector2(1140, 150), "shapes": [SEL_SHEET]},
-				{"key": "HOWTO_M_2_3", "at": Vector2(930, 530), "shapes": [SEL_SLOTS]},
-				{"key": "HOWTO_M_2_4", "at": Vector2(560, 705), "shapes": [SEL_FREE]},
-				{"key": "HOWTO_M_2_5", "at": Vector2(1118, 705), "shapes": [SEL_CONFIRM]},
+				{"key": "HOWTO_M_2_1", "at": Vector2(304, 72), "shapes": [SEL_LIST]},
+				{"key": "HOWTO_M_2_2", "at": Vector2(1100, 72), "shapes": [SEL_SHEET]},
+				{"key": "HOWTO_M_2_3", "at": Vector2(900, 535), "shapes": [SEL_SLOTS]},
+				{"key": "HOWTO_M_2_4", "at": Vector2(776, 700), "shapes": [SEL_FREE]},
+				{"key": "HOWTO_M_2_5", "at": Vector2(1118, 535), "shapes": [SEL_CONFIRM]},
 			]
 		2:
 			return [
-				{"key": "HOWTO_M_3_1", "at": Vector2(1070, 700), "shapes": [HUD_ICHOR]},
+				{"key": "HOWTO_M_3_1", "at": Vector2(1070, 704), "shapes": [HUD_ICHOR_ALL]},
 				{"key": "HOWTO_M_3_2", "at": Vector2(600, 512), "shapes": [HUD_CARDS]},
 				{"key": "HOWTO_M_3_3", "at": Vector2(380, 455), "shapes": [[card.call(1).position + Vector2(13, 13), 14.0]]},
 				{"key": "HOWTO_M_3_4", "at": Vector2(800, 455), "shapes": [Rect2(card.call(2).position, Vector2(120, 26))]},
@@ -185,22 +204,25 @@ static func marks(i: int) -> Array:
 			var arc := node0 + Vector2(cos(PI / 6.0), sin(PI / 6.0)) * 9.5
 			var link := HUD_WHEEL + Vector2(-1, -1).normalized() * HUD_WHEEL_R
 			return [
-				{"key": "HOWTO_M_4_1", "at": Vector2(443, 540), "shapes": [[z.call(HUD_WHEEL), (HUD_WHEEL_R + 10.0) * zs]]},
-				{"key": "HOWTO_M_4_2", "at": Vector2(800, 200), "shapes": [[z.call(node0), 9.0 * zs]]},
-				{"key": "HOWTO_M_4_3", "at": Vector2(800, 320), "shapes": [[z.call(arc), 0.0]]},
+				{"key": "HOWTO_M_4_1", "at": Vector2(420, 345), "shapes": [[z.call(HUD_WHEEL), (HUD_WHEEL_R + 11.0) * zs]]},
+				{"key": "HOWTO_M_4_2", "at": Vector2(640, 95), "shapes": [[z.call(node0), 9.0 * zs]]},
+				{"key": "HOWTO_M_4_3", "at": Vector2(640, 200), "shapes": [[z.call(arc), 0.0]]},
 				{"key": "HOWTO_M_4_4", "at": Vector2(640, 525), "shapes": [card.call(0)]},
-				{"key": "HOWTO_M_4_5", "at": Vector2(120, 250), "shapes": [[z.call(link), 0.0]]},
+				{"key": "HOWTO_M_4_5", "at": Vector2(110, 110), "shapes": [[z.call(link), 0.0]]},
 			]
 		4:
+			# Na lupa dos medidores: Talos pronta, Ártemis 62%, Asclépio 35%.
+			var z := func(p: Vector2) -> Vector2: return zoom_point(4, p)
+			var zs: float = zoom_scale(4)
 			return [
-				{"key": "HOWTO_M_5_1", "at": Vector2(150, 470), "shapes": [[ult.call(0), 33.0]]},
-				{"key": "HOWTO_M_5_2", "at": Vector2(330, 520), "shapes": [[ult.call(1), 32.0]]},
-				{"key": "HOWTO_M_5_3", "at": Vector2(470, 470), "shapes": [[ult.call(2), 26.0]]},
-				{"key": "HOWTO_M_5_4", "at": Vector2(70, 540), "shapes": [[ult.call(0) + Vector2(-20, -22), 10.0]]},
+				{"key": "HOWTO_M_5_1", "at": Vector2(180, 350), "shapes": [[z.call(ult.call(0)), 31.0 * zs]]},
+				{"key": "HOWTO_M_5_2", "at": Vector2(440, 350), "shapes": [[z.call(ult.call(1)), 31.0 * zs]]},
+				{"key": "HOWTO_M_5_3", "at": Vector2(760, 470), "shapes": [[z.call(ult.call(2)), 22.0 * zs]]},
+				{"key": "HOWTO_M_5_4", "at": Vector2(70, 450), "shapes": [[z.call(ult.call(0) + HUD_ULT_KEY), 8.0 * zs]]},
 			]
 		5:
 			return [
-				{"key": "HOWTO_M_6_1", "at": Vector2(1125, 702), "shapes": [HUD_BEH]},
+				{"key": "HOWTO_M_6_1", "at": Vector2(1125, 704), "shapes": [HUD_BEH]},
 				{"key": "HOWTO_M_6_2", "at": Vector2(830, 560), "shapes": [beh.call(1)]},
 				{"key": "HOWTO_M_6_3", "at": Vector2(820, 420), "shapes": [behavior_tip_rect()]},
 			]
@@ -215,10 +237,10 @@ static func marks(i: int) -> Array:
 		7:
 			return [
 				{"key": "HOWTO_M_8_1", "at": Vector2(260, 540), "shapes": [HUD_CARDS]},
-				{"key": "HOWTO_M_8_2", "at": Vector2(150, 595), "shapes": [Rect2(HUD_ULT - Vector2(32, 32), Vector2(64 + 2 * HUD_ULT_STEP, 64))]},
+				{"key": "HOWTO_M_8_2", "at": Vector2(150, 597), "shapes": [Rect2(HUD_ULT - Vector2(32, 32), Vector2(64 + 2 * HUD_ULT_STEP, 64))]},
 				{"key": "HOWTO_M_8_3", "at": Vector2(1125, 570), "shapes": [HUD_BEH]},
 				{"key": "HOWTO_M_8_4", "at": Vector2(270, 165), "shapes": [Rect2(HUD_PAUSE.position + Vector2(60, 20), Vector2(300, 50))]},
-				{"key": "HOWTO_M_8_5", "at": Vector2(300, 440), "shapes": [HUD_PAUSE_LANG]},
+				{"key": "HOWTO_M_8_5", "at": Vector2(300, 440), "shapes": [HUD_PAUSE_LANG_ALL]},
 			]
 	return []
 
@@ -237,6 +259,12 @@ static func zoom_path(i: int, lang: String) -> String:
 	return ZOOM_SHOT % [i + 1, lang]
 
 
+## Moldura da lupa na tela (com a borda).
+static func zoom_frame(i: int) -> Rect2:
+	var d: Rect2 = ZOOMS[i]["dst"]
+	return Rect2(to_screen(d.position), d.size * IMG_SCALE).grow(ZOOM_PAD + 3.0)
+
+
 ## Caixa da dica de comportamento (Equilibrado) na captura da aba 6.
 static func behavior_tip_rect() -> Rect2:
 	var hud = load("res://scripts/hud.gd")
@@ -249,6 +277,87 @@ static func behavior_tip_rect() -> Rect2:
 ## Ponto da captura (1280 × 720) na tela "Como jogar".
 static func to_screen(p: Vector2) -> Vector2:
 	return IMG.position + p * IMG_SCALE
+
+
+## Geometria de uma marcação na tela: caixa da legenda, alvos (retângulos que
+## os envolvem) e setas [de, até].
+static func mark_layout(mk: Dictionary) -> Dictionary:
+	var label := T.t(mk["key"])
+	var tw := UI.font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, MARK_FONT).x
+	var c := to_screen(mk["at"])
+	var box := Rect2(c - Vector2(tw * 0.5 + 8, 11), Vector2(tw + 16, 22))
+	# A legenda nunca sai da imagem.
+	box.position.x = clampf(box.position.x, IMG.position.x + 4, IMG.end.x - box.size.x - 4)
+	box.position.y = clampf(box.position.y, IMG.position.y + 4, IMG.end.y - box.size.y - 2)
+	var targets: Array = []
+	var arrows: Array = []
+	var k := -1
+	for s in mk["shapes"]:
+		k += 1
+		var target: Vector2
+		if s is Rect2:
+			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(2)
+			targets.append(r)
+			# Ponto do alvo mais perto da legenda.
+			target = Vector2(clampf(box.get_center().x, r.position.x, r.end.x), clampf(box.get_center().y, r.position.y, r.end.y))
+		else:
+			var cc := to_screen(s[0])
+			var rr: float = s[1] * IMG_SCALE
+			targets.append(Rect2(cc - Vector2(rr, rr), Vector2(rr, rr) * 2.0).grow(3.0 if rr <= 0.0 else 1.0))
+			target = cc + (box.get_center() - cc).normalized() * rr
+		if mk.has("to"):
+			target = to_screen(mk["to"][k])
+		var from := _rect_edge(box, target)
+		if from.distance_to(target) > 6.0:
+			arrows.append([from, target])
+	return {"label": label, "box": box, "targets": targets, "arrows": arrows}
+
+
+## Problemas de posição das legendas da aba `i` (vazio = tudo certo):
+## legenda cobrindo um alvo, outra legenda ou a lupa; seta cruzando seta ou
+## legenda de outra marcação. Usado pelos testes.
+static func layout_problems(i: int) -> Array:
+	var out: Array = []
+	var ms := marks(i)
+	var lays: Array = []
+	for mk in ms:
+		lays.append(mark_layout(mk))
+	var frame := zoom_frame(i) if ZOOMS.has(i) else Rect2()
+	for a in lays.size():
+		var box: Rect2 = lays[a]["box"]
+		var name: String = ms[a]["key"]
+		if ZOOMS.has(i) and box.intersects(frame):
+			out.append("%s cobre a lupa" % name)
+		for b in lays.size():
+			for t in lays[b]["targets"]:
+				if box.intersects(t):
+					out.append("%s cobre o alvo de %s" % [name, ms[b]["key"]])
+			if b <= a:
+				continue
+			if box.intersects(lays[b]["box"]):
+				out.append("%s cobre a legenda %s" % [name, ms[b]["key"]])
+		for b in lays.size():
+			if b == a:
+				continue
+			for ar in lays[a]["arrows"]:
+				if _segment_hits_rect(ar[0], ar[1], lays[b]["box"].grow(-1)):
+					out.append("seta de %s passa sobre a legenda %s" % [name, ms[b]["key"]])
+				if b < a:
+					continue
+				for br in lays[b]["arrows"]:
+					if Geometry2D.segment_intersects_segment(ar[0], ar[1], br[0], br[1]) != null:
+						out.append("setas de %s e %s se cruzam" % [name, ms[b]["key"]])
+	return out
+
+
+static func _segment_hits_rect(a: Vector2, b: Vector2, r: Rect2) -> bool:
+	if r.has_point(a) or r.has_point(b):
+		return true
+	var c := [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]
+	for k in 4:
+		if Geometry2D.segment_intersects_segment(a, b, c[k], c[(k + 1) % 4]) != null:
+			return true
+	return false
 
 
 # --- Desenho -----------------------------------------------------------------
@@ -274,13 +383,24 @@ func _draw_tab(ci: CanvasItem, i: int, m: Vector2) -> void:
 	UI.panel(ci, r, bg, Data.GOLD if on else Color(Data.BRONZE, 0.7 if hov else 0.45), 2.5 if on else 1.5)
 	if on:
 		ci.draw_rect(Rect2(r.position.x, r.end.y - 4, r.size.x, 4), Data.GOLD)
-	var num_c := Vector2(r.position.x + 17, r.get_center().y)
-	ci.draw_circle(num_c, 10.0, Color(0, 0, 0, 0.5))
-	UI.ring(ci, num_c, 10.0, Data.GOLD if on else Color(Data.BRONZE, 0.8), 1.5)
+	var num_c := Vector2(r.position.x + 15, r.get_center().y)
+	ci.draw_circle(num_c, 9.0, Color(0, 0, 0, 0.5))
+	UI.ring(ci, num_c, 9.0, Data.GOLD if on else Color(Data.BRONZE, 0.8), 1.5)
 	UI.text_c(ci, num_c + Vector2(0, 4), str(i + 1), 11, Data.GOLD if on else Color(1, 1, 1, 0.75))
 	var label := T.t("HOWTO_TAB_%d" % (i + 1))
-	var size := _fit(label, r.size.x - 40.0, 14, 10)
-	UI.text_c(ci, Vector2(r.position.x + 32 + (r.size.x - 36) * 0.5, r.get_center().y + 5), label, size, Color.WHITE if on else Color(1, 1, 1, 0.8))
+	UI.text_c(ci, Vector2(r.position.x + TAB_TEXT_X + (r.size.x - TAB_TEXT_X - 4) * 0.5, r.get_center().y + 5), label, tab_font_size(), Color.WHITE if on else Color(1, 1, 1, 0.8))
+
+
+## Início do nome dentro da aba (depois do número).
+const TAB_TEXT_X := 28.0
+
+
+## Mesmo tamanho de letra em todas as abas: o maior em que todos os nomes cabem.
+static func tab_font_size() -> int:
+	var size := 14
+	for i in TABS:
+		size = mini(size, _fit(T.t("HOWTO_TAB_%d" % (i + 1)), 148.0 - TAB_TEXT_X - 8.0, 14, 10))
+	return size
 
 
 static func shot_path(i: int, lang: String) -> String:
@@ -309,39 +429,38 @@ func _draw_zoom(ci: CanvasItem, i: int) -> void:
 	var src: Rect2 = zm["src"]
 	var dst := Rect2(to_screen(zm["dst"].position), zm["dst"].size * IMG_SCALE)
 	var sr := Rect2(to_screen(src.position), src.size * IMG_SCALE)
+	var round: bool = zm.get("circle", false)
 	var tex := Art.tex(zoom_path(i, T.lang()))
 	if tex == null:
 		tex = Art.tex(zoom_path(i, "pt"))
 	var col := Color(Data.BRONZE, 0.9)
-	# Ligação entre o recorte e a lupa.
-	ci.draw_line(sr.position, dst.position + Vector2(0, dst.size.y), col, 1.5, true)
-	ci.draw_line(Vector2(sr.end.x, sr.position.y), dst.end, col, 1.5, true)
-	ci.draw_rect(sr, col, false, 1.5)
-	ci.draw_rect(dst.grow(5), Color(0, 0, 0, 0.7))
+	# Ligação entre o original e a lupa: contorno no original e um fio até a moldura.
+	var frame := zoom_frame(i)
+	if round:
+		UI.ring(ci, sr.get_center(), sr.size.x * 0.5, col, 1.5)
+	else:
+		ci.draw_rect(sr.grow(1), col, false, 1.5)
+	var a := Vector2(sr.get_center().x, sr.position.y)
+	var b := Vector2(clampf(a.x, frame.position.x + 12, frame.end.x - 12), frame.end.y)
+	ci.draw_line(a, b, col, 1.5, true)
+	ci.draw_circle(b, 3.0, col)
+	# Moldura: fundo escuro, borda limpa.
+	UI.panel(ci, frame, Color(0.05, 0.04, 0.03, 0.97), Data.BRONZE, 2.5)
+	ci.draw_rect(frame.grow(-4), Color(Data.GOLD, 0.25), false, 1.0)
 	if tex != null:
 		ci.draw_texture_rect(tex, dst, false)
-	else:
-		ci.draw_rect(dst, Color(0.12, 0.09, 0.07))
-	ci.draw_rect(dst.grow(2), Data.BRONZE, false, 3.0)
+	if round:
+		UI.ring(ci, dst.get_center(), dst.size.x * 0.5 * ZOOM_CIRCLE, Color(Data.GOLD, 0.6), 1.5)
 
 
 func _draw_mark(ci: CanvasItem, mk: Dictionary, pulse: float) -> void:
 	var col := Color(Data.GOLD, 0.75 + 0.25 * pulse)
-	var label := T.t(mk["key"])
-	var size := 13
-	var tw := UI.font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var c := to_screen(mk["at"])
-	var box := Rect2(c - Vector2(tw * 0.5 + 8, 11), Vector2(tw + 16, 22))
-	# A legenda nunca sai da imagem.
-	box.position.x = clampf(box.position.x, IMG.position.x + 4, IMG.end.x - box.size.x - 4)
-	box.position.y = clampf(box.position.y, IMG.position.y + 4, IMG.end.y - box.size.y - 4)
+	var lay := mark_layout(mk)
 	for s in mk["shapes"]:
-		var target: Vector2
 		if s is Rect2:
 			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(2)
 			ci.draw_rect(r, Color(0, 0, 0, 0.55), false, 4.0)
 			ci.draw_rect(r, col, false, 2.0)
-			target = _rect_edge(r, box.get_center())
 		else:
 			var cc := to_screen(s[0])
 			var rr: float = s[1] * IMG_SCALE
@@ -352,12 +471,11 @@ func _draw_mark(ci: CanvasItem, mk: Dictionary, pulse: float) -> void:
 				# Raio 0: só a seta, com um ponto no alvo.
 				ci.draw_circle(cc, 3.5, Color(0, 0, 0, 0.6))
 				ci.draw_circle(cc, 2.5, col)
-			target = cc + (box.get_center() - cc).normalized() * rr
-		var from := _rect_edge(box, target)
-		if from.distance_to(target) > 6.0:
-			_arrow(ci, from, target, col)
+	for ar in lay["arrows"]:
+		_arrow(ci, ar[0], ar[1], col)
+	var box: Rect2 = lay["box"]
 	UI.panel(ci, box, Color(0.08, 0.06, 0.05, 0.92), Data.GOLD, 1.5)
-	UI.text_c(ci, Vector2(box.get_center().x, box.end.y - 6), label, size, Color.WHITE)
+	UI.text_c(ci, Vector2(box.get_center().x, box.end.y - 6), lay["label"], MARK_FONT, Color.WHITE)
 
 
 ## Ponto da borda do retângulo na direção de `toward` (a partir do centro).
