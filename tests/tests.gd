@@ -2593,3 +2593,18 @@ func test_howto_draws_every_tab() -> void:
 		scene.free()
 		scene = null)
 
+
+func test_howto_labels_never_cover_targets() -> void:
+	var H = load("res://scripts/howto.gd")
+	var old := T.lang()
+	for l in T.LANGS:
+		T.set_lang(l, false)
+		check(H.tab_font_size() >= 12, "nomes das abas legíveis (%s)" % l)
+		for i in H.TABS:
+			var probs: Array = H.layout_problems(i)
+			check(probs.is_empty(), "aba %d (%s): %s" % [i + 1, l, ", ".join(probs)])
+			for mk in H.marks(i):
+				var box: Rect2 = H.mark_layout(mk)["box"]
+				check(H.IMG.encloses(box), "legenda %s dentro da imagem" % mk["key"])
+	T.set_lang(old, false)
+
