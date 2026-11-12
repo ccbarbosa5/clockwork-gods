@@ -2847,3 +2847,152 @@ func test_new_arena_heroes_not_stuck() -> void:
 	check(reached[0] and reached[1], "os dois times chegam ao ponto")
 	done(g)
 
+
+# ---------------------------------------------------------------------------
+# Salto visual 2D (Pacote 7)
+
+func test_damage_numbers_grouped() -> void:
+	var g := new_game()
+	var a = g.team_hero(0, 1)
+	var e = g.team_hero(1, 0)
+	g.texts.clear()
+	g.deal_damage(a, e, 10.0)
+	g.deal_damage(a, e, 12.0)
+	g.deal_damage(a, e, 8.0)
+	var mine: Array = []
+	for t in g.texts:
+		if t.get("who") == e:
+			mine.append(t)
+	check(mine.size() == 1, "acertos seguidos viram um número só (%d)" % mine.size())
+	if mine.size() == 1:
+		check(mine[0]["s"] == "30", "número soma os acertos (%s)" % mine[0]["s"])
+		check(mine[0]["size"] >= 15, "número legível")
+	# Depois da janela, um acerto novo abre outro número.
+	for t in g.texts:
+		t["age"] = 2.0
+	g.deal_damage(a, e, 5.0)
+	var n := 0
+	for t in g.texts:
+		if t.get("who") == e:
+			n += 1
+	check(n == 2, "acerto depois da janela é outro número")
+	done(g)
+
+
+func test_cast_feed_short_and_banner_on_top() -> void:
+	var g := new_game({"bots": false})
+	var t = hero(g, 0, "talos")
+	for ab in ["valvula", "muralha", "investida", "furia"]:
+		g.cast(t, ab, t.position + Vector2(100, 0))
+	check(g.cast_feed.size() <= g.FEED_MAX and g.FEED_MAX == 3, "registro com até 3 linhas")
+	check(g.cast_feed[0]["t"] <= 4.0, "registro some em poucos segundos")
+	g.announce("ULTIMATE INIMIGA: Fúria da Forja", Color.RED, 1.8)
+	var r: Rect2 = g.announce_rect()
+	check(r.position.y >= g.ARENA.position.y and r.end.y <= g.ARENA.position.y + 32.0, "aviso numa faixa no topo da arena")
+	check(r.size.x <= 640.0, "faixa curta")
+	check(not r.intersects(Rect2(g.CENTER - Vector2(g.POINT_R, g.POINT_R), Vector2(g.POINT_R, g.POINT_R) * 2.0)), "aviso não cobre o ponto")
+	done(g)
+
+
+func test_shake_only_on_big_hits() -> void:
+	var g := new_game({"bots": false})
+	var t = hero(g, 0, "talos")
+	g.shake_t = 0.0
+	g.cast(t, "muralha", t.position + Vector2(100, 0))
+	check(g.shake_t == 0.0, "habilidade comum não treme a tela")
+	g.cast(t, "investida", t.position + Vector2(100, 0))
+	check(g.shake_t > 0.0, "Investida treme a tela")
+	g.shake_t = 0.0
+	g.cast(t, "furia", t.position)
+	check(g.shake_t > 0.0 and g.shake_amp <= 6.0, "ultimate treme de leve")
+	g._update_visuals(0.05)
+	check(g.hud.position == -g.position, "HUD não treme")
+	g._update_visuals(1.0)
+	check(g.position == Vector2.ZERO, "tremor acaba")
+	done(g)
+
+
+func test_procedural_animation_hooks() -> void:
+	var g := new_game({"bots": false})
+	var t = hero(g, 0, "talos")
+	var e = hero(g, 1, "artemis")
+	g.cast(t, "valvula", t.position)
+	check(t.hop_t > 0.0, "pulinho ao usar habilidade")
+	g.deal_damage(e, t, 10.0)
+	check(t.recoil_t > 0.0 and t.recoil_dir != Vector2.ZERO, "recuo ao levar dano")
+	check(t._flash_mod().r > 1.5, "clarão branco ao levar dano")
+	t.target = e
+	e.position = t.position + Vector2(40, 0)
+	t.attack_cd = 0.0
+	t._try_attack()
+	check(t.lunge_t > 0.0, "avanço no ataque")
+	# Andando: o corpo balança e achata/estica.
+	var t2 = hero(g, 0, "artemis")
+	t2.anim_update(0.016)
+	for i in 20:
+		t2.position += Vector2(1.5, 0)
+		t2.anim_update(0.016)
+	check(t2.anim_move > 0.5, "detecta o passo")
+	check(not t2.body_transform().is_equal_approx(Transform2D.IDENTITY), "corpo se mexe ao andar")
+	g._kill(e, t)
+	var ghost := false
+	for f in g.fx:
+		if f["type"] == "ghost":
+			ghost = true
+	check(ghost, "efeito ao morrer")
+	g.respawn(e)
+	check(e.spawn_anim > 0.0, "efeito ao renascer")
+	done(g)
+
+
+func test_visual_effects_do_not_change_game_rng() -> void:
+	# Faíscas, números e tremor usam um gerador próprio: a partida sorteia igual.
+	var g := new_game({"bots": false})
+	var a = g.team_hero(0, 1)
+	var e = g.team_hero(1, 0)
+	seed(123)
+	var before := randf()
+	seed(123)
+	g.deal_damage(a, e, 10.0)
+	g.heal(null, e, 5.0)
+	g.shake(4.0, 0.3)
+	g._update_visuals(0.05)
+	check(randf() == before, "efeitos visuais não mexem no sorteio da partida")
+	done(g)
+
+
+func test_rig_layers_fallback_and_poses() -> void:
+	var Rig = load("res://scripts/rig.gd")
+	Art.clear_cache()
+	check(not Rig.ready("talos") or ResourceLoader.exists(Rig.LAYER_PATH % "talos_top_corpo"), "sem camadas, Talos usa o sprite inteiro")
+	check(not Rig.ready("zeus"), "herói sem camadas usa o sprite inteiro")
+	var st := {"t": 0.0, "walk": 0.0, "move": 0.0, "attack": 1.0, "guard": 0.0, "hurt": 0.0, "fury": 0.0}
+	check(absf(Rig.pose("talos", "braco_soco", 0, st)["off"].x - 14.0) < 0.01, "soco: o braço avança 14 px")
+	st["attack"] = 0.0
+	st["guard"] = 1.0
+	check(absf(Rig.pose("talos", "braco_escudo", 0, st)["rot"] - deg_to_rad(25.0)) < 0.01, "Muralha: o escudo vai à frente (25°)")
+	st["guard"] = 0.0
+	var s1: Vector2 = Rig.pose("talos", "corpo", 0, st)["scale"]
+	st["t"] = PI / 4.4
+	var s2: Vector2 = Rig.pose("talos", "corpo", 0, st)["scale"]
+	check(s1 != s2 and s2.x <= 1.021, "respiração de 100% a 102%")
+
+
+func test_rig_draws_layers_when_present() -> void:
+	var Rig = load("res://scripts/rig.gd")
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		var tx := ImageTexture.create_from_image(img)
+		Art.clear_cache()
+		for l in Rig.RIGS["talos"]:
+			Art.set_texture(Rig.LAYER_PATH % l["file"], tx)
+		Art.drawn_names.clear()
+		scene = _art_scene(),
+	func():
+		for l in Rig.RIGS["talos"]:
+			check(Art.drawn_names.has("heroes/camadas/" + l["file"]), "camada %s desenhada" % l["file"])
+		done(scene)
+		scene = null
+		Art.clear_cache())
+

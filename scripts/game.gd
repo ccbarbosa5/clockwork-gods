@@ -82,6 +82,16 @@ var cast_feed: Array = []
 var cast_counts := {}
 var popups: Array = []
 var flash_t := 0.0
+## Tremor de tela (Pacote 7): só em golpes grandes (ultimates e Investida).
+var shake_t := 0.0
+var shake_amp := 0.0
+const FEED_MAX := 3
+const FEED_T := 4.0
+## Acertos seguidos no mesmo alvo dentro desta janela viram um número só.
+const TEXT_GROUP_T := 0.6
+## Sorteios só visuais (faíscas, números, tremor): gerador próprio, para não
+## mudar a sequência de sorteios da partida (e da simulação).
+var vrng := RandomNumberGenerator.new()
 var flash_col := Color.WHITE
 var announce_text := ""
 var announce_color := Color.WHITE
@@ -438,6 +448,17 @@ func _step(dt: float) -> void:
 
 func _update_visuals(delta: float) -> void:
 	var dt := 0.0 if paused else delta
+	for h in heroes:
+		h.anim_update(dt)
+	# Tremor: mexe a arena (e os heróis); o HUD fica parado.
+	shake_t = maxf(0.0, shake_t - dt)
+	if shake_t > 0.0:
+		var a := shake_amp * shake_t / 0.35
+		position = Vector2(vrng.randf_range(-a, a), vrng.randf_range(-a, a)).round()
+	else:
+		position = Vector2.ZERO
+	if hud != null:
+		hud.position = -position
 	var nfx: Array = []
 	for f in fx:
 		f["t"] -= dt
@@ -447,7 +468,9 @@ func _update_visuals(delta: float) -> void:
 	var nt: Array = []
 	for t in texts:
 		t["t"] -= dt
-		t["pos"] += Vector2(0, -32.0 * dt)
+		t["age"] = t.get("age", 0.0) + dt
+		t["life"] = t.get("life", 0.0) + dt
+		t["pos"] += Vector2(0, -26.0 * dt)
 		if t["t"] > 0.0:
 			nt.append(t)
 	texts = nt
@@ -698,11 +721,16 @@ func deal_damage(src, victim, amount: float, show_text := true) -> void:
 	if victim.undying_t > 0.0 and victim.hp < 1.0:
 		victim.hp = 1.0
 	victim.hit_flash = 0.1
+	victim.recoil_t = victim.RECOIL_T
+	if src != null and is_instance_valid(src):
+		victim.recoil_dir = (victim.position - src.position).normalized()
+	if show_text:
+		_spark(victim.position - victim.recoil_dir * victim.radius * 0.6, victim.recoil_dir, amount)
 	if src != null and is_instance_valid(src) and src.team != victim.team:
 		src.stats["damage"] += amt
 		src.add_charge(amt * Data.ULT_DMG)
 	if show_text:
-		add_text(victim.position + Vector2(randf_range(-10, 10), -victim.radius - 18), str(int(round(amount * (1.2 if victim.mark_t > 0.0 else 1.0)))), Color(1, 0.92, 0.75))
+		add_number(victim, amount * (1.2 if victim.mark_t > 0.0 else 1.0), Color(1, 0.92, 0.75))
 		sfx("hit", -8.0)
 	if victim.hp <= 0.0:
 		_kill(victim, src)
@@ -727,8 +755,8 @@ func heal(src, target, amount: float) -> void:
 	if src != null:
 		src.stats["healing"] += actual
 		src.add_charge(actual * Data.ULT_HEAL)
-	if actual >= 5.0:
-		add_text(target.position + Vector2(randf_range(-10, 10), -target.radius - 18), "+" + str(int(round(actual))), Color(0.5, 1.0, 0.6))
+	if actual >= 1.0:
+		add_number(target, actual, Color(0.5, 1.0, 0.6), true)
 
 
 # ---------------------------------------------------------------------------
@@ -795,6 +823,9 @@ func _kill(victim, killer) -> void:
 	commanders[victim.team].refund(victim)
 	victim.clear_status()
 	_burst(victim.position, 40.0, Data.TEAM_COLORS[victim.team], 0.5)
+	# Ao cair: o corpo se desfaz (cresce, clareia e some) e solta peças de bronze.
+	fx.append({"type": "ghost", "hid": victim.hid, "team": victim.team, "pos": victim.position, "ang": victim.sprite_angle,
+		"r": victim.radius, "col": Data.TEAM_COLORS[victim.team], "t": 0.7, "max": 0.7, "seed": vrng.randf() * TAU})
 	var killer_hid := ""  # vazio = "O destino"
 	if killer != null and is_instance_valid(killer) and killer.team != victim.team:
 		killer.stats["kills"] += 1
@@ -817,6 +848,9 @@ func respawn(h) -> void:
 	h.hp = h.max_hp
 	h.clear_status()
 	h.position = _spawn_slot(h.team, h.slot_index)
+	h.anim_prev = h.position
+	h.spawn_anim = h.SPAWN_T
+	_burst(h.position, 34.0, Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.4), 0.45)
 	commanders[h.team].refill()
 	if h.team == player_team:
 		sfx("respawn", -6.0)
@@ -1171,9 +1205,16 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 	if is_ult and h.team != player_team:
 		sfx("ult_warning", -2.0)
 	popups.append({"hero": h, "pos": h.position, "ab": ab, "t": 1.6, "max": 1.6, "ult": is_ult})
-	cast_feed.push_front({"t": 6.0, "team": h.team, "hid": h.hid, "ab": ab, "ult": is_ult})
-	if cast_feed.size() > 6:
-		cast_feed.resize(6)
+	cast_feed.push_front({"t": FEED_T, "team": h.team, "hid": h.hid, "ab": ab, "ult": is_ult})
+	if cast_feed.size() > FEED_MAX:
+		cast_feed.resize(FEED_MAX)
+	# Pulinho ao usar habilidade; tremor só nos golpes grandes.
+	if not h.leaping and h.dash_t <= 0.0:
+		h.hop_t = h.HOP_T
+	if is_ult:
+		shake(5.0, 0.35)
+	elif ab == "investida":
+		shake(3.0, 0.25)
 	if is_ult:
 		announce(T.tf("ANN_YOUR_ULT" if h.team == player_team else "ANN_ENEMY_ULT", [T.ab_name(ab)]), Data.TEAM_COLORS[h.team].lerp(Color.WHITE, 0.2), 1.8)
 		flash_t = 0.6
@@ -1429,8 +1470,50 @@ func add_puff(pos: Vector2, col: Color) -> void:
 	fx.append({"type": "puff", "pos": pos + Vector2(randf_range(-6, 6), randf_range(-6, 6)), "r": randf_range(10.0, 16.0), "col": col, "t": 0.55, "max": 0.55})
 
 
+func shake(amp: float, t: float) -> void:
+	shake_amp = maxf(shake_amp if shake_t > 0.0 else 0.0, amp)
+	shake_t = maxf(shake_t, t)
+
+
+## Faíscas no acerto, saindo para o lado do golpe (mais faíscas em golpes fortes).
+func _spark(pos: Vector2, dir: Vector2, amount: float) -> void:
+	fx.append({"type": "spark", "pos": pos, "dir": dir if dir != Vector2.ZERO else Vector2.UP, "n": clampi(int(amount / 8.0) + 3, 3, 9),
+		"r": 1.0, "col": Color(1.0, 0.85, 0.45), "t": 0.22, "max": 0.22, "seed": vrng.randf() * TAU})
+
+
+## Número de dano (ou de cura, `heal`) sobre o herói. Acertos seguidos no
+## mesmo herói dentro de TEXT_GROUP_T somam num número só, que cresce de leve.
+func add_number(h, amount: float, col: Color, heal := false) -> void:
+	for t in texts:
+		# Agrupa só enquanto o número é novo (no máximo ~1 s de acertos).
+		if t.get("who") == h and t.get("heal", false) == heal and t.get("age", 0.0) < TEXT_GROUP_T and t.get("life", 0.0) < 1.2:
+			t["val"] += amount
+			t["hits"] = t.get("hits", 1) + 1
+			t["age"] = 0.0
+			t["t"] = t["max"]
+			t["s"] = ("+" if heal else "") + str(int(round(t["val"])))
+			t["size"] = _number_size(t["val"])
+			t["pop"] = 0.12
+			return
+	if amount < 1.0:
+		return
+	texts.append({"pos": h.position + Vector2(vrng.randf_range(-8, 8), -h.radius - 22), "s": ("+" if heal else "") + str(int(round(amount))),
+		"col": col, "t": 0.85, "max": 0.85, "size": _number_size(amount), "who": h, "heal": heal, "val": amount, "hits": 1, "age": 0.0, "pop": 0.12})
+
+
+static func _number_size(v: float) -> int:
+	return clampi(15 + int(v / 25.0), 15, 24)
+
+
 func add_text(pos: Vector2, s: String, col: Color, t := 0.8, size := 14) -> void:
 	texts.append({"pos": pos, "s": s, "col": col, "t": t, "max": t, "size": size})
+
+
+## Faixa do aviso (topo da arena, logo abaixo das barras de progresso).
+func announce_rect() -> Rect2:
+	var line := announce_text if announce_sub == "" else "%s · %s" % [announce_text, announce_sub]
+	var w := clampf(UI.font().get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 40.0, 220.0, 640.0)
+	return Rect2(640.0 - w * 0.5, ARENA.position.y + 4.0, w, 24.0)
 
 
 func announce(s: String, col: Color, t := 2.0) -> void:
@@ -1491,6 +1574,7 @@ func _draw() -> void:
 		UI.text_c(self, CENTER + Vector2(0, 6), str(int(ceil(Data.UNLOCK_TIME - time))), 22, Color(1, 1, 1, 0.8), 4)
 
 	# Obstáculos: paredes, muretas, caldeiras e estátuas; depois as colunas.
+	_draw_vignette()
 	_draw_arena_props()
 	for o in obstacles:
 		var c := Vector2(o.x, o.y)
@@ -1587,6 +1671,27 @@ func _draw() -> void:
 				if Art.draw_fx(self, "fumaca", f["pos"] + Vector2(0, -10.0 * k2), Vector2(f["r"], f["r"]) * 2.0, 0.5 + 0.8 * k2, 0.6 * (1.0 - k2), k2 * 1.5, fc):
 					continue
 				draw_circle(f["pos"] + Vector2(0, -10.0 * k2), f["r"] * (0.5 + 0.8 * k2), Color(fc, 0.45 * (1.0 - k2)))
+			"spark":
+				var dv: Vector2 = f["dir"]
+				for j in f["n"]:
+					var sa: float = dv.angle() + sin(f["seed"] + j * 2.3) * 0.9
+					var sv := Vector2(cos(sa), sin(sa))
+					var d0: float = (6.0 + 22.0 * k2) * (0.7 + 0.3 * sin(j * 5.1 + f["seed"]))
+					draw_line(f["pos"] + sv * d0, f["pos"] + sv * (d0 + 7.0 * (1.0 - k2)), Color(1.0, 0.9 - 0.3 * k2, 0.5, 1.0 - k2), 2.0, true)
+				draw_circle(f["pos"], 5.0 * (1.0 - k2), Color(1, 1, 0.85, 0.8 * (1.0 - k2)))
+			"ghost":
+				# Herói caindo: cópia que cresce, clareia e some; peças voando.
+				var spr := Art.hero_sprite(f["hid"])
+				var gk: float = 1.0 + 0.35 * k2
+				if spr != null:
+					var gpx: float = Art.HERO_SPRITE_PX.get(f["hid"], (f["r"] + 3.0) * 2.0 / 0.8)
+					Art.draw_centered(self, spr, f["pos"], Vector2(gpx, gpx) * gk, f["ang"], Color(1.6, 1.6, 1.6, 1.0 - k2))
+				else:
+					draw_circle(f["pos"], f["r"] * gk, Color(fc.lerp(Color.WHITE, 0.5), 1.0 - k2))
+				for j in 7:
+					var ga2: float = f["seed"] + j * TAU / 7.0
+					var gp: Vector2 = f["pos"] + Vector2(cos(ga2), sin(ga2)) * (f["r"] + 34.0 * k2) + Vector2(0, 20.0 * k2 * k2)
+					UI.gear(self, gp, 4.0, 6, Color(0.85, 0.6, 0.3, 1.0 - k2), k2 * 6.0 + j)
 			"plus":
 				var pp: Vector2 = f["pos"] + Vector2(0, -26.0 * k2)
 				if Art.draw_fx(self, "cura_mais", pp, Art.FX_EFFECTS["cura_mais"], 1.0, 1.0 - k2):
@@ -1743,6 +1848,19 @@ func _draw_arena_props() -> void:
 				Art.draw_rect_image(self, "wall_corner", q)
 
 
+## Escurecimento suave nas bordas da arena (por cima do piso, sob os heróis).
+func _draw_vignette() -> void:
+	var a := ARENA
+	var w := 70.0
+	var dark := Color(0, 0, 0, 0.42)
+	var clear := Color(0, 0, 0, 0.0)
+	# Quatro faixas em degradê (topo, base, esquerda, direita).
+	draw_polygon(PackedVector2Array([a.position, Vector2(a.end.x, a.position.y), Vector2(a.end.x - w, a.position.y + w), Vector2(a.position.x + w, a.position.y + w)]), PackedColorArray([dark, dark, clear, clear]))
+	draw_polygon(PackedVector2Array([Vector2(a.position.x, a.end.y), a.end, Vector2(a.end.x - w, a.end.y - w), Vector2(a.position.x + w, a.end.y - w)]), PackedColorArray([dark, dark, clear, clear]))
+	draw_polygon(PackedVector2Array([a.position, Vector2(a.position.x, a.end.y), Vector2(a.position.x + w, a.end.y - w), Vector2(a.position.x + w, a.position.y + w)]), PackedColorArray([dark, dark, clear, clear]))
+	draw_polygon(PackedVector2Array([Vector2(a.end.x, a.position.y), a.end, Vector2(a.end.x - w, a.end.y - w), Vector2(a.end.x - w, a.position.y + w)]), PackedColorArray([dark, dark, clear, clear]))
+
+
 func popup_layout() -> Array:
 	var out: Array = []
 	for pp in popups:
@@ -1842,23 +1960,29 @@ func _draw_new_zones() -> void:
 func draw_overlay(ci: CanvasItem) -> void:
 	# Chamado pelo HUD para desenhar acima dos heróis.
 	if flash_t > 0.0:
-		ci.draw_rect(ARENA.grow(-4), Color(flash_col, clampf(flash_t, 0.0, 0.6)), false, 10.0)
+		ci.draw_rect(ARENA.grow(-3), Color(flash_col, clampf(flash_t, 0.0, 0.6) * 0.8), false, 6.0)
 	for b in popup_layout():
 		UI.badge(ci, b["pos"], b["r"], Data.ABILITIES[b["ab"]], b["col"], b["a"], b["ult"])
-	var fy := 62.0
+	# Registro de habilidades: pequeno, até 3 linhas, some em poucos segundos.
+	var fy := 58.0
 	for cf in cast_feed:
-		var fa: float = clampf(cf["t"], 0.0, 1.0)
+		var fa: float = clampf(cf["t"] / 0.6, 0.0, 1.0) * 0.9
 		var abd2: Dictionary = Data.ABILITIES[cf["ab"]]
 		var hd: Dictionary = Data.HEROES[cf["hid"]]
 		var rcol: Color = Data.ROLE_COLORS[hd["role"]]
-		UI.badge(ci, Vector2(22, fy - 5), 8.0, abd2, rcol, fa, cf["ult"])
+		UI.badge(ci, Vector2(18, fy - 4), 6.0, abd2, rcol, fa, cf["ult"])
 		var txt: String = "%s · %s" % [T.hero_name(cf["hid"]), T.ab_name(cf["ab"])]
 		var col: Color = Data.GOLD if cf["ult"] else Data.TEAM_COLORS[cf["team"]].lerp(Color.WHITE, 0.35)
-		UI.text_l(ci, Vector2(38, fy), txt, 13, Color(col, fa), 3)
-		fy += 20.0
+		UI.text_l(ci, Vector2(30, fy), txt, 11, Color(col, fa), 3)
+		fy += 15.0
+	# Números de dano e cura: maiores, com contorno, e um por herói (agrupados).
 	for t in texts:
-		var a: float = clampf(t["t"] / t["max"] * 1.5, 0.0, 1.0)
-		UI.text_c(ci, t["pos"], t["s"], t["size"], Color(t["col"], a), 3)
+		var a: float = clampf(t["t"] / t["max"] * 1.8, 0.0, 1.0)
+		var pk: float = t.get("pop", 0.0)
+		var size: int = t["size"] + (int(round(pk * 25.0)) if pk > 0.0 else 0)
+		if pk > 0.0:
+			t["pop"] = maxf(0.0, pk - get_process_delta_time())
+		UI.text_c(ci, t["pos"], t["s"], size, Color(t["col"], a), 5)
 	var y := 64.0
 	for k in killfeed:
 		var a2: float = clampf(k["t"], 0.0, 1.0)
@@ -1866,7 +1990,10 @@ func draw_overlay(ci: CanvasItem) -> void:
 		UI.text_r(ci, Vector2(1268, y), s, 13, Color(1, 1, 1, a2), 3)
 		y += 18.0
 	if announce_t > 0.0:
-		var a3 := clampf(announce_t, 0.0, 1.0)
-		UI.text_c(ci, Vector2(640, 110), announce_text, 28, Color(announce_color, a3), 6)
-		if announce_sub != "":
-			UI.text_c(ci, Vector2(640, 134), announce_sub, 15, Color(1, 1, 1, a3), 4)
+		# Aviso numa faixa curta no topo da arena, sem cobrir a luta.
+		var a3 := clampf(announce_t / 0.4, 0.0, 1.0)
+		var r := announce_rect()
+		ci.draw_rect(r, Color(0.06, 0.045, 0.035, 0.85 * a3))
+		ci.draw_rect(Rect2(r.position.x, r.end.y - 2.0, r.size.x, 2.0), Color(announce_color, a3))
+		var line := announce_text if announce_sub == "" else "%s · %s" % [announce_text, announce_sub]
+		UI.text_c(ci, Vector2(640, r.position.y + 17.0), line, 15, Color(announce_color, a3), 3)

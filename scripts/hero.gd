@@ -5,6 +5,7 @@ const Data = preload("res://scripts/data.gd")
 const T = preload("res://scripts/i18n.gd")
 const UI = preload("res://scripts/ui.gd")
 const Art = preload("res://scripts/art.gd")
+const Rig = preload("res://scripts/rig.gd")
 
 var game
 var team := 0
@@ -82,6 +83,21 @@ var puff_t := 0.0
 
 var ult := 0.0
 var hit_flash := 0.0
+## Animação procedural (Pacote 7; só visual, não mexe na partida):
+## passo, avanço do ataque, recuo ao levar dano, pulinho ao usar habilidade
+## e aparecer ao renascer. Atualizada em anim_update (pelo desenho).
+var anim_walk := 0.0
+var anim_move := 0.0
+var anim_prev := Vector2.INF
+var lunge_t := 0.0
+var recoil_t := 0.0
+var recoil_dir := Vector2.ZERO
+var hop_t := 0.0
+var spawn_anim := 0.0
+const LUNGE_T := 0.16
+const RECOIL_T := 0.16
+const HOP_T := 0.3
+const SPAWN_T := 0.5
 var heal_target = null
 var heal_cd := 0.0
 var heal_beam_t := 0.0
@@ -120,6 +136,82 @@ func setup(g, t: int, id: String, idx: int) -> void:
 	name_tag.z_index = 2
 	add_child(name_tag)
 	name_tag.draw.connect(_draw_name_tag)
+
+
+## Atualiza a animação (chamado pela partida a cada quadro desenhado).
+func anim_update(dt: float) -> void:
+	if anim_prev == Vector2.INF:
+		anim_prev = position
+	var moved := position.distance_to(anim_prev)
+	anim_prev = position
+	var spd := moved / maxf(dt, 0.001)
+	var target := clampf(spd / 60.0, 0.0, 1.0) if dt > 0.0 else anim_move
+	anim_move = move_toward(anim_move, target, dt * 6.0)
+	anim_walk = fmod(anim_walk + moved * 0.16, TAU)
+	lunge_t = maxf(0.0, lunge_t - dt)
+	recoil_t = maxf(0.0, recoil_t - dt)
+	hop_t = maxf(0.0, hop_t - dt)
+	spawn_anim = maxf(0.0, spawn_anim - dt)
+
+
+## 0 → 1 → 0 durante o avanço do ataque.
+func anim_attack() -> float:
+	return sin(PI * (1.0 - lunge_t / LUNGE_T)) if lunge_t > 0.0 else 0.0
+
+
+## 1 → 0 depois de levar dano.
+func anim_hurt() -> float:
+	return recoil_t / RECOIL_T
+
+
+## Ultimate usada há pouco (as chaminés do Talos soltam mais vapor).
+func ult_active() -> bool:
+	if last_cast == "" or game == null:
+		return false
+	return Data.ABILITIES[last_cast].get("ult", false) and game.time - last_cast_t < 1.2
+
+
+## Transformação do corpo: deslocamento (passo, avanço, recuo, pulinho, salto)
+## e achatar/esticar no sentido do movimento. Sombra, barra de vida e nome não usam.
+func body_transform() -> Transform2D:
+	var off := Vector2.ZERO
+	var sq := Vector2.ONE
+	var a := facing.angle()
+	# Passo: balança para os lados e achata/estica de leve.
+	var m := anim_move
+	off += facing.orthogonal() * sin(anim_walk) * 1.6 * m
+	var st := 0.045 * m * sin(anim_walk * 2.0)
+	sq *= Vector2(1.0 + st, 1.0 - st)
+	# Ataque: avanço curto.
+	off += facing * 5.0 * anim_attack()
+	# Dano: recuo na direção do golpe.
+	off += recoil_dir * 4.0 * anim_hurt()
+	# Habilidade: pulinho (sobe e estica).
+	if hop_t > 0.0:
+		var hk := sin(PI * (1.0 - hop_t / HOP_T))
+		off.y -= 7.0 * hk
+		sq *= Vector2(1.0 - 0.05 * hk, 1.0 + 0.08 * hk)
+	# Salto (Nêmeia / Águia): sobe e cresce.
+	var grow := 1.0
+	if leaping:
+		var hgt := sin(clampf(1.0 - dash_t / 0.45, 0.0, 1.0) * PI)
+		off.y -= 18.0 * hgt
+		grow *= 1.0 + 0.25 * hgt
+	# Renascer: cresce de 60% a 100%.
+	if spawn_anim > 0.0:
+		var sk := 1.0 - spawn_anim / SPAWN_T
+		grow *= 0.6 + 0.4 * (1.0 - pow(1.0 - sk, 3.0))
+	return Transform2D(a, off) * Transform2D().scaled(sq * grow) * Transform2D(-a, Vector2.ZERO)
+
+
+## Altura do corpo acima do chão (a sombra encolhe com ela).
+func body_height() -> float:
+	var h := 0.0
+	if hop_t > 0.0:
+		h += 7.0 * sin(PI * (1.0 - hop_t / HOP_T))
+	if leaping:
+		h += 18.0 * sin(clampf(1.0 - dash_t / 0.45, 0.0, 1.0) * PI)
+	return h
 
 
 func clear_status() -> void:
@@ -970,6 +1062,7 @@ func _try_attack() -> void:
 	if d > def["range"] or not game.has_los(position, target.position):
 		return
 	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0) + (0.25 if phalanx_t > 0.0 else 0.0))
+	lunge_t = LUNGE_T
 	if def["range"] < 100.0:
 		swing_t = 0.18
 		game.sfx("melee", -10.0)
@@ -1112,7 +1205,7 @@ func _draw() -> void:
 	var hc: Color = def["color"]
 	var rc := role_color()
 	var t: float = game.time
-	if hit_flash > 0.0:
+	if hit_flash > 0.0 or spawn_anim > 0.0:
 		hc = hc.lerp(Color.WHITE, 0.6)
 
 	# Rastro de investida/salto
@@ -1138,13 +1231,14 @@ func _draw() -> void:
 			draw_line(Vector2.ZERO, tp, Color(0.45, 1.0, 0.6, 0.7), 4.0, true)
 			draw_line(Vector2.ZERO, tp, Color(1, 1, 1, 0.6), 1.5, true)
 
-	# Sombra e corpo (no salto, a sombra fica no chão e o corpo sobe)
-	if leaping:
-		draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.25))
-		var hgt := sin(clampf(1.0 - dash_t / 0.45, 0.0, 1.0) * PI)
-		draw_set_transform(Vector2(0, -18.0 * hgt), 0.0, Vector2.ONE * (1.0 + 0.25 * hgt))
-	else:
-		draw_circle(Vector2(0, 5), radius + 2.0, Color(0, 0, 0, 0.35))
+	# Sombra suave no chão (encolhe e clareia quando o corpo sobe) e corpo.
+	var bh := body_height()
+	var sk2 := 1.0 - bh / 40.0
+	draw_set_transform(Vector2(0, radius * 0.45), 0.0, Vector2(1.0, 0.62) * sk2)
+	for j in 4:
+		draw_circle(Vector2.ZERO, radius + 7.0 - j * 3.0, Color(0, 0, 0, (0.07 + j * 0.03) * sk2))
+	var bxf := body_transform()
+	draw_set_transform_matrix(bxf)
 	var aura_k := radius / 22.0  # auras são feitas no tamanho do Talos (raio 22)
 	if undying_t > 0.0 and Art.draw_fx(self, "aura_segunda", Vector2.ZERO, Art.FX_EFFECTS["aura_segunda"], aura_k, 0.9, t * 1.5):
 		pass
@@ -1153,19 +1247,18 @@ func _draw() -> void:
 		for k in 8:
 			var ang := t * 1.5 + k * TAU / 8.0
 			draw_line(Vector2(cos(ang), sin(ang)) * (radius + 6.0), Vector2(cos(ang), sin(ang)) * (radius + 16.0), Color(1, 0.9, 0.4, 0.8), 2.0, true)
-	if ult >= 100.0:
-		var pulse := 0.5 + 0.5 * sin(t * 6.0)
-		UI.ring(self, Vector2.ZERO, radius + 7.0, Color(Data.GOLD, 0.4 + 0.5 * pulse), 2.0)
 	var sprite := Art.hero_sprite(hid)
 	if sprite != null:
 		# Com sprite: só a imagem gira com o herói; o anel do time fica fixo e por
 		# cima dela, para a cor do time sempre aparecer. Sem triângulo de direção
 		# e sem emblema (a imagem já mostra os dois).
 		var px: float = Art.HERO_SPRITE_PX.get(hid, (radius + 3.0) * 2.0 / 0.8)
-		var mod := Color(1.8, 1.8, 1.8) if hit_flash > 0.0 else Color.WHITE
+		var mod := _flash_mod()
 		# Fundo escuro sob o corpo: separa o herói de áreas claras no chão.
 		draw_circle(Vector2.ZERO, radius + 3.0, Color(0.05, 0.04, 0.03, 0.6))
-		Art.draw_centered(self, sprite, Vector2.ZERO, Vector2(px, px), sprite_angle, mod)
+		# Em camadas (Rig), se o herói tiver todas; senão, o sprite inteiro.
+		if not Rig.draw(self, hid, bxf, px, sprite_angle, mod, Rig.state_of(self)):
+			Art.draw_centered(self, sprite, Vector2.ZERO, Vector2(px, px), sprite_angle, mod)
 		# Anel do time com contorno escuro, para a cor ler sobre qualquer efeito.
 		UI.ring(self, Vector2.ZERO, radius + 1.5, Color(0, 0, 0, 0.75), 6.0)
 		UI.ring(self, Vector2.ZERO, radius + 1.5, tc, 3.0)
@@ -1231,7 +1324,8 @@ func _draw() -> void:
 			var ang5 := k * TAU / 4.0 + 0.4
 			draw_line(Vector2(cos(ang5), sin(ang5)) * (radius + 1.0), Vector2(cos(ang5), sin(ang5)) * (radius + 10.0), Color(0.6, 0.45, 0.25), 3.0)
 	if slow_t > 0.0:
-		UI.ring(self, Vector2.ZERO, radius + 1.0, Color(0.5, 0.7, 1.0, 0.7), 2.0)
+		# Lentidão: arco azul só embaixo (sem mais um anel em volta).
+		draw_arc(Vector2.ZERO, radius + 4.0, PI * 0.2, PI * 0.8, 10, Color(0.5, 0.7, 1.0, 0.85), 3.0, true)
 	if hide_t > 0.0:
 		# Pele do Leão: juba dourada e anel âmbar.
 		if not Art.draw_fx(self, "pele_juba", Vector2.ZERO, Art.FX_EFFECTS["pele_juba"], aura_k, 0.9, t * 0.8):
@@ -1251,14 +1345,16 @@ func _draw() -> void:
 		# Olhar da Coruja: olho dourado acima da cabeça.
 		var ep := Vector2(0, -radius - 26.0 + sin(t * 3.0) * 2.0)
 		if not Art.draw_fx(self, "coruja_olho", ep, Art.FX_EFFECTS["coruja_olho"]):
-			draw_set_transform(ep, 0.0, Vector2(1.0, 0.6))
+			draw_set_transform_matrix(bxf * Transform2D(0.0, ep) * Transform2D().scaled(Vector2(1.0, 0.6)))
 			draw_circle(Vector2.ZERO, 8.0, Color(0.1, 0.07, 0.04, 0.9))
 			draw_circle(Vector2.ZERO, 6.0, Data.GOLD)
 			draw_circle(Vector2.ZERO, 2.5, Color(0.1, 0.07, 0.04))
-			draw_set_transform_matrix(Transform2D.IDENTITY)
+			draw_set_transform_matrix(bxf)
 	if empower_t > 0.0:
-		var pe := 0.5 + 0.5 * sin(t * 10.0)
-		UI.ring(self, Vector2.ZERO, radius + 5.0, Color(Data.GOLD, 0.5 + 0.4 * pe), 2.0)
+		# Próximo básico mais forte: 3 brilhos dourados girando (sem anel).
+		for k in 3:
+			var ange := t * 4.0 + k * TAU / 3.0
+			draw_circle(Vector2(cos(ange), sin(ange)) * (radius + 5.0), 2.5, Color(Data.GOLD, 0.9))
 	if poison_t > 0.0:
 		for i in 4:
 			var ph := fmod(t * 1.2 + i * 0.25, 1.0)
@@ -1272,8 +1368,12 @@ func _draw() -> void:
 			if not Art.draw_fx(self, "atordoado_estrela", sp, Art.FX_EFFECTS["atordoado_estrela"], 1.0, 1.0, t * 4.0):
 				draw_circle(sp, 3.0, Color(1, 0.95, 0.3))
 
-	if leaping:
-		draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	# Renascer: coluna de luz e anel na cor do time.
+	if spawn_anim > 0.0:
+		var sa := spawn_anim / SPAWN_T
+		draw_rect(Rect2(-radius * 0.7, -radius - 60.0 * sa, radius * 1.4, radius + 60.0 * sa), Color(1, 1, 1, 0.25 * sa))
+		UI.ring(self, Vector2.ZERO, radius + 4.0 + 20.0 * (1.0 - sa), Color(tc, sa), 3.0)
 	# Barra de vida
 	var bw := 46.0
 	var by := -radius - 13.0
@@ -1302,6 +1402,18 @@ func _draw() -> void:
 
 	if name_tag != null:
 		name_tag.queue_redraw()
+
+
+## Clarão ao levar dano (branco forte no primeiro instante) e ao renascer.
+func _flash_mod() -> Color:
+	if hit_flash > 0.06:
+		return Color(2.4, 2.4, 2.4)
+	if hit_flash > 0.0:
+		return Color(1.8, 1.8, 1.8)
+	if spawn_anim > 0.0:
+		var k := 1.0 + 1.5 * spawn_anim / SPAWN_T
+		return Color(k, k, k)
+	return Color.WHITE
 
 
 ## Nome do herói sobre uma plaquinha escura com a cor do time embaixo
