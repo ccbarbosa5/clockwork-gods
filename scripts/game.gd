@@ -9,6 +9,7 @@ const HeroScript = preload("res://scripts/hero.gd")
 const Commander = preload("res://scripts/commander.gd")
 const Bot = preload("res://scripts/bot.gd")
 const Wheel = preload("res://scripts/wheel.gd")
+const Arena = preload("res://scripts/arena.gd")
 const HUD = preload("res://scripts/hud.gd")
 const AudioScript = preload("res://scripts/audio.gd")
 
@@ -21,17 +22,14 @@ const SPAWN_R := 75.0
 const SPAWNS := [Vector2(62, 300), Vector2(1218, 300)]
 const STEP := 1.0 / 60.0
 
-## Obstáculos simétricos (x, y, raio): colunas e caldeiras.
-const OBSTACLES := [
-	Vector3(250, 215, 34), Vector3(250, 385, 34),
-	Vector3(1030, 215, 34), Vector3(1030, 385, 34),
-	Vector3(420, 150, 28), Vector3(420, 450, 28),
-	Vector3(860, 150, 28), Vector3(860, 450, 28),
-	Vector3(545, 122, 22), Vector3(545, 478, 22),
-	Vector3(735, 122, 22), Vector3(735, 478, 22),
-	Vector3(330, 300, 20), Vector3(950, 300, 20),
-]
-
+## Arena em uso (arenas/<id>.json; scripts/arena.gd). `arena_obs` tem todos os
+## obstáculos (círculos e retângulos; "tiro" = bloqueia tiros); `obstacles` só
+## os redondos como Vector3(x, y, raio), para o desenho das colunas.
+var arena_id := Arena.DEFAULT
+var arena_def: Dictionary = {}
+var arena_obs: Array = []
+var shot_obs: Array = []
+var obstacles: Array = []
 var heroes: Array = []
 ## Pacotes de vida (Data.HEALTH_PACKS): {pos, t}; t > 0 = reaparece em t s.
 var packs: Array = []
@@ -101,9 +99,7 @@ func setup(opts: Dictionary) -> void:
 	for t in 2:
 		if opt_teams.size() > t and Data.valid_team(opt_teams[t], opts.get("free", false)):
 			teams[t] = Data.sort_team(opt_teams[t])
-	packs.clear()
-	for pp in Data.HEALTH_PACKS:
-		packs.append({"pos": pp, "t": 0.0})
+	load_arena(opts.get("arena", Arena.DEFAULT))
 	for t in 2:
 		for i in teams[t].size():
 			var h := Node2D.new()
@@ -129,6 +125,42 @@ func setup(opts: Dictionary) -> void:
 	add_child(hud)
 	hud.setup(self)
 	announce(T.tf("ANN_UNLOCK", [int(Data.UNLOCK_TIME)]), Data.GOLD, 2.5)
+
+
+func load_arena(id: String) -> void:
+	var a := Arena.get_arena(id)
+	arena_id = id
+	arena_def = a["def"]
+	arena_obs = a["obs"]
+	shot_obs = []
+	obstacles = []
+	for o in arena_obs:
+		if o["tiro"]:
+			shot_obs.append(o)
+		if o["circulo"]:
+			obstacles.append(Vector3(o["c"].x, o["c"].y, o["r"]))
+	packs.clear()
+	for pp in a["packs"]:
+		packs.append({"pos": pp, "t": 0.0})
+
+
+## Linha de tiro livre entre a e b (muretas não bloqueiam).
+func has_los(a: Vector2, b: Vector2) -> bool:
+	return Arena.line_clear(shot_obs, a, b, true)
+
+
+## Anda de `from` até `to` sem atravessar obstáculo (raio r). Devolve o último
+## ponto livre e se bateu. Usado em avanços e empurrões rápidos.
+func sweep(from: Vector2, to: Vector2, r: float) -> Array:
+	var d := from.distance_to(to)
+	var n := int(ceil(d / 4.0))
+	var last := from
+	for k in range(1, n + 1):
+		var p := from.lerp(to, float(k) / n)
+		if not Arena.free_at(arena_obs, p, r - 1.0):
+			return [last, true]
+		last = p
+	return [to, false]
 
 
 func _spawn_slot(t: int, i: int) -> Vector2:
@@ -309,16 +341,8 @@ func resolve_collisions(h) -> void:
 	# Várias passadas: empurrar para fora de obstáculos pode jogar o herói contra
 	# a borda, e a borda pode devolvê-lo ao obstáculo (BUG-009).
 	for it in 3:
-		for o in OBSTACLES:
-			var c := Vector2(o.x, o.y)
-			var v: Vector2 = h.position - c
-			var d := v.length()
-			var minimum: float = o.z + h.radius
-			if d < minimum:
-				if d < 0.01:
-					v = Vector2(0, 1)
-					d = 1.0
-				h.position = c + v / d * minimum
+		for o in arena_obs:
+			h.position = _push_out(o, h.position, h.radius)
 		var enemy_spawn: Vector2 = SPAWNS[1 - h.team]
 		var ve: Vector2 = h.position - enemy_spawn
 		var de := ve.length()
@@ -327,9 +351,11 @@ func resolve_collisions(h) -> void:
 		h.position.x = clampf(h.position.x, ARENA.position.x + h.radius, ARENA.end.x - h.radius)
 		h.position.y = clampf(h.position.y, ARENA.position.y + h.radius, ARENA.end.y - h.radius)
 	# Se ainda sobrepõe (vão entre obstáculo e borda menor que o herói), sai pela lateral.
-	for o in OBSTACLES:
-		var c2 := Vector2(o.x, o.y)
-		var minimum2: float = o.z + h.radius
+	for o in arena_obs:
+		if not o["circulo"]:
+			continue
+		var c2: Vector2 = o["c"]
+		var minimum2: float = o["r"] + h.radius
 		if h.position.distance_to(c2) < minimum2 - 0.5:
 			var dy: float = h.position.y - c2.y
 			var dx: float = sqrt(maxf(0.0, minimum2 * minimum2 - dy * dy))
@@ -352,14 +378,49 @@ func resolve_collisions(h) -> void:
 				break
 
 
+## Empurra p para fora do obstáculo o (círculo ou retângulo), com folga r.
+static func _push_out(o: Dictionary, p: Vector2, r: float) -> Vector2:
+	if o["circulo"]:
+		var c: Vector2 = o["c"]
+		var v: Vector2 = p - c
+		var d := v.length()
+		var minimum: float = o["r"] + r
+		if d < minimum:
+			if d < 0.01:
+				v = Vector2(0, 1)
+				d = 1.0
+			return c + v / d * minimum
+		return p
+	var rr: Rect2 = o["ret"]
+	if rr.has_point(p):
+		# Dentro: sai pelo lado mais perto.
+		var dl := p.x - rr.position.x
+		var dr := rr.end.x - p.x
+		var dt := p.y - rr.position.y
+		var db := rr.end.y - p.y
+		var m := minf(minf(dl, dr), minf(dt, db))
+		if m == dl:
+			return Vector2(rr.position.x - r, p.y)
+		if m == dr:
+			return Vector2(rr.end.x + r, p.y)
+		if m == dt:
+			return Vector2(p.x, rr.position.y - r)
+		return Vector2(p.x, rr.end.y + r)
+	var q := Vector2(clampf(p.x, rr.position.x, rr.end.x), clampf(p.y, rr.position.y, rr.end.y))
+	var v2 := p - q
+	var d2 := v2.length()
+	if d2 < r:
+		return q + v2 / maxf(d2, 0.001) * r
+	return p
+
+
 ## Posição livre para um herói de raio r do time `team`: dentro da arena, fora
-## das colunas e fora da base inimiga.
+## dos obstáculos e fora da base inimiga.
 func spot_free(p: Vector2, r: float, team: int) -> bool:
 	if p.x < ARENA.position.x + r or p.x > ARENA.end.x - r or p.y < ARENA.position.y + r or p.y > ARENA.end.y - r:
 		return false
-	for o in OBSTACLES:
-		if p.distance_to(Vector2(o.x, o.y)) < o.z + r - 0.5:
-			return false
+	if not Arena.free_at(arena_obs, p, r - 0.5):
+		return false
 	return p.distance_to(SPAWNS[1 - team]) >= SPAWN_R + r - 0.5
 
 
@@ -620,11 +681,10 @@ func _update_projectiles(dt: float) -> void:
 					alive = false
 					break
 		if alive:
-			for o in OBSTACLES:
-				if p["pos"].distance_to(Vector2(o.x, o.y)) < o.z:
-					alive = false
-					_burst(p["pos"], 10.0, Color(1, 0.85, 0.5), 0.2)
-					break
+			# Paredes, colunas, caldeiras e estátuas param o tiro; muretas não.
+			if not Arena.line_clear(shot_obs, p["pos"] - p["vel"] * dt, p["pos"], true):
+				alive = false
+				_burst(p["pos"], 10.0, Color(1, 0.85, 0.5), 0.2)
 		if alive:
 			for h in heroes:
 				if h.team == p["team"] or not h.alive or h.wall_t <= 0.0:
@@ -922,7 +982,7 @@ func cast(h, ab: String, tpos: Vector2) -> bool:
 			var mk = null
 			var md := INF
 			for e in enemies:
-				if e.position.distance_to(h.position) > 400.0 + e.radius:
+				if e.position.distance_to(h.position) > 400.0 + e.radius or not has_los(h.position, e.position):
 					continue
 				var d5: float = e.position.distance_to(tpos)
 				if d5 < md:
@@ -977,7 +1037,8 @@ func on_throw_land(h) -> void:
 	fx.append({"type": "img", "img": "trabalho_impacto", "pos": h.position, "r": 30.0, "col": Color(1.0, 0.6, 0.25), "t": 0.5, "max": 0.5})
 
 
-## Raio em cadeia (não é projétil: nada bloqueia). Atinge `first` com dmgs[0]
+## Raio em cadeia (não é projétil: Muralha e Égide não bloqueiam; obstáculos que
+## bloqueiam tiro cortam o salto). Atinge `first` com dmgs[0]
 ## e salta para o inimigo mais próximo ainda não atingido a até `jump` px,
 ## com os danos seguintes. Desenha os raios entre os alvos.
 func chain_lightning(src, first, dmgs: Array, jump: float, width := 3.0) -> void:
@@ -996,7 +1057,7 @@ func chain_lightning(src, first, dmgs: Array, jump: float, width := 3.0) -> void
 			if hit.has(e):
 				continue
 			var d: float = e.position.distance_to(cur.position)
-			if d <= nd:
+			if d <= nd and has_los(cur.position, e.position):
 				nd = d
 				nxt = e
 		cur = nxt
@@ -1265,7 +1326,7 @@ func _draw() -> void:
 		UI.text_c(self, CENTER + Vector2(0, 6), str(int(ceil(Data.UNLOCK_TIME - time))), 22, Color(1, 1, 1, 0.8), 4)
 
 	# Obstáculos
-	for o in OBSTACLES:
+	for o in obstacles:
 		var c := Vector2(o.x, o.y)
 		draw_circle(c + Vector2(0, 6), o.z, Color(0, 0, 0, 0.35))
 		if Art.draw_map(self, Art.pillar_name(o.z), c, o.z):

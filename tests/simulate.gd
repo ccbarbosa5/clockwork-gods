@@ -8,6 +8,7 @@ extends SceneTree
 
 const Data = preload("res://scripts/data.gd")
 const T = preload("res://scripts/i18n.gd")
+const Arena = preload("res://scripts/arena.gd")
 const GameScript = preload("res://scripts/game.gd")
 
 const STEP := 1.0 / 60.0
@@ -53,6 +54,8 @@ var hero_wins := {}
 var anomalies: Array = []
 var anomaly_counts := {}
 var _ran := false
+## Arena da simulação (--arena=<id>); vazio = a padrão do jogo.
+var arena_id := ""
 
 
 func _process(_delta: float) -> bool:
@@ -70,6 +73,8 @@ func _run() -> void:
 			balance = true
 		elif a == "--free":
 			free_mode = true
+		elif a.begins_with("--arena="):
+			arena_id = a.substr(8)
 		elif a == "--wheel=off":
 			wheel_on = false
 		elif a.begins_with("--nobonus="):
@@ -281,6 +286,8 @@ func _play_match(idx: int, d0: String, d1: String, beh: String, casts: Dictionar
 	var o := {"autotest": true, "difficulty": d1, "difficulty0": d0, "teams": teams, "wheel": wheel_on, "free": free_mode}
 	if nobonus >= 0:
 		o["wheel_nobonus"] = [0, nobonus]
+	if arena_id != "":
+		o["arena"] = arena_id
 	g.setup(o)
 	g.set_process(false)
 	g.hud.set_process(false)
@@ -414,8 +421,8 @@ func _check_invariants(g, tag: String, still: Dictionary, last_pos: Dictionary) 
 			continue
 		if not g.ARENA.grow(1.0).has_point(p):
 			_anomaly("herói fora da arena", tag + " " + name + " " + str(p))
-		for o in g.OBSTACLES:
-			if not h.leaping and p.distance_to(Vector2(o.x, o.y)) < o.z + h.radius - 1.5:
+		for o in g.arena_obs:
+			if not h.leaping and Arena.distance(o, p) < h.radius - 1.5:
 				_anomaly("herói dentro de obstáculo", tag + " " + name)
 		if not h.leaping and p.distance_to(g.SPAWNS[1 - h.team]) < g.SPAWN_R + h.radius - 1.5:
 			_anomaly("herói dentro da base inimiga", tag + " " + name)
