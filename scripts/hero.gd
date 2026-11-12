@@ -795,7 +795,7 @@ func cover_spot(enemies: Array) -> Vector2:
 		threat /= enemies.size()
 	var best := Vector2.INF
 	var bd := 450.0
-	for o in game.OBSTACLES:
+	for o in game.obstacles:
 		var c := Vector2(o.x, o.y)
 		var away := c - threat
 		if away.length() < 1.0:
@@ -1025,7 +1025,7 @@ func _steer(dest: Vector2) -> Vector2:
 		return Vector2.ZERO
 	var dir := to_dest.normalized()
 	var steer := Vector2.ZERO
-	for o in game.OBSTACLES:
+	for o in game.obstacles:
 		var c := Vector2(o.x, o.y)
 		var r: float = o.z
 		var to := c - position

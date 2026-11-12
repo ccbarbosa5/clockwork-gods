@@ -1,0 +1,17 @@
+{
+	"id": "classica",
+	"nome": "Arena atual",
+	"espelhar": true,
+	"obstaculos": [
+		{"tipo": "coluna", "c": [250, 215], "r": 34},
+		{"tipo": "coluna", "c": [250, 385], "r": 34},
+		{"tipo": "coluna", "c": [420, 150], "r": 28},
+		{"tipo": "coluna", "c": [420, 450], "r": 28},
+		{"tipo": "coluna", "c": [545, 122], "r": 22},
+		{"tipo": "coluna", "c": [545, 478], "r": 22},
+		{"tipo": "coluna", "c": [330, 300], "r": 20}
+	],
+	"frascos": [[330, 110], [330, 490], [640, 520]],
+	"rotas": {"centro": [], "alto": [[420, 90]], "baixo": [[420, 510]]},
+	"gargalos": []
+}

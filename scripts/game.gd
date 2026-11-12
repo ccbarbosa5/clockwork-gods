@@ -32,6 +32,9 @@ const OBSTACLES := [
 	Vector3(330, 300, 20), Vector3(950, 300, 20),
 ]
 
+## Colunas em uso (x, y, raio). Começa com OBSTACLES; a prévia da arena nova
+## (tools/arena_preview.gd) troca pelas colunas da planta.
+var obstacles: Array = OBSTACLES.duplicate()
 var heroes: Array = []
 ## Pacotes de vida (Data.HEALTH_PACKS): {pos, t}; t > 0 = reaparece em t s.
 var packs: Array = []
@@ -309,7 +312,7 @@ func resolve_collisions(h) -> void:
 	# Várias passadas: empurrar para fora de obstáculos pode jogar o herói contra
 	# a borda, e a borda pode devolvê-lo ao obstáculo (BUG-009).
 	for it in 3:
-		for o in OBSTACLES:
+		for o in obstacles:
 			var c := Vector2(o.x, o.y)
 			var v: Vector2 = h.position - c
 			var d := v.length()
@@ -327,7 +330,7 @@ func resolve_collisions(h) -> void:
 		h.position.x = clampf(h.position.x, ARENA.position.x + h.radius, ARENA.end.x - h.radius)
 		h.position.y = clampf(h.position.y, ARENA.position.y + h.radius, ARENA.end.y - h.radius)
 	# Se ainda sobrepõe (vão entre obstáculo e borda menor que o herói), sai pela lateral.
-	for o in OBSTACLES:
+	for o in obstacles:
 		var c2 := Vector2(o.x, o.y)
 		var minimum2: float = o.z + h.radius
 		if h.position.distance_to(c2) < minimum2 - 0.5:
@@ -357,7 +360,7 @@ func resolve_collisions(h) -> void:
 func spot_free(p: Vector2, r: float, team: int) -> bool:
 	if p.x < ARENA.position.x + r or p.x > ARENA.end.x - r or p.y < ARENA.position.y + r or p.y > ARENA.end.y - r:
 		return false
-	for o in OBSTACLES:
+	for o in obstacles:
 		if p.distance_to(Vector2(o.x, o.y)) < o.z + r - 0.5:
 			return false
 	return p.distance_to(SPAWNS[1 - team]) >= SPAWN_R + r - 0.5
@@ -620,7 +623,7 @@ func _update_projectiles(dt: float) -> void:
 					alive = false
 					break
 		if alive:
-			for o in OBSTACLES:
+			for o in obstacles:
 				if p["pos"].distance_to(Vector2(o.x, o.y)) < o.z:
 					alive = false
 					_burst(p["pos"], 10.0, Color(1, 0.85, 0.5), 0.2)
@@ -1265,7 +1268,7 @@ func _draw() -> void:
 		UI.text_c(self, CENTER + Vector2(0, 6), str(int(ceil(Data.UNLOCK_TIME - time))), 22, Color(1, 1, 1, 0.8), 4)
 
 	# Obstáculos
-	for o in OBSTACLES:
+	for o in obstacles:
 		var c := Vector2(o.x, o.y)
 		draw_circle(c + Vector2(0, 6), o.z, Color(0, 0, 0, 0.35))
 		if Art.draw_map(self, Art.pillar_name(o.z), c, o.z):
