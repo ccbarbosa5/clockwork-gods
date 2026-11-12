@@ -596,10 +596,25 @@ func test_heroes_never_inside_obstacles_or_out_of_arena() -> void:
 			if not h.alive:
 				continue
 			check(g.ARENA.grow(1.0).has_point(h.position), "%s fora da arena em %s" % [h.hid, str(h.position)])
-			for o in g.obstacles:
-				var d: float = h.position.distance_to(Vector2(o.x, o.y))
-				check(d >= o.z + h.radius - 1.5, "%s dentro de obstáculo" % h.hid)
+			for o in g.arena_obs:
+				check(g.Arena.distance(o, h.position) >= h.radius - 1.5 or h.leaping, "%s dentro de obstáculo" % h.hid)
 	done(g)
+
+
+## Menor distância entre dois obstáculos (círculo ou retângulo); <= 0 = encostam.
+func _obstacle_gap(o, o2) -> float:
+	var A = load("res://scripts/arena.gd")
+	if o["circulo"]:
+		return A.distance(o2, o["c"]) - o["r"]
+	if o2["circulo"]:
+		return A.distance(o, o2["c"]) - o2["r"]
+	var r1: Rect2 = o["ret"]
+	var r2: Rect2 = o2["ret"]
+	var dx := maxf(r2.position.x - r1.end.x, r1.position.x - r2.end.x)
+	var dy := maxf(r2.position.y - r1.end.y, r1.position.y - r2.end.y)
+	if dx > 0.0 and dy > 0.0:
+		return Vector2(dx, dy).length()
+	return maxf(dx, dy)
 
 
 func _path_len(g, h, seconds: float) -> float:
@@ -616,12 +631,13 @@ func test_bug009_collision_never_leaves_hero_in_obstacle() -> void:
 	# BUG-009: empurrão do obstáculo e da borda se anulavam e o herói ficava dentro.
 	var g := new_game()
 	var t = hero(g, 0, "talos")
-	for o in g.obstacles:
+	for o in g.arena_obs:
+		var oc: Vector2 = o["c"] if o["circulo"] else o["ret"].get_center()
 		for off in [Vector2(0, -10), Vector2(0, 10), Vector2(-10, 0), Vector2(10, 0), Vector2.ZERO]:
-			t.position = Vector2(o.x, o.y) + off
+			t.position = oc + off
 			g.resolve_collisions(t)
-			for o2 in g.obstacles:
-				check(t.position.distance_to(Vector2(o2.x, o2.y)) >= o2.z + t.radius - 1.0, "herói continuou dentro de obstáculo %s" % str(o2))
+			for o2 in g.arena_obs:
+				check(g.Arena.distance(o2, t.position) >= t.radius - 1.0, "herói continuou dentro de obstáculo %s" % o2["tipo"])
 			check(g.ARENA.grow(0.5).has_point(t.position), "herói saiu da arena ao resolver colisão")
 	done(g)
 
@@ -691,15 +707,16 @@ func test_bug012_map_gaps_fit_largest_hero() -> void:
 		biggest = maxf(biggest, Data.HEROES[hid]["radius"] * 2.0)
 	var need := biggest + 10.0
 	var a: Rect2 = g.ARENA
-	for o in g.obstacles:
-		var gaps := [o.y - o.z - a.position.y, a.end.y - (o.y + o.z), o.x - o.z - a.position.x, a.end.x - (o.x + o.z)]
+	for o in g.arena_obs:
+		var bb: Rect2 = o["ret"] if not o["circulo"] else Rect2(o["c"] - Vector2(o["r"], o["r"]), Vector2(o["r"], o["r"]) * 2.0)
+		var gaps := [bb.position.y - a.position.y, a.end.y - bb.end.y, bb.position.x - a.position.x, a.end.x - bb.end.x]
 		for gap in gaps:
-			check(gap <= 0.0 or gap >= need, "vão de %.0f px entre obstáculo %s e a borda" % [gap, str(o)])
-		for o2 in g.obstacles:
+			check(gap <= 0.0 or gap >= need, "vão de %.0f px entre %s %s e a borda" % [gap, o["tipo"], str(bb)])
+		for o2 in g.arena_obs:
 			if o2 == o:
 				continue
-			var gap2: float = Vector2(o.x, o.y).distance_to(Vector2(o2.x, o2.y)) - o.z - o2.z
-			check(gap2 <= 0.0 or gap2 >= need, "vão de %.0f px entre obstáculos %s e %s" % [gap2, str(o), str(o2)])
+			var gap2 := _obstacle_gap(o, o2)
+			check(gap2 <= 0.0 or gap2 >= need, "vão de %.0f px entre %s e %s" % [gap2, o["tipo"], o2["tipo"]])
 	done(g)
 
 
@@ -910,7 +927,8 @@ func _all_art_paths() -> Array:
 ## retratos (uma ultimate pronta), cartas (uma em destaque), próxima carta,
 ## os três tipos de projétil, avisos de habilidade e registro lateral.
 func _art_scene() -> Node2D:
-	var g := new_game()
+	# Arena clássica: tem colunas grandes e pequenas (a nova só tem a pequena).
+	var g := new_game({"arena": "classica"})
 	var c = g.commanders[0]
 	var t = hero(g, 0, "talos")
 	var a = hero(g, 0, "artemis")
@@ -2343,11 +2361,11 @@ func test_health_packs_heal_and_respawn() -> void:
 			if pk2["pos"].distance_to(mirror) < 1.0:
 				found = true
 		check(found, "pacote %s tem o par espelhado" % str(pk["pos"]))
-		check(pk["pos"].distance_to(g.CENTER) > g.POINT_R + 100.0, "pacote longe do ponto")
+		check(pk["pos"].distance_to(g.CENTER) > g.POINT_R + 30.0, "pacote fora do ponto")
 		for sp in g.SPAWNS:
 			check(pk["pos"].distance_to(sp) > g.SPAWN_R + 150.0, "pacote longe das bases")
-		for o in g.obstacles:
-			check(pk["pos"].distance_to(Vector2(o.x, o.y)) > o.z + 40.0, "pacote longe das colunas")
+		for o in g.arena_obs:
+			check(g.Arena.distance(o, pk["pos"]) > 30.0, "pacote longe dos obstáculos")
 	var a = hero(g, 0, "artemis")
 	var pk0: Dictionary = g.packs[0]
 	a.hp = 50.0
@@ -2428,7 +2446,8 @@ func test_retreat_takes_close_pack_without_healer() -> void:
 	var a = hero(g, 0, "artemis")
 	a.stun_t = 0.0
 	var pk: Dictionary = g.packs[0]
-	a.position = pk["pos"] + Vector2(120, 0)
+	# Perto deste frasco e longe dos outros (na arena nova há um no eixo, perto do ponto).
+	a.position = pk["pos"] + Vector2(-60, 40)
 	a.hp = a.max_hp * 0.1
 	for i in 120:
 		a.hp = minf(a.hp, a.max_hp * 0.1)

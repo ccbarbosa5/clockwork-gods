@@ -155,7 +155,7 @@ func load_arena(id: String) -> void:
 	for o in arena_obs:
 		if o["tiro"]:
 			shot_obs.append(o)
-		if o["circulo"]:
+		if o["circulo"] and o["tipo"] == "coluna":
 			obstacles.append(Vector3(o["c"].x, o["c"].y, o["r"]))
 	packs.clear()
 	for pp in a["packs"]:
@@ -1490,7 +1490,8 @@ func _draw() -> void:
 	if not point_unlocked():
 		UI.text_c(self, CENTER + Vector2(0, 6), str(int(ceil(Data.UNLOCK_TIME - time))), 22, Color(1, 1, 1, 0.8), 4)
 
-	# Obstáculos
+	# Obstáculos: paredes, muretas, caldeiras e estátuas; depois as colunas.
+	_draw_arena_props()
 	for o in obstacles:
 		var c := Vector2(o.x, o.y)
 		draw_circle(c + Vector2(0, 6), o.z, Color(0, 0, 0, 0.35))
@@ -1662,6 +1663,58 @@ func _draw() -> void:
 const POPUP_R := 11.0
 const POPUP_ULT_R := 14.0
 const POPUP_GAP := 3.0
+
+
+## Desenho provisório (por código) das peças da arena que não são colunas,
+## até a arte chegar (lista em claude/arena-nova.md).
+func _draw_arena_props() -> void:
+	for o in arena_obs:
+		var tipo: String = o["tipo"]
+		if tipo == "coluna":
+			continue
+		if o["circulo"]:
+			var c: Vector2 = o["c"]
+			var r: float = o["r"]
+			draw_circle(c + Vector2(0, 6), r, Color(0, 0, 0, 0.4))
+			if tipo == "caldeira":
+				draw_circle(c, r, Color(0.45, 0.25, 0.12))
+				draw_circle(c, r * 0.82, Color(0.68, 0.38, 0.18))
+				UI.gear(self, c, r * 0.5, 8, Color(0.4, 0.2, 0.1), time * 0.2)
+				var glow := 0.75 + 0.25 * sin(time * 3.0 + c.x)
+				draw_circle(c, r * 0.22, Color(1.0, 0.55 * glow, 0.15))
+				UI.ring(self, c, r, Color(0.95, 0.65, 0.3), 3.0)
+				for k in 8:
+					var ang := TAU * k / 8.0
+					draw_circle(c + Vector2(cos(ang), sin(ang)) * r * 0.9, 2.5, Color(0.95, 0.75, 0.4))
+			else:
+				draw_circle(c, r, Color(0.42, 0.42, 0.45))
+				draw_circle(c, r * 0.7, Color(0.62, 0.62, 0.66))
+				draw_circle(c + Vector2(0, -r * 0.15), r * 0.32, Color(0.78, 0.78, 0.8))
+				UI.ring(self, c, r, Color(0.85, 0.85, 0.9), 2.5)
+			continue
+		var rr: Rect2 = o["ret"]
+		draw_rect(Rect2(rr.position + Vector2(0, 6), rr.size), Color(0, 0, 0, 0.4))
+		if tipo == "mureta":
+			# Baixa: tiros passam por cima. Tom claro, borda de balaústre.
+			draw_rect(rr, Color(0.62, 0.5, 0.32, 0.92))
+			var horiz := rr.size.x >= rr.size.y
+			var n := int((rr.size.x if horiz else rr.size.y) / 10.0)
+			for k in n + 1:
+				var t := float(k) / maxf(n, 1)
+				var p := rr.position + (Vector2(rr.size.x * t, rr.size.y * 0.5) if horiz else Vector2(rr.size.x * 0.5, rr.size.y * t))
+				draw_circle(p, 3.0, Color(1, 0.9, 0.65))
+			draw_rect(rr, Color(1, 0.88, 0.6), false, 1.5)
+		else:
+			draw_rect(rr, Color(0.3, 0.2, 0.12))
+			draw_rect(rr.grow(-4), Color(0.48, 0.32, 0.17))
+			draw_rect(rr, Color(0.9, 0.65, 0.32), false, 2.5)
+			var x := rr.position.x + 8.0
+			while x < rr.end.x - 4:
+				var y := rr.position.y + 8.0
+				while y < rr.end.y - 4:
+					draw_circle(Vector2(x, y), 2.0, Color(0.95, 0.75, 0.4))
+					y += 18.0
+				x += 18.0
 
 
 func popup_layout() -> Array:

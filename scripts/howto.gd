@@ -70,10 +70,10 @@ const SEL_SLOTS := Rect2(626, 432, 604, 80)
 const SEL_FREE := Rect2(626, 642, 300, 34)
 const SEL_CONFIRM := Rect2(1000, 634, 236, 50)
 ## Cena da aba 7 (tools/howto_shots.gd): Ártemis regenerando e Talos na cobertura.
-const SCENE_SPARK := Vector2(470, 260)
+const SCENE_SPARK := Vector2(400, 250)
 ## Frascos (disponível e vazio) da cena da aba 7.
-const HOWTO_PACKS := [Vector2(330, 110), Vector2(330, 490)]
-const SCENE_COVER := Vector2(222, 398)
+const HOWTO_PACKS := [Vector2(440, 100), Vector2(440, 500)]
+const SCENE_COVER := Vector2(305, 300)
 
 var tab := 0
 var hover := ""
@@ -233,10 +233,10 @@ static func marks(i: int) -> Array:
 		6:
 			return [
 				{"key": "HOWTO_M_7_1", "at": Vector2(150, 150), "shapes": [[Vector2(62, 300), 80.0]]},
-				{"key": "HOWTO_M_7_2", "at": Vector2(480, 95), "shapes": [[HOWTO_PACKS[0], 24.0]]},
-				{"key": "HOWTO_M_7_3", "at": Vector2(480, 520), "shapes": [[HOWTO_PACKS[1], 24.0]]},
-				{"key": "HOWTO_M_7_4", "at": Vector2(600, 190), "shapes": [[SCENE_SPARK, 30.0]]},
-				{"key": "HOWTO_M_7_5", "at": Vector2(120, 520), "shapes": [[SCENE_COVER, 52.0]]},
+				{"key": "HOWTO_M_7_2", "at": Vector2(600, 150), "shapes": [[HOWTO_PACKS[0], 24.0]]},
+				{"key": "HOWTO_M_7_3", "at": Vector2(600, 450), "shapes": [[HOWTO_PACKS[1], 24.0]]},
+				{"key": "HOWTO_M_7_4", "at": Vector2(560, 240), "shapes": [[SCENE_SPARK, 30.0]]},
+				{"key": "HOWTO_M_7_5", "at": Vector2(150, 440), "shapes": [[SCENE_COVER, 50.0]]},
 			]
 		7:
 			return [

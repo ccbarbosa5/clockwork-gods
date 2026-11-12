@@ -103,7 +103,7 @@ func _match() -> Node2D:
 	g.point_owner = 0
 	g.hud.hover = -1
 	var blue := [Vector2(610, 300), Vector2(560, 255), Vector2(545, 345)]
-	var red := [Vector2(790, 290), Vector2(845, 225), Vector2(880, 350)]
+	var red := [Vector2(790, 290), Vector2(870, 250), Vector2(880, 350)]
 	for i in 3:
 		_place(g.team_hero(0, i), blue[i], 0.85 - 0.15 * i)
 		_place(g.team_hero(1, i), red[i], 0.7 + 0.1 * i)
@@ -174,20 +174,21 @@ func _scene(tab: int) -> Node:
 			asc.position = g.spawn_pos(0) + Vector2(10, 0)
 			asc.hp = asc.max_hp * 0.6
 			# Centelha Viva: Ártemis ferida, longe do perigo.
-			ar.position = Vector2(470, 260)
+			ar.position = HowTo.SCENE_SPARK
 			ar.hp = ar.max_hp * 0.55
 			ar.calm_t = 10.0
 			ar.regenerating = true
-			# Cobertura: Talos atrás da coluna (250, 385), do lado da própria base.
-			tl.position = Vector2(196, 410)
+			# Cobertura: Talos atrás da coluna (330, 300), do lado da própria base.
+			tl.position = Vector2(280, 300)
 			tl.hp = tl.max_hp * 0.45
 			tl.covering = true
 			tl.calm_t = 10.0
 			tl.regenerating = true
 			for h in [tl, ar, asc]:
 				h.retreating = false
-			g.packs[0]["t"] = 0.0     # (330, 110): disponível
-			g.packs[1]["t"] = 17.0    # (330, 490): vazio, volta em 17 s
+			for pk in g.packs:
+				if pk["pos"].distance_to(HowTo.HOWTO_PACKS[1]) < 1.0:
+					pk["t"] = 17.0    # vazio, volta em 17 s (o outro fica disponível)
 			g.point_owner = -1
 			g.team_hero(1, 0).position = Vector2(700, 280)
 			g.team_hero(1, 1).position = Vector2(760, 230)
