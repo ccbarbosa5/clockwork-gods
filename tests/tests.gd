@@ -2707,3 +2707,83 @@ func test_line_of_shot_walls_and_mureta() -> void:
 	check(crossed, "projétil passa por cima da mureta")
 	done(g)
 
+
+# ---------------------------------------------------------------------------
+# Navegação (A*) e cobertura na arena nova (Pacote 6, PR 2)
+
+func test_nav_path_goes_around_walls() -> void:
+	var g := new_game({"arena": "tres_corredores"})
+	# Flanco de cima → corredor central, logo abaixo; o outro lado da parede só
+	# se alcança pelo vão do meio (a ponta de fora encosta na parede em L).
+	var a := Vector2(400, 130)
+	var b := Vector2(400, 250)
+	check(not g.walkable(a, b), "parede no caminho reto")
+	var pts: PackedVector2Array = g.nav_path(a, b)
+	check(pts.size() >= 2, "há caminho")
+	var ok := true
+	for k in range(1, pts.size()):
+		if not g.free_at(pts[k], g.NAV_R - 1.0):
+			ok = false
+	check(ok, "caminho só por lugares livres")
+	var through_gap := false
+	for p in pts:
+		if p.y > 160 and p.y < 200 and p.x > 310 and p.x < 370:
+			through_gap = true
+	check(through_gap, "passa pelo vão do meio da parede")
+	# Herói chega lá andando sozinho.
+	var h = g.team_hero(0, 0)
+	h.position = a
+	var arrived := false
+	for i in 600:
+		h.position += h._steer(b) * h.speed / 60.0
+		g.resolve_collisions(h)
+		if h.position.distance_to(b) < 16.0:
+			arrived = true
+			break
+	check(arrived, "herói contorna a parede e chega (%s)" % str(h.position))
+	done(g)
+
+
+func test_cover_spot_hidden_behind_wall() -> void:
+	var g := new_game({"arena": "tres_corredores"})
+	var h = g.team_hero(0, 2)
+	var e = g.team_hero(1, 0)
+	h.position = Vector2(300, 250)
+	e.position = Vector2(300, 60)
+	var spot: Vector2 = h.cover_spot([e])
+	check(spot != Vector2.INF, "acha cobertura")
+	if spot != Vector2.INF:
+		check(not g.has_los(e.position, spot), "cobertura escondida do inimigo")
+		check(g.spot_free(spot, h.radius, h.team), "cobertura livre")
+	done(g)
+
+
+func test_new_arena_heroes_not_stuck() -> void:
+	var g := new_game({"arena": "tres_corredores", "autotest": true, "bots": true, "difficulty": "hard"})
+	var last := {}
+	var still := {}
+	var stuck := 0
+	var reached := [false, false]
+	for sec in 110:
+		step(g, 1.0)
+		if g.ended:
+			break
+		for h in g.heroes:
+			if not h.alive:
+				still[h] = 0
+				continue
+			if g.in_point(h.position):
+				reached[h.team] = true
+			var moved: float = h.position.distance_to(last.get(h, h.position + Vector2(100, 0)))
+			last[h] = h.position
+			var home: bool = h.position.distance_to(g.spawn_pos(h.team)) < g.SPAWN_R + 20.0
+			if moved < 4.0 and not home and h.stun_t <= 0.0 and h.root_t <= 0.0:
+				still[h] = still.get(h, 0) + 1
+				if still[h] == 6:
+					stuck += 1
+			else:
+				still[h] = 0
+	check(stuck == 0, "nenhum herói travado 6 s na arena nova (%d)" % stuck)
+	check(reached[0] and reached[1], "os dois times chegam ao ponto")
+	done(g)
+

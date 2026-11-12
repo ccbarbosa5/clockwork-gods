@@ -30,6 +30,24 @@ var arena_def: Dictionary = {}
 var arena_obs: Array = []
 var shot_obs: Array = []
 var obstacles: Array = []
+## Obstáculos inflados pelo raio de um herói (para testar se dá para andar
+## em linha reta) e a grade de navegação (A*), uma por arena.
+var move_obs: Array = []
+var nav: AStarGrid2D = null
+static var _nav_cache := {}
+## Mesmos obstáculos em listas tipadas (rápidas): todos, só os que bloqueiam
+## tiro e os inflados para andar em linha reta.
+var col_c := PackedVector2Array()
+var col_r := PackedFloat32Array()
+var col_rect: Array = []
+var shot_c := PackedVector2Array()
+var shot_r := PackedFloat32Array()
+var shot_rect: Array = []
+var mv_c := PackedVector2Array()
+var mv_r := PackedFloat32Array()
+var mv_rect: Array = []
+const NAV_CELL := 8
+const NAV_R := 22.0
 var heroes: Array = []
 ## Pacotes de vida (Data.HEALTH_PACKS): {pos, t}; t > 0 = reaparece em t s.
 var packs: Array = []
@@ -142,11 +160,152 @@ func load_arena(id: String) -> void:
 	packs.clear()
 	for pp in a["packs"]:
 		packs.append({"pos": pp, "t": 0.0})
+	move_obs = []
+	for o in arena_obs:
+		var mo: Dictionary = o.duplicate()
+		if o["circulo"]:
+			mo["r"] = o["r"] + NAV_R - 1.0
+		else:
+			mo["ret"] = o["ret"].grow(NAV_R - 1.0)
+		move_obs.append(mo)
+	col_c = PackedVector2Array(); col_r = PackedFloat32Array(); col_rect = []
+	shot_c = PackedVector2Array(); shot_r = PackedFloat32Array(); shot_rect = []
+	mv_c = PackedVector2Array(); mv_r = PackedFloat32Array(); mv_rect = []
+	for o in arena_obs:
+		if o["circulo"]:
+			col_c.append(o["c"]); col_r.append(o["r"])
+			mv_c.append(o["c"]); mv_r.append(o["r"] + NAV_R - 1.0)
+			if o["tiro"]:
+				shot_c.append(o["c"]); shot_r.append(o["r"])
+		else:
+			col_rect.append(o["ret"])
+			mv_rect.append(o["ret"].grow(NAV_R - 1.0))
+			if o["tiro"]:
+				shot_rect.append(o["ret"])
+	if not _nav_cache.has(id):
+		_nav_cache[id] = _build_nav()
+	nav = _nav_cache[id]
+
+
+# ---------------------------------------------------------------------------
+# Navegação: grade A* de 8 px; célula bloqueada onde um herói (raio 17) não cabe.
+func _build_nav() -> AStarGrid2D:
+	var a := AStarGrid2D.new()
+	a.region = Rect2i(0, 0, int(ARENA.size.x) / NAV_CELL, int(ARENA.size.y) / NAV_CELL)
+	a.cell_size = Vector2(NAV_CELL, NAV_CELL)
+	a.offset = ARENA.position + Vector2(NAV_CELL, NAV_CELL) * 0.5
+	a.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	a.default_compute_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
+	a.default_estimate_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
+	a.update()
+	for x in a.region.size.x:
+		for y in a.region.size.y:
+			var p := a.offset + Vector2(x, y) * NAV_CELL
+			var solid := not ARENA.grow(-NAV_R).has_point(p) or not free_at(p, NAV_R)
+			if solid:
+				a.set_point_solid(Vector2i(x, y), true)
+	return a
+
+
+func _nav_cell(p: Vector2) -> Vector2i:
+	var c := ((p - nav.offset) / NAV_CELL).round()
+	var v := Vector2i(clampi(int(c.x), 0, nav.region.size.x - 1), clampi(int(c.y), 0, nav.region.size.y - 1))
+	if not nav.is_point_solid(v):
+		return v
+	# Célula livre mais perto (destino encostado ou dentro de obstáculo).
+	for ring in range(1, 12):
+		for dx in range(-ring, ring + 1):
+			for dy in [-ring, ring]:
+				for w in [Vector2i(v.x + dx, v.y + dy), Vector2i(v.x + dy, v.y + dx)]:
+					if nav.region.has_point(w) and not nav.is_point_solid(w):
+						return w
+	return v
+
+
+## Caminho de `from` até `to` contornando obstáculos (pontos do mundo; o
+## primeiro é a célula de saída). Vazio se não há caminho.
+func nav_path(from: Vector2, to: Vector2) -> PackedVector2Array:
+	var pts := nav.get_point_path(_nav_cell(from), _nav_cell(to))
+	if pts.size() > 0 and free_at(to, NAV_R):
+		pts[pts.size() - 1] = to
+	return pts
+
+
+## Dá para ir em linha reta de a até b (herói de raio ~17)?
+func walkable(a: Vector2, b: Vector2) -> bool:
+	return _seg_clear(mv_c, mv_r, mv_rect, a, b)
+
+
+## Ponto livre mais perto de p (p, se já está livre).
+func free_near(p: Vector2, r: float) -> Vector2:
+	if free_at(p, r) and ARENA.grow(-r).has_point(p):
+		return p
+	for ring in range(1, 30):
+		for k in 16:
+			var ang := k * TAU / 16.0
+			var q := p + Vector2(cos(ang), sin(ang)) * ring * 6.0
+			if free_at(q, r) and ARENA.grow(-r).has_point(q):
+				return q
+	return p
 
 
 ## Linha de tiro livre entre a e b (muretas não bloqueiam).
 func has_los(a: Vector2, b: Vector2) -> bool:
-	return Arena.line_clear(shot_obs, a, b, true)
+	return _seg_clear(shot_c, shot_r, shot_rect, a, b)
+
+
+## Um herói de raio r cabe em p (sem contar bordas e bases)?
+func free_at(p: Vector2, r: float) -> bool:
+	for i in col_c.size():
+		var rr: float = col_r[i] + r
+		if p.distance_squared_to(col_c[i]) < rr * rr:
+			return false
+	for rc: Rect2 in col_rect:
+		var q := Vector2(clampf(p.x, rc.position.x, rc.end.x), clampf(p.y, rc.position.y, rc.end.y))
+		if p.distance_squared_to(q) < r * r or rc.has_point(p):
+			return false
+	return true
+
+
+## O segmento a-b não toca nenhum círculo (cs, rs) nem retângulo (rects)?
+static func _seg_clear(cs: PackedVector2Array, rs: PackedFloat32Array, rects: Array, a: Vector2, b: Vector2) -> bool:
+	var mnx := minf(a.x, b.x)
+	var mxx := maxf(a.x, b.x)
+	var mny := minf(a.y, b.y)
+	var mxy := maxf(a.y, b.y)
+	for i in cs.size():
+		var c: Vector2 = cs[i]
+		var r: float = rs[i]
+		if c.x + r < mnx or c.x - r > mxx or c.y + r < mny or c.y - r > mxy:
+			continue
+		if Geometry2D.get_closest_point_to_segment(c, a, b).distance_squared_to(c) < r * r:
+			return false
+	var d := b - a
+	for rc: Rect2 in rects:
+		if rc.end.x < mnx or rc.position.x > mxx or rc.end.y < mny or rc.position.y > mxy:
+			continue
+		# Interseção segmento × retângulo (método das faixas).
+		var t0 := 0.0
+		var t1 := 1.0
+		if absf(d.x) < 0.000001:
+			if a.x < rc.position.x or a.x > rc.end.x:
+				continue
+		else:
+			var tx1 := (rc.position.x - a.x) / d.x
+			var tx2 := (rc.end.x - a.x) / d.x
+			t0 = maxf(t0, minf(tx1, tx2))
+			t1 = minf(t1, maxf(tx1, tx2))
+		if absf(d.y) < 0.000001:
+			if a.y < rc.position.y or a.y > rc.end.y:
+				continue
+		else:
+			var ty1 := (rc.position.y - a.y) / d.y
+			var ty2 := (rc.end.y - a.y) / d.y
+			t0 = maxf(t0, minf(ty1, ty2))
+			t1 = minf(t1, maxf(ty1, ty2))
+		if t0 <= t1:
+			return false
+	return true
 
 
 ## Anda de `from` até `to` sem atravessar obstáculo (raio r). Devolve o último
@@ -157,7 +316,7 @@ func sweep(from: Vector2, to: Vector2, r: float) -> Array:
 	var last := from
 	for k in range(1, n + 1):
 		var p := from.lerp(to, float(k) / n)
-		if not Arena.free_at(arena_obs, p, r - 1.0):
+		if not free_at(p, r - 1.0):
 			return [last, true]
 		last = p
 	return [to, false]
@@ -342,6 +501,12 @@ func resolve_collisions(h) -> void:
 	# a borda, e a borda pode devolvê-lo ao obstáculo (BUG-009).
 	for it in 3:
 		for o in arena_obs:
+			# Longe do obstáculo: nada a fazer (teste rápido pela caixa).
+			if o["circulo"]:
+				if h.position.distance_squared_to(o["c"]) >= (o["r"] + h.radius) * (o["r"] + h.radius):
+					continue
+			elif not o["ret"].grow(h.radius).has_point(h.position):
+				continue
 			h.position = _push_out(o, h.position, h.radius)
 		var enemy_spawn: Vector2 = SPAWNS[1 - h.team]
 		var ve: Vector2 = h.position - enemy_spawn
@@ -419,7 +584,7 @@ static func _push_out(o: Dictionary, p: Vector2, r: float) -> Vector2:
 func spot_free(p: Vector2, r: float, team: int) -> bool:
 	if p.x < ARENA.position.x + r or p.x > ARENA.end.x - r or p.y < ARENA.position.y + r or p.y > ARENA.end.y - r:
 		return false
-	if not Arena.free_at(arena_obs, p, r - 0.5):
+	if not free_at(p, r - 0.5):
 		return false
 	return p.distance_to(SPAWNS[1 - team]) >= SPAWN_R + r - 0.5
 
@@ -682,7 +847,7 @@ func _update_projectiles(dt: float) -> void:
 					break
 		if alive:
 			# Paredes, colunas, caldeiras e estátuas param o tiro; muretas não.
-			if not Arena.line_clear(shot_obs, p["pos"] - p["vel"] * dt, p["pos"], true):
+			if not has_los(p["pos"] - p["vel"] * dt, p["pos"]):
 				alive = false
 				_burst(p["pos"], 10.0, Color(1, 0.85, 0.5), 0.2)
 		if alive:

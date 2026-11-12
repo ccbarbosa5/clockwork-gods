@@ -94,6 +94,10 @@ var calm_t := 0.0
 var regenerating := false
 ## Indo se esconder atrás de uma coluna para regenerar.
 var covering := false
+## Caminho da navegação (game.nav_path) até nav_dest; refeito a cada 0,6 s.
+var nav_pts := PackedVector2Array()
+var nav_dest := Vector2.INF
+var nav_t := 0.0
 
 
 func setup(g, t: int, id: String, idx: int) -> void:
@@ -792,8 +796,9 @@ func _think(dt: float) -> Vector2:
 	return _hold(form)
 
 
-## Lugar atrás da coluna mais próxima, do lado oposto aos inimigos (ou à base
-## inimiga, se não há inimigo vivo). Vector2.INF se nenhuma coluna serve.
+## Lugar escondido atrás do obstáculo mais perto (coluna, parede, caldeira ou
+## estátua; mureta não esconde), do lado oposto aos inimigos (ou à base
+## inimiga, se não há inimigo vivo). Vector2.INF se nenhum serve.
 func cover_spot(enemies: Array) -> Vector2:
 	var threat: Vector2 = game.spawn_pos(1 - team)
 	if not enemies.is_empty():
@@ -803,16 +808,28 @@ func cover_spot(enemies: Array) -> Vector2:
 		threat /= enemies.size()
 	var best := Vector2.INF
 	var bd := 450.0
-	for o in game.obstacles:
-		var c := Vector2(o.x, o.y)
-		var away := c - threat
-		if away.length() < 1.0:
-			continue
-		var spot: Vector2 = c + away.normalized() * (o.z + radius + 8.0)
-		if not game.ARENA.grow(-radius).has_point(spot) or game.in_point(spot):
-			continue
-		var d := position.distance_to(spot)
-		if d < bd:
+	var gap := radius + 8.0
+	for o in game.shot_obs:
+		var cands: Array = []
+		if o["circulo"]:
+			var away: Vector2 = o["c"] - threat
+			if away.length() < 1.0:
+				continue
+			cands.append(o["c"] + away.normalized() * (o["r"] + gap))
+		else:
+			var r: Rect2 = o["ret"].grow(gap)
+			var c := r.get_center()
+			for v in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y),
+					Vector2(c.x, r.position.y), Vector2(c.x, r.end.y), Vector2(r.position.x, c.y), Vector2(r.end.x, c.y)]:
+				cands.append(v)
+		for spot in cands:
+			var d := position.distance_to(spot)
+			if d >= bd:
+				continue
+			if not game.ARENA.grow(-radius).has_point(spot) or game.in_point(spot):
+				continue
+			if not game.spot_free(spot, radius, team) or game.has_los(threat, spot):
+				continue
 			bd = d
 			best = spot
 	return best
@@ -1033,23 +1050,57 @@ func _go(dest: Vector2, tol: float) -> Vector2:
 
 
 func _steer(dest: Vector2) -> Vector2:
+	var aim := dest
+	if not game.walkable(position, dest):
+		# Destino dentro de obstáculo: vai para o ponto livre mais perto.
+		if not game.free_at(dest, radius):
+			dest = game.free_near(dest, radius)
+		aim = dest if game.walkable(position, dest) else _nav_next(dest)
 	var to_dest := dest - position
 	if to_dest.length() < 0.5:
 		return Vector2.ZERO
-	var dir := to_dest.normalized()
+	var dir := (aim - position).normalized()
+	var to_aim := aim - position
 	var steer := Vector2.ZERO
-	for o in game.obstacles:
-		var c := Vector2(o.x, o.y)
-		var r: float = o.z
-		var to := c - position
+	var reach := radius + 45.0
+	# Ponto mais perto de cada obstáculo (borda do círculo ou do retângulo).
+	var near: Array = []
+	for i in game.col_c.size():
+		var vc: Vector2 = position - game.col_c[i]
+		var dc := vc.length()
+		if dc - game.col_r[i] < reach and dc > 0.01:
+			near.append(game.col_c[i] + vc / dc * game.col_r[i])
+	for rr: Rect2 in game.col_rect:
+		if not rr.grow(reach).has_point(position):
+			continue
+		near.append(Vector2(clampf(position.x, rr.position.x, rr.end.x), clampf(position.y, rr.position.y, rr.end.y)))
+	for q: Vector2 in near:
+		var to := q - position
 		var dist := to.length()
-		var margin := r + radius + 45.0
-		if dist < margin and dir.dot(to) > 0.0:
+		if dist < reach and dist > 0.01 and dir.dot(to) > 0.0:
 			var perp := Vector2(-to.y, to.x).normalized()
-			if perp.dot(to_dest) < 0.0:
+			if perp.dot(to_aim) < 0.0:
 				perp = -perp
-			steer += perp * (1.0 - (dist - r - radius) / 45.0) * 1.4
+			steer += perp * (1.0 - (dist - radius) / 45.0) * 1.4
 	return (dir + steer).normalized()
+
+
+## Próximo ponto do caminho (A*) até dest: o mais distante que já se alcança
+## em linha reta.
+func _nav_next(dest: Vector2) -> Vector2:
+	if nav_pts.is_empty() or nav_dest.distance_to(dest) > 32.0 or game.time >= nav_t:
+		nav_pts = game.nav_path(position, dest)
+		nav_dest = dest
+		nav_t = game.time + 0.6
+	while nav_pts.size() > 1 and position.distance_to(nav_pts[0]) < 12.0:
+		nav_pts.remove_at(0)
+	if nav_pts.is_empty():
+		return dest
+	var best: Vector2 = nav_pts[0]
+	for k in range(1, mini(8, nav_pts.size())):
+		if game.walkable(position, nav_pts[k]):
+			best = nav_pts[k]
+	return best
 
 
 # --------------------------------------------------------------------------
