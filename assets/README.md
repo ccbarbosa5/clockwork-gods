@@ -183,3 +183,20 @@ Sem o arquivo, cada efeito continua desenhado por código. Tamanho na tela em es
 | `falange_area.png` | 360×360 | Falange de Atenas (raio 180): anel de escudos de prata na borda, lança no centro. Desenhada a 40% (a parede entregue é bem opaca) |
 | `escudo_palas.png` | 88×88 no Talos; 2 × (raio + 4) / 0,59 em cada herói, para a faixa começar fora do anel do time | Escudo dado pela Atena (Palas e Falange): anel de prata, centro vazio |
 | `lanca_projetil.png` | 34×8 | Lança arremessada (básico da Atena), apontando para a direita |
+
+## heroes/camadas/ (Pacote 7: animação por peças)
+
+Opcional. Um herói com todas as camadas listadas em `scripts/rig.gd` (RIGS) é desenhado em peças,
+cada uma girando, avançando ou pulsando no próprio pivô (parado, andando, ataque, habilidade, dano).
+Faltando qualquer camada, o herói usa o sprite inteiro (`heroes/<id>_top.png`).
+
+| Arquivo | Fonte | Pivô (px na imagem) | Movimento |
+| --- | --- | --- | --- |
+| `talos_top_corpo.png` | 256×256 | (128, 128) | Respiração: escala 100% a 102% |
+| `talos_top_braco_escudo.png` | 256×256 | (153, 72) | Balança ao andar; Muralha de Bronze: +25° e 6 px à frente; dano: −12° |
+| `talos_top_braco_soco.png` | 256×256 | (150, 182) | Vai e volta ao andar; soco: até +14 px à frente |
+| `talos_top_chamines.png` | 256×256 | (109, 76) e (109, 176) | Cada chaminé pulsa 100% a 107% (115% na ultimate) |
+
+Todas no mesmo enquadramento do sprite inteiro, viradas para a direita; empilhadas, reproduzem a imagem
+atual. Pivôs e entrega: `claude/animacao-2d.md` (Assets).
+
