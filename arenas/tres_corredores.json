@@ -1,6 +1,7 @@
 {
 	"id": "tres_corredores",
 	"nome": "Três Corredores",
+	"piso": "floor_tres_corredores",
 	"espelhar": true,
 	"obstaculos": [
 		{

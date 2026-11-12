@@ -926,9 +926,9 @@ func _all_art_paths() -> Array:
 ## Partida parada com tudo que usa imagem na tela: sprites, selos armados,
 ## retratos (uma ultimate pronta), cartas (uma em destaque), próxima carta,
 ## os três tipos de projétil, avisos de habilidade e registro lateral.
-func _art_scene() -> Node2D:
+func _art_scene(arena := "classica") -> Node2D:
 	# Arena clássica: tem colunas grandes e pequenas (a nova só tem a pequena).
-	var g := new_game({"arena": "classica"})
+	var g := new_game({"arena": arena})
 	var c = g.commanders[0]
 	var t = hero(g, 0, "talos")
 	var a = hero(g, 0, "artemis")
@@ -1116,6 +1116,8 @@ const ART_SOURCE_SIZES := {
 	"heroes/talos_full": Vector2i(512, 768), "heroes/artemis_full": Vector2i(512, 768), "heroes/asclepio_full": Vector2i(512, 768),
 	"map/arena_floor": Vector2i(2560, 1040), "map/pillar_large": Vector2i(160, 160), "map/pillar_small": Vector2i(112, 112),
 	"map/control_point": Vector2i(512, 512), "map/spawn_base": Vector2i(384, 384),
+	"map/floor_tres_corredores": Vector2i(2560, 1040), "map/wall": Vector2i(256, 48), "map/wall_corner": Vector2i(48, 48),
+	"map/low_wall": Vector2i(256, 28), "map/boiler": Vector2i(192, 192), "map/statue": Vector2i(128, 128),
 	"heroes": Vector2i(256, 256), "icons": Vector2i(256, 256), "cards": Vector2i(240, 236),
 	"fx/disparo_projetil": Vector2i(256, 64), "fx/veneno_projetil": Vector2i(160, 64), "fx/tiro_basico": Vector2i(64, 32),
 	"fx/furia_area": Vector2i(512, 512), "fx/valvula_area": Vector2i(512, 512), "fx/sopro_area": Vector2i(512, 512),
@@ -1154,8 +1156,8 @@ func test_art_delivered_images_are_valid() -> void:
 			if want != Vector2i.ZERO:
 				check(Vector2i(t.get_width(), t.get_height()) == want, "%s tem %dx%d, esperado %dx%d" % [path, t.get_width(), t.get_height(), want.x, want.y])
 			var img := t.get_image()
-			if key in ["map/arena_floor", "ui/title_bg", "store/itch_cover"]:
-				continue  # piso, fundo da tela de título e capa do itch são opacos de propósito
+			if key in ["map/arena_floor", "map/floor_tres_corredores", "map/wall", "map/wall_corner", "ui/title_bg", "store/itch_cover"]:
+				continue  # pisos, paredes (retângulos), fundo da tela de título e capa do itch são opacos de propósito
 			check(img != null and img.detect_alpha() != Image.ALPHA_NONE, "imagem sem transparência: " + path)
 	print("        (imagens entregues conferidas: %d)" % found)
 
@@ -1644,11 +1646,50 @@ func test_art_every_map_image_is_used() -> void:
 		Art.drawn_names.clear()
 		scene = _art_scene(),
 	func():
-		for name in Art.MAP_IMAGES.keys():
-			check(Art.drawn_names.has("map/" + name), "a imagem map/%s.png nunca é desenhada" % name)
+		for name in MAP_CLASSICA:
+			check(Art.drawn_names.has("map/" + name), "a imagem map/%s.png nunca é desenhada na arena clássica" % name)
 		done(scene)
 		scene = null
 		Art.clear_cache())
+
+
+## Imagens do mapa de cada arena (toda imagem de MAP_IMAGES aparece em alguma).
+const MAP_CLASSICA := ["arena_floor", "pillar_large", "pillar_small", "control_point", "spawn_base", "health_pack"]
+const MAP_TRES := ["floor_tres_corredores", "wall", "wall_corner", "low_wall", "boiler", "statue", "pillar_small", "control_point", "spawn_base", "health_pack"]
+
+
+func test_art_map_images_tres_corredores_drawn() -> void:
+	for name in Art.MAP_IMAGES.keys():
+		check(MAP_CLASSICA.has(name) or MAP_TRES.has(name), "map/%s.png não pertence a nenhuma arena" % name)
+	after_draw(func():
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		var tx := ImageTexture.create_from_image(img)
+		Art.clear_cache()
+		for p in _all_art_paths():
+			Art.set_texture(p, tx)
+		Art.drawn_names.clear()
+		scene = _art_scene("tres_corredores"),
+	func():
+		for name in MAP_TRES:
+			check(Art.drawn_names.has("map/" + name), "a imagem map/%s.png nunca é desenhada na Três Corredores" % name)
+		check(not Art.drawn_names.has("map/arena_floor"), "Três Corredores usa o próprio piso")
+		done(scene)
+		scene = null
+		Art.clear_cache())
+
+
+func test_art_wall_strip_panels() -> void:
+	# Paredes e muretas: número inteiro de painéis (juntas nas pontas).
+	var img := Image.create(256, 48, false, Image.FORMAT_RGBA8)
+	var tx := ImageTexture.create_from_image(img)
+	Art.set_texture(Art.MAP % "wall", tx)
+	var ci := Node2D.new()
+	root.add_child(ci)
+	check(Art.draw_strip(ci, "wall", Rect2(0, 0, 75, 24)), "parede de 75 px desenhada")
+	check(Art.draw_strip(ci, "wall", Rect2(0, 0, 20, 52)), "perna vertical desenhada")
+	ci.free()
+	Art.clear_cache()
 
 
 func test_art_map_sizes() -> void:
