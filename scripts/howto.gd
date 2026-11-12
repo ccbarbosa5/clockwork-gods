@@ -44,8 +44,8 @@ const NEXT := Rect2(1066, 604, 190, 40)
 ## contra hud.gd e select.gd: se o HUD mudar, o teste avisa).
 const HUD_POINT := Vector2(640, 300)
 const HUD_PROGRESS := [Rect2(20, 13, 470, 14), Rect2(790, 13, 470, 14)]
-const HUD_CLOCK := Rect2(610, 3, 60, 22)
-const HUD_STATUS := Rect2(560, 26, 160, 13)
+const HUD_CLOCK := Rect2(616, 1, 48, 17)
+const HUD_STATUS := Rect2(552, 24, 176, 16)
 const HUD_ICHOR := Rect2(350, 700, 504, 14)
 ## Barra de Ícor com o número ao lado ("5 Ícor").
 const HUD_ICHOR_ALL := Rect2(350, 698, 560, 18)
@@ -177,8 +177,9 @@ static func marks(i: int) -> Array:
 				# passando por baixo das legendas do tempo e do dono do ponto.
 				{"key": "HOWTO_M_1_2", "at": Vector2(640, 135), "shapes": HUD_PROGRESS.duplicate(),
 					"to": [Vector2(60, 29), Vector2(1220, 29)]},
-				{"key": "HOWTO_M_1_3", "at": Vector2(420, 55), "shapes": [HUD_CLOCK]},
-				{"key": "HOWTO_M_1_4", "at": Vector2(850, 55), "shapes": [HUD_STATUS]},
+				# Contorno fino, por fora, para o texto do relógio e do dono seguir legível.
+				{"key": "HOWTO_M_1_3", "at": Vector2(420, 55), "shapes": [HUD_CLOCK], "thin": true},
+				{"key": "HOWTO_M_1_4", "at": Vector2(850, 55), "shapes": [HUD_STATUS], "thin": true},
 			]
 		1:
 			return [
@@ -186,7 +187,8 @@ static func marks(i: int) -> Array:
 				{"key": "HOWTO_M_2_2", "at": Vector2(1100, 72), "shapes": [SEL_SHEET]},
 				{"key": "HOWTO_M_2_3", "at": Vector2(900, 535), "shapes": [SEL_SLOTS]},
 				{"key": "HOWTO_M_2_4", "at": Vector2(776, 700), "shapes": [SEL_FREE]},
-				{"key": "HOWTO_M_2_5", "at": Vector2(1118, 535), "shapes": [SEL_CONFIRM]},
+				# Legenda menor, logo abaixo do botão (sem cobrir os comportamentos acima).
+				{"key": "HOWTO_M_2_5", "at": Vector2(1118, 712), "shapes": [SEL_CONFIRM], "thin": true, "small": true},
 			]
 		2:
 			return [
@@ -283,12 +285,15 @@ static func to_screen(p: Vector2) -> Vector2:
 ## os envolvem) e setas [de, até].
 static func mark_layout(mk: Dictionary) -> Dictionary:
 	var label := T.t(mk["key"])
-	var tw := UI.font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, MARK_FONT).x
+	var small: bool = mk.get("small", false)
+	var fs := mark_font(mk)
+	var bh := 20.0 if small else 22.0
+	var tw := UI.font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var c := to_screen(mk["at"])
-	var box := Rect2(c - Vector2(tw * 0.5 + 8, 11), Vector2(tw + 16, 22))
+	var box := Rect2(c - Vector2(tw * 0.5 + 8, bh * 0.5), Vector2(tw + 16, bh))
 	# A legenda nunca sai da imagem.
 	box.position.x = clampf(box.position.x, IMG.position.x + 4, IMG.end.x - box.size.x - 4)
-	box.position.y = clampf(box.position.y, IMG.position.y + 4, IMG.end.y - box.size.y - 2)
+	box.position.y = clampf(box.position.y, IMG.position.y + 4, IMG.end.y - box.size.y - (1 if small else 2))
 	var targets: Array = []
 	var arrows: Array = []
 	var k := -1
@@ -296,7 +301,7 @@ static func mark_layout(mk: Dictionary) -> Dictionary:
 		k += 1
 		var target: Vector2
 		if s is Rect2:
-			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(2)
+			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(mark_grow(mk))
 			targets.append(r)
 			# Ponto do alvo mais perto da legenda.
 			target = Vector2(clampf(box.get_center().x, r.position.x, r.end.x), clampf(box.get_center().y, r.position.y, r.end.y))
@@ -458,9 +463,12 @@ func _draw_mark(ci: CanvasItem, mk: Dictionary, pulse: float) -> void:
 	var lay := mark_layout(mk)
 	for s in mk["shapes"]:
 		if s is Rect2:
-			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(2)
-			ci.draw_rect(r, Color(0, 0, 0, 0.55), false, 4.0)
-			ci.draw_rect(r, col, false, 2.0)
+			var r := Rect2(to_screen(s.position), s.size * IMG_SCALE).grow(mark_grow(mk))
+			if mk.get("thin", false):
+				ci.draw_rect(r, col, false, 1.5)
+			else:
+				ci.draw_rect(r, Color(0, 0, 0, 0.55), false, 4.0)
+				ci.draw_rect(r, col, false, 2.0)
 		else:
 			var cc := to_screen(s[0])
 			var rr: float = s[1] * IMG_SCALE
@@ -475,7 +483,16 @@ func _draw_mark(ci: CanvasItem, mk: Dictionary, pulse: float) -> void:
 		_arrow(ci, ar[0], ar[1], col)
 	var box: Rect2 = lay["box"]
 	UI.panel(ci, box, Color(0.08, 0.06, 0.05, 0.92), Data.GOLD, 1.5)
-	UI.text_c(ci, Vector2(box.get_center().x, box.end.y - 6), lay["label"], MARK_FONT, Color.WHITE)
+	UI.text_c(ci, Vector2(box.get_center().x, box.end.y - 6), lay["label"], mark_font(mk), Color.WHITE)
+
+
+static func mark_font(mk: Dictionary) -> int:
+	return MARK_FONT - 1 if mk.get("small", false) else MARK_FONT
+
+
+## Folga entre o elemento e o contorno: 1 px no contorno fino (por fora do texto).
+static func mark_grow(mk: Dictionary) -> float:
+	return 1.0 if mk.get("thin", false) else 2.0
 
 
 ## Ponto da borda do retângulo na direção de `toward` (a partir do centro).
