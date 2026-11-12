@@ -15,7 +15,7 @@ extends RefCounted
 ## Tipos: todos bloqueiam movimento; só a mureta deixa passar tiros e habilidades.
 
 const MID := 640.0
-const DEFAULT := "classica"
+const DEFAULT := "tres_corredores"
 
 static var _cache := {}
 
