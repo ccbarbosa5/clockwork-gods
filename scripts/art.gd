@@ -39,6 +39,14 @@ const MAP_IMAGES := {
 	"control_point": {"src": Vector2i(512, 512), "fill": 0.9},   # ponto de raio 95
 	"spawn_base": {"src": Vector2i(384, 384), "fill": 0.94},      # bases de raio 75
 	"health_pack": {"src": Vector2i(128, 128), "fill": 0.75},     # pacote de vida: 48 px na tela
+	# Arena Três Corredores (Pacote 6)
+	"floor_tres_corredores": {"src": Vector2i(2560, 1040)},       # piso da arena nova
+	# Faixas que repetem: "panel" = largura (na imagem) de um painel, de junta a junta.
+	"wall": {"src": Vector2i(256, 48), "panel": 128},             # módulo de 128 × 24 na tela
+	"wall_corner": {"src": Vector2i(48, 48)},    # canto da parede em L (por cima das pernas)
+	"low_wall": {"src": Vector2i(256, 28), "panel": 64},          # mureta: pilarete a cada 64 px
+	"boiler": {"src": Vector2i(192, 192), "fill": 0.9},           # caldeira de raio 42
+	"statue": {"src": Vector2i(128, 128), "fill": 0.85},          # estátua de raio 26
 }
 ## Colunas com raio a partir deste valor usam pillar_large.
 const PILLAR_LARGE_MIN_R := 28.0
@@ -200,13 +208,59 @@ static func draw_map(ci: CanvasItem, name: String, c: Vector2, r: float, rot := 
 	return true
 
 
-## Piso esticado num retângulo. false = sem imagem.
-static func draw_floor(ci: CanvasItem, rect: Rect2) -> bool:
-	var t := map_tex("arena_floor")
+## Piso esticado num retângulo (piso da arena; sem ele, o arena_floor). false = sem imagem.
+static func draw_floor(ci: CanvasItem, rect: Rect2, name := "arena_floor") -> bool:
+	var t := map_tex(name)
+	if t == null and name != "arena_floor":
+		name = "arena_floor"
+		t = map_tex(name)
 	if t == null:
 		return false
 	drawn += 1
-	drawn_names["map/arena_floor"] = true
+	drawn_names["map/" + name] = true
+	ci.draw_texture_rect(t, rect, false)
+	return true
+
+
+## Faixa que repete (parede, mureta) ao longo do lado maior de `rect`: a
+## espessura da imagem vira a espessura do retângulo e cabe um número inteiro
+## de painéis (de junta a junta), esticados um pouco para fechar nas juntas;
+## assim as pontas nunca ficam cortadas. Na vertical, a imagem gira 90°.
+## false = sem imagem.
+static func draw_strip(ci: CanvasItem, name: String, rect: Rect2) -> bool:
+	var t := map_tex(name)
+	if t == null:
+		return false
+	drawn += 1
+	drawn_names["map/" + name] = true
+	var ts := t.get_size()
+	var horiz := rect.size.x >= rect.size.y
+	var length := rect.size.x if horiz else rect.size.y
+	var thick := rect.size.y if horiz else rect.size.x
+	var k := thick / ts.y
+	var panel: float = minf(MAP_IMAGES[name].get("panel", int(ts.x)), ts.x)
+	var n := maxi(1, roundi(length / (panel * k)))
+	var seg := length / n
+	if horiz:
+		ci.draw_set_transform(rect.position, 0.0, Vector2.ONE)
+	else:
+		# Gira 90°: o comprimento desce pela tela; a espessura vai para a esquerda.
+		ci.draw_set_transform(rect.position + Vector2(rect.size.x, 0), PI / 2.0, Vector2.ONE)
+	var per := maxi(1, int(ts.x / panel))
+	for i in n:
+		var src := Rect2((i % per) * panel, 0, panel, ts.y)
+		ci.draw_texture_rect_region(t, Rect2(i * seg, 0, seg, thick), src)
+	ci.draw_set_transform_matrix(Transform2D.IDENTITY)
+	return true
+
+
+## Imagem esticada num retângulo (canto da parede em L). false = sem imagem.
+static func draw_rect_image(ci: CanvasItem, name: String, rect: Rect2) -> bool:
+	var t := map_tex(name)
+	if t == null:
+		return false
+	drawn += 1
+	drawn_names["map/" + name] = true
 	ci.draw_texture_rect(t, rect, false)
 	return true
 

@@ -10,6 +10,7 @@ extends RefCounted
 ##   "frascos": [[x, y], ...]           Frascos de Ambrosia
 ##   "rotas": {"centro"|"alto"|"baixo": [[x, y], ...]}  pontos de passagem (time azul)
 ##   "gargalos": [[x1, y1, x2, y2], ...]  vão de cada gargalo (só para a prévia)
+##   "piso": "floor_<id>"                imagem do piso (assets/map/); sem ela, arena_floor
 ##   "espelhar": true                    tudo fora do eixo x = 640 ganha a cópia do outro lado
 ##                                        (false: a lista já traz os dois lados)
 ## Tipos: todos bloqueiam movimento; só a mureta deixa passar tiros e habilidades.
@@ -57,6 +58,7 @@ static func _mrect(r: Rect2) -> Rect2:
 static func obstacles(def: Dictionary) -> Array:
 	var out: Array = []
 	var mirror: bool = def.get("espelhar", true)
+	var group := 0
 	for o in def.get("obstaculos", []):
 		var tipo: String = o["tipo"]
 		var shot := tipo != "mureta"
@@ -68,11 +70,14 @@ static func obstacles(def: Dictionary) -> Array:
 				parts.append({"tipo": tipo, "circulo": true, "c": Vector2(_mx(c.x), c.y), "r": float(o["r"]), "tiro": shot})
 		else:
 			var rs: Array = o["rets"] if o.has("rets") else [o["ret"]]
+			# Partes de uma mesma parede em L ficam no mesmo "grupo" (o espelho
+			# em outro), para o desenho achar o canto onde as pernas se encontram.
+			group += 2
 			for a in rs:
 				var r := _rect(a)
-				parts.append({"tipo": tipo, "circulo": false, "ret": r, "tiro": shot})
+				parts.append({"tipo": tipo, "circulo": false, "ret": r, "tiro": shot, "grupo": group})
 				if mirror and absf(r.get_center().x - MID) > 0.5:
-					parts.append({"tipo": tipo, "circulo": false, "ret": _mrect(r), "tiro": shot})
+					parts.append({"tipo": tipo, "circulo": false, "ret": _mrect(r), "tiro": shot, "grupo": group + 1})
 		out.append_array(parts)
 	return out
 

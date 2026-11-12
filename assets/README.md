@@ -78,6 +78,12 @@ esquerdo e ícone no centro (círculo em y ≈ 108 px na fonte). A miniatura da 
 | `control_point.png` | 512×512 | 211×211 (ponto de raio 95) | Plataforma neutra, transparente fora do círculo. A borda do ponto fica a 90% da imagem (461 px da fonte). O código desenha por cima o anel na cor do dono, o pulso de disputa, o arco de captura e a contagem; antes de liberar, a imagem fica acinzentada |
 | `spawn_base.png` | 384×384 | 160×160 (base de raio 75) | Neutra (sem azul nem vermelho). Borda a 94% da imagem (a pedra entregue vai até 96%). O código tinge de leve e contorna com a cor do time. A base azul (x 62) sai em parte da tela pela esquerda e a vermelha pela direita |
 | `health_pack.png` | 128×128 | 48×48 (raio de coleta 18 px = 75% da imagem) | Pacote de vida (Pacote 5): 5 no mapa, espelhados. Visto de cima, sem sombra (o código desenha a sombra e o balanço). Some quando é pego e volta em 20 s; enquanto isso, o código desenha a base vazia com o tempo |
+| `floor_tres_corredores.png` | 2560×1040 | 1280×520 | Piso da arena Três Corredores (`arenas/tres_corredores.json`, campo "piso"), opaco, com faixas discretas nos 3 corredores. A arena clássica continua com `arena_floor.png` |
+| `wall.png` | 256×48 | faixa de 24 px (20 px nas paredes em L) | Parede de bronze que repete na horizontal; juntas em x 0 e 128 da imagem. O código põe um número inteiro de painéis em cada peça (esticando um pouco), para as pontas fecharem na junta; na vertical, gira 90°. Opaca (é um retângulo) |
+| `wall_corner.png` | 48×48 | 20×20 | Canto da parede em L, desenhado por cima das duas pernas, no quadrado onde elas se encontram. Opaco |
+| `low_wall.png` | 256×28 | faixa de 14 px | Mureta (tiros passam por cima): balaústre vazado; pilaretes a cada 64 px da imagem (32 px na tela) |
+| `boiler.png` | 192×192 | 93×93 (raio 42 = 90%) | Caldeira; o código pulsa um brilho sobre a fornalha (círculo de ~22% do diâmetro) |
+| `statue.png` | 128×128 | 61×61 (raio 26 = 85%) | Estátua de Hefesto no pedestal; não gira |
 
 As colunas, o ponto e a base não giram; luz de cima, neutra. Sem a imagem, cada peça continua desenhada por código.
 

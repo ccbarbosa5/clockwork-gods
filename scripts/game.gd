@@ -1444,7 +1444,7 @@ func announce(s: String, col: Color, t := 2.0) -> void:
 # Desenho do mapa
 func _draw() -> void:
 	# Piso (map/arena_floor.png; sem a imagem, grade e aqueduto por código)
-	if not Art.draw_floor(self, ARENA):
+	if not Art.draw_floor(self, ARENA, arena_def.get("piso", "arena_floor")):
 		draw_rect(ARENA, Color(0.16, 0.13, 0.11))
 		for i in 17:
 			var x := 80.0 * i
@@ -1665,9 +1665,12 @@ const POPUP_ULT_R := 14.0
 const POPUP_GAP := 3.0
 
 
-## Desenho provisório (por código) das peças da arena que não são colunas,
-## até a arte chegar (lista em claude/arena-nova.md).
+## Peças da arena que não são colunas: paredes e paredes em L (wall.png, com
+## wall_corner.png no canto do L), muretas (low_wall.png), caldeiras
+## (boiler.png, com a fornalha pulsando) e estátuas (statue.png). Sem a imagem,
+## desenho por código.
 func _draw_arena_props() -> void:
+	var corners := {}
 	for o in arena_obs:
 		var tipo: String = o["tipo"]
 		if tipo == "coluna":
@@ -1676,6 +1679,15 @@ func _draw_arena_props() -> void:
 			var c: Vector2 = o["c"]
 			var r: float = o["r"]
 			draw_circle(c + Vector2(0, 6), r, Color(0, 0, 0, 0.4))
+			if tipo == "caldeira" and Art.draw_map(self, "boiler", c, r):
+				# Brilho da fornalha (círculo de ~22% do diâmetro da imagem).
+				var glow := 0.5 + 0.5 * sin(time * 3.0 + c.y * 0.05)
+				var fr := Art.map_size("boiler", r) * 0.11
+				draw_circle(c, fr, Color(1.0, 0.6, 0.15, 0.12 + 0.18 * glow))
+				draw_circle(c, fr * 0.6, Color(1.0, 0.85, 0.4, 0.1 + 0.15 * glow))
+				continue
+			if tipo == "estatua" and Art.draw_map(self, "statue", c, r):
+				continue
 			if tipo == "caldeira":
 				draw_circle(c, r, Color(0.45, 0.25, 0.12))
 				draw_circle(c, r * 0.82, Color(0.68, 0.38, 0.18))
@@ -1694,6 +1706,13 @@ func _draw_arena_props() -> void:
 			continue
 		var rr: Rect2 = o["ret"]
 		draw_rect(Rect2(rr.position + Vector2(0, 6), rr.size), Color(0, 0, 0, 0.4))
+		if o.has("grupo") and tipo == "parede_l":
+			if corners.has(o["grupo"]):
+				corners[o["grupo"]].append(rr)
+			else:
+				corners[o["grupo"]] = [rr]
+		if Art.draw_strip(self, "low_wall" if tipo == "mureta" else "wall", rr):
+			continue
 		if tipo == "mureta":
 			# Baixa: tiros passam por cima. Tom claro, borda de balaústre.
 			draw_rect(rr, Color(0.62, 0.5, 0.32, 0.92))
@@ -1715,6 +1734,13 @@ func _draw_arena_props() -> void:
 					draw_circle(Vector2(x, y), 2.0, Color(0.95, 0.75, 0.4))
 					y += 18.0
 				x += 18.0
+	# Canto de cada parede em L: o quadrado onde as duas pernas se encontram.
+	for g in corners:
+		var parts: Array = corners[g]
+		if parts.size() == 2:
+			var q: Rect2 = parts[0].intersection(parts[1])
+			if q.has_area():
+				Art.draw_rect_image(self, "wall_corner", q)
 
 
 func popup_layout() -> Array:
