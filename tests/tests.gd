@@ -596,7 +596,7 @@ func test_heroes_never_inside_obstacles_or_out_of_arena() -> void:
 			if not h.alive:
 				continue
 			check(g.ARENA.grow(1.0).has_point(h.position), "%s fora da arena em %s" % [h.hid, str(h.position)])
-			for o in g.OBSTACLES:
+			for o in g.obstacles:
 				var d: float = h.position.distance_to(Vector2(o.x, o.y))
 				check(d >= o.z + h.radius - 1.5, "%s dentro de obstáculo" % h.hid)
 	done(g)
@@ -616,11 +616,11 @@ func test_bug009_collision_never_leaves_hero_in_obstacle() -> void:
 	# BUG-009: empurrão do obstáculo e da borda se anulavam e o herói ficava dentro.
 	var g := new_game()
 	var t = hero(g, 0, "talos")
-	for o in g.OBSTACLES:
+	for o in g.obstacles:
 		for off in [Vector2(0, -10), Vector2(0, 10), Vector2(-10, 0), Vector2(10, 0), Vector2.ZERO]:
 			t.position = Vector2(o.x, o.y) + off
 			g.resolve_collisions(t)
-			for o2 in g.OBSTACLES:
+			for o2 in g.obstacles:
 				check(t.position.distance_to(Vector2(o2.x, o2.y)) >= o2.z + t.radius - 1.0, "herói continuou dentro de obstáculo %s" % str(o2))
 			check(g.ARENA.grow(0.5).has_point(t.position), "herói saiu da arena ao resolver colisão")
 	done(g)
@@ -691,11 +691,11 @@ func test_bug012_map_gaps_fit_largest_hero() -> void:
 		biggest = maxf(biggest, Data.HEROES[hid]["radius"] * 2.0)
 	var need := biggest + 10.0
 	var a: Rect2 = g.ARENA
-	for o in g.OBSTACLES:
+	for o in g.obstacles:
 		var gaps := [o.y - o.z - a.position.y, a.end.y - (o.y + o.z), o.x - o.z - a.position.x, a.end.x - (o.x + o.z)]
 		for gap in gaps:
 			check(gap <= 0.0 or gap >= need, "vão de %.0f px entre obstáculo %s e a borda" % [gap, str(o)])
-		for o2 in g.OBSTACLES:
+		for o2 in g.obstacles:
 			if o2 == o:
 				continue
 			var gap2: float = Vector2(o.x, o.y).distance_to(Vector2(o2.x, o2.y)) - o.z - o2.z
@@ -2346,7 +2346,7 @@ func test_health_packs_heal_and_respawn() -> void:
 		check(pk["pos"].distance_to(g.CENTER) > g.POINT_R + 100.0, "pacote longe do ponto")
 		for sp in g.SPAWNS:
 			check(pk["pos"].distance_to(sp) > g.SPAWN_R + 150.0, "pacote longe das bases")
-		for o in g.OBSTACLES:
+		for o in g.obstacles:
 			check(pk["pos"].distance_to(Vector2(o.x, o.y)) > o.z + 40.0, "pacote longe das colunas")
 	var a = hero(g, 0, "artemis")
 	var pk0: Dictionary = g.packs[0]
@@ -2607,4 +2607,103 @@ func test_howto_labels_never_cover_targets() -> void:
 				var box: Rect2 = H.mark_layout(mk)["box"]
 				check(H.IMG.encloses(box), "legenda %s dentro da imagem" % mk["key"])
 	T.set_lang(old, false)
+
+
+# ---------------------------------------------------------------------------
+# Arena em dados, colisão e linha de tiro (Pacote 6, PR 1)
+
+func test_arena_classica_matches_old_map() -> void:
+	var g := new_game({"arena": "classica"})
+	check(g.obstacles.size() == 14, "arena clássica com as 14 colunas")
+	var ps: Array = []
+	for p in g.packs:
+		ps.append(p["pos"])
+	check(ps == Data.HEALTH_PACKS, "frascos da clássica na mesma ordem de antes")
+	done(g)
+
+
+func test_arena_tres_corredores_layout() -> void:
+	var A = load("res://scripts/arena.gd")
+	var a: Dictionary = A.get_arena("tres_corredores")
+	var obs: Array = a["obs"]
+	check(a["packs"].size() == 5, "5 frascos")
+	# Espelhada: cada obstáculo tem o par do outro lado.
+	for o in obs:
+		var found := false
+		for o2 in obs:
+			if o["tipo"] != o2["tipo"] or o["circulo"] != o2["circulo"]:
+				continue
+			if o["circulo"] and o2["c"].is_equal_approx(Vector2(1280.0 - o["c"].x, o["c"].y)):
+				found = true
+			elif not o["circulo"] and o2["ret"].is_equal_approx(Rect2(1280.0 - o["ret"].end.x, o["ret"].position.y, o["ret"].size.x, o["ret"].size.y)):
+				found = true
+		check(found, "obstáculo %s espelhado" % o["tipo"])
+	for p in a["packs"]:
+		check(A.free_at(obs, p, 18.0), "frasco %s livre" % str(p))
+		check(a["packs"].has(Vector2(1280.0 - p.x, p.y)), "frasco %s espelhado" % str(p))
+	var clear := INF
+	for o in obs:
+		clear = minf(clear, A.distance(o, Vector2(640, 300)))
+	check(clear >= 145.0, "folga em volta do ponto ~150 px (%d)" % int(clear))
+	# Vão no meio das paredes longas: um herói passa de um corredor ao outro.
+	check(A.free_at(obs, Vector2(337, 180), 22.0) and A.free_at(obs, Vector2(337, 420), 22.0), "vão nas paredes longas")
+	check(not A.free_at(obs, Vector2(270, 180), 10.0), "parede longa existe")
+	# Bases e ponto livres.
+	for p in [Vector2(62, 300), Vector2(1218, 300), Vector2(640, 300)]:
+		check(A.free_at(obs, p, 95.0), "área livre em %s" % str(p))
+
+
+func test_rect_collision_pushes_out() -> void:
+	var g := new_game({"arena": "tres_corredores"})
+	var h = g.team_hero(0, 0)
+	for p in [Vector2(272, 180), Vector2(240, 170), Vector2(455, 220), Vector2(300, 99)]:
+		h.position = p
+		g.resolve_collisions(h)
+		var inside := false
+		for o in g.arena_obs:
+			if g.Arena.distance(o, h.position) < h.radius - 0.6:
+				inside = true
+		check(not inside, "herói sai do obstáculo (%s → %s)" % [str(p), str(h.position)])
+	done(g)
+
+
+func test_dash_stops_at_wall_and_mureta() -> void:
+	var g := new_game({"arena": "tres_corredores"})
+	var h = g.team_hero(0, 0)
+	# Parede longa de cima (y 168..192): avanço de baixo para cima para nela.
+	h.position = Vector2(270, 240)
+	h.dash_vel = Vector2(0, -260.0 / 0.35)
+	h.dash_t = 0.35
+	for i in 30:
+		h.tick(1.0 / 60.0)
+	check(h.position.y >= 192.0 + h.radius - 1.5, "Investida para na parede (y %.1f)" % h.position.y)
+	check(h.dash_t <= 0.0, "avanço acaba ao bater")
+	# Mureta (y 92..106) também segura o avanço.
+	h.position = Vector2(300, 150)
+	h.dash_vel = Vector2(0, -600.0)
+	h.dash_t = 0.3
+	for i in 30:
+		h.tick(1.0 / 60.0)
+	check(h.position.y >= 106.0 + h.radius - 1.5, "avanço para na mureta (y %.1f)" % h.position.y)
+	done(g)
+
+
+func test_line_of_shot_walls_and_mureta() -> void:
+	var g := new_game({"arena": "tres_corredores"})
+	check(not g.has_los(Vector2(270, 140), Vector2(270, 240)), "parede bloqueia a linha de tiro")
+	check(g.has_los(Vector2(300, 60), Vector2(300, 140)), "mureta deixa a linha de tiro passar")
+	check(g.has_los(Vector2(337, 140), Vector2(337, 240)), "vão da parede deixa passar")
+	var h = g.team_hero(0, 1)
+	g.projectiles.clear()
+	g.spawn_projectile(h, Vector2(270, 140), Vector2(0, 600), 10.0, 5.0, "basic", Color.WHITE)
+	step(g, 0.2)
+	check(g.projectiles.is_empty(), "projétil para na parede")
+	g.spawn_projectile(h, Vector2(300, 60), Vector2(0, 600), 10.0, 5.0, "basic", Color.WHITE)
+	step(g, 0.15)
+	var crossed := false
+	for p in g.projectiles:
+		if p["pos"].y > 110.0:
+			crossed = true
+	check(crossed, "projétil passa por cima da mureta")
+	done(g)
 

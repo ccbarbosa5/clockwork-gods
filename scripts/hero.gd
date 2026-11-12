@@ -271,7 +271,14 @@ func tick(dt: float) -> void:
 	var knocked := false
 	if dash_t > 0.0:
 		dash_t -= dt
-		position += dash_vel * dt
+		if leaping:
+			position += dash_vel * dt
+		else:
+			# Avanço no chão: para no primeiro obstáculo (mureta inclusive).
+			var sw: Array = game.sweep(position, position + dash_vel * dt, radius)
+			position = sw[0]
+			if sw[1]:
+				dash_t = 0.0
 		puff_t -= dt
 		if puff_t <= 0.0:
 			puff_t = 0.03
@@ -291,8 +298,9 @@ func tick(dt: float) -> void:
 				queue_redraw()
 				return
 	elif knock_t > 0.0:
-		position += knock_vel * minf(dt, knock_t)
-		knock_t -= dt
+		var swk: Array = game.sweep(position, position + knock_vel * minf(dt, knock_t), radius)
+		position = swk[0]
+		knock_t = -1.0 if swk[1] else knock_t - dt
 		knocked = true
 		if knock_kind == "throw":
 			puff_t -= dt
@@ -795,7 +803,7 @@ func cover_spot(enemies: Array) -> Vector2:
 		threat /= enemies.size()
 	var best := Vector2.INF
 	var bd := 450.0
-	for o in game.OBSTACLES:
+	for o in game.obstacles:
 		var c := Vector2(o.x, o.y)
 		var away := c - threat
 		if away.length() < 1.0:
@@ -919,6 +927,9 @@ func _pick_target(enemies: Array, beh: String):
 		if e.position.distance_to(game.spawn_pos(e.team)) < game.SPAWN_R + 10.0 and not in_range:
 			continue
 		var score := d
+		# Atrás de parede ou coluna: só se não houver outro à vista.
+		if not game.has_los(position, e.position):
+			score += 400.0
 		match style:
 			"backline_dps":
 				score = d + e.hp * 0.6
@@ -939,7 +950,7 @@ func _try_attack() -> void:
 	if style == "backline_support" and heal_target != null and heal_target.position.distance_to(position) <= def["heal_range"]:
 		return
 	var d: float = position.distance_to(target.position) - target.radius
-	if d > def["range"]:
+	if d > def["range"] or not game.has_los(position, target.position):
 		return
 	attack_cd = def["cd"] / (1.0 + (haste_amt if haste_t > 0.0 else 0.0) + (0.25 if phalanx_t > 0.0 else 0.0))
 	if def["range"] < 100.0:
@@ -968,6 +979,8 @@ func _support_heal(dt: float) -> void:
 	var best_f := 0.97
 	for a in game.alive_heroes(team):
 		if a.position.distance_to(position) > 600.0:
+			continue
+		if a != self and not game.has_los(position, a.position):
 			continue
 		var f: float = a.hp / a.max_hp
 		if a == self:
@@ -1025,7 +1038,7 @@ func _steer(dest: Vector2) -> Vector2:
 		return Vector2.ZERO
 	var dir := to_dest.normalized()
 	var steer := Vector2.ZERO
-	for o in game.OBSTACLES:
+	for o in game.obstacles:
 		var c := Vector2(o.x, o.y)
 		var r: float = o.z
 		var to := c - position
