@@ -216,7 +216,7 @@ const HEROES := {
 	},
 	"zeus": {
 		"role": "Dano", "origin": "deus",
-		"hp": 320.0, "speed": 92.0, "range": 270.0, "dmg": 18.5, "cd": 0.7, "kite": 180.0, "group_bias": 0.0,
+		"hp": 335.0, "speed": 92.0, "range": 270.0, "dmg": 18.5, "cd": 0.7, "kite": 180.0, "group_bias": 0.0,
 		"radius": 16.0, "color": Color(0.72, 0.45, 1.0), "style": "flank",
 		# Ataque básico: raio instantâneo que salta para 1 inimigo a até 90 px (7 de dano).
 		"basic": "chain", "chain_dmg": 8.0, "chain_range": 90.0,
