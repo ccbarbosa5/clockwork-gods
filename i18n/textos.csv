@@ -92,7 +92,7 @@ HOWTO_TAB_8,Controles,Controls
 HOWTO_OPEN_1,Os Ritos da Engrenagem se decidem num só lugar: o ponto no centro da arena.,The Rites of the Gear are decided in one place: the point at the center of the arena.
 HOWTO_1_1,"O ponto abre %d s depois do início. Até lá, prepare o seu time.","The point opens %d s after the start. Until then, get your team ready."
 HOWTO_1_2,"Fique %d s no ponto sem inimigos para capturá-lo. Enquanto ele for seu, seu progresso enche.","Stay %d s on the point with no enemies to capture it. While it's yours, your progress fills."
-HOWTO_1_3,"Com os dois times no ponto, ele fica disputado: só o dono avança, à metade, se tiver mais heróis lá.","With both teams on it, the point is contested: only the owner advances, at half speed, with more heroes there."
+HOWTO_1_3,"Ponto disputado (os dois times nele): só o dono avança, mais devagar, se tiver mais heróis.","Contested point (both teams on it): only the owner advances, slower, if it has more heroes."
 HOWTO_1_4,"Chegou a 100%, venceu. Se o tempo acabar, vence quem tiver mais progresso.","Reach 100% and you win. If time runs out, the team with more progress wins."
 HOWTO_1_5,"Se o tempo acabar com o ponto disputado ou sendo capturado, vem a prorrogação.","If time runs out while the point is contested or being captured, overtime begins."
 HOWTO_M_1_1,Ponto de controle,Control point
