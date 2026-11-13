@@ -1231,12 +1231,15 @@ func _draw() -> void:
 			draw_line(Vector2.ZERO, tp, Color(0.45, 1.0, 0.6, 0.7), 4.0, true)
 			draw_line(Vector2.ZERO, tp, Color(1, 1, 1, 0.6), 1.5, true)
 
-	# Sombra suave no chão (encolhe e clareia quando o corpo sobe) e corpo.
+	# Sombra elíptica no chão, com um leve tom da cor do time (é onde a cor do
+	# time aparece, além da barra de vida); encolhe e clareia quando o corpo sobe.
 	var bh := body_height()
 	var sk2 := 1.0 - bh / 40.0
 	draw_set_transform(Vector2(0, radius * 0.45), 0.0, Vector2(1.0, 0.62) * sk2)
+	var shade := tc.darkened(0.55)
+	draw_circle(Vector2.ZERO, radius + 10.0, Color(tc, 0.15 * sk2))
 	for j in 4:
-		draw_circle(Vector2.ZERO, radius + 7.0 - j * 3.0, Color(0, 0, 0, (0.07 + j * 0.03) * sk2))
+		draw_circle(Vector2.ZERO, radius + 7.0 - j * 3.0, Color(shade, (0.08 + j * 0.035) * sk2))
 	var bxf := body_transform()
 	draw_set_transform_matrix(bxf)
 	var aura_k := radius / 22.0  # auras são feitas no tamanho do Talos (raio 22)
@@ -1249,19 +1252,13 @@ func _draw() -> void:
 			draw_line(Vector2(cos(ang), sin(ang)) * (radius + 6.0), Vector2(cos(ang), sin(ang)) * (radius + 16.0), Color(1, 0.9, 0.4, 0.8), 2.0, true)
 	var sprite := Art.hero_sprite(hid)
 	if sprite != null:
-		# Com sprite: só a imagem gira com o herói; o anel do time fica fixo e por
-		# cima dela, para a cor do time sempre aparecer. Sem triângulo de direção
-		# e sem emblema (a imagem já mostra os dois).
+		# Com sprite: só a imagem gira com o herói. Sem anel do time (a cor fica
+		# na sombra e na barra de vida), sem triângulo de direção e sem emblema.
 		var px: float = Art.HERO_SPRITE_PX.get(hid, (radius + 3.0) * 2.0 / 0.8)
 		var mod := _flash_mod()
-		# Fundo escuro sob o corpo: separa o herói de áreas claras no chão.
-		draw_circle(Vector2.ZERO, radius + 3.0, Color(0.05, 0.04, 0.03, 0.6))
 		# Em camadas (Rig), se o herói tiver todas; senão, o sprite inteiro.
 		if not Rig.draw(self, hid, bxf, px, sprite_angle, mod, Rig.state_of(self)):
 			Art.draw_centered(self, sprite, Vector2.ZERO, Vector2(px, px), sprite_angle, mod)
-		# Anel do time com contorno escuro, para a cor ler sobre qualquer efeito.
-		UI.ring(self, Vector2.ZERO, radius + 1.5, Color(0, 0, 0, 0.75), 6.0)
-		UI.ring(self, Vector2.ZERO, radius + 1.5, tc, 3.0)
 	else:
 		draw_circle(Vector2.ZERO, radius + 3.0, tc)
 		draw_circle(Vector2.ZERO, radius, hc)
@@ -1376,7 +1373,8 @@ func _draw() -> void:
 		UI.ring(self, Vector2.ZERO, radius + 4.0 + 20.0 * (1.0 - sa), Color(tc, sa), 3.0)
 	# Barra de vida
 	var bw := 46.0
-	var by := -radius - 13.0
+	# 3 px mais longe do corpo desde que o sprite ficou 12% maior.
+	var by := -radius - 16.0
 	draw_rect(Rect2(-bw * 0.5 - 1, by - 1, bw + 2, 7), Color(0, 0, 0, 0.75))
 	draw_rect(Rect2(-bw * 0.5, by, bw * clampf(hp / max_hp, 0.0, 1.0), 5), tc.lerp(Color.WHITE, 0.15))
 	if shield_hp > 0.0:
@@ -1420,7 +1418,7 @@ func _flash_mod() -> Color:
 ## (lê sobre a base clara e sobre efeitos). Desenhado na camada name_tag.
 func _draw_name_tag() -> void:
 	var s := T.hero_name(hid)
-	var base := Vector2(0, radius + 16.0)
+	var base := Vector2(0, radius + 19.0)
 	var w := UI.font().get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 10.0
 	var r := Rect2(base.x - w * 0.5, base.y - 11.0, w, 15.0)
 	name_tag.draw_rect(r, Color(0.05, 0.04, 0.03, 0.7))
