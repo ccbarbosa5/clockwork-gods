@@ -2996,3 +2996,13 @@ func test_rig_draws_layers_when_present() -> void:
 		scene = null
 		Art.clear_cache())
 
+
+
+func test_hero_sprite_bigger_without_team_ring() -> void:
+	# Sem o anel do time, o sprite ficou ~12% maior; a colisão não muda.
+	check(Art.HERO_SPRITE_SCALE >= 1.10 and Art.HERO_SPRITE_SCALE <= 1.15, "sprite 10–15% maior")
+	check(absf(Art.HERO_SPRITE_PX["talos"] - 62.0 * Art.HERO_SPRITE_SCALE) < 0.01, "tamanho do Talos escalado")
+	var g := new_game()
+	var t = hero(g, 0, "talos")
+	check(t.radius == Data.HEROES["talos"]["radius"], "raio de colisão igual")
+	done(g)

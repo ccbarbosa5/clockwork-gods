@@ -52,8 +52,12 @@ const MAP_IMAGES := {
 const PILLAR_LARGE_MIN_R := 28.0
 
 ## Lado da imagem inteira do herói na tela (px, base 1280×720). A imagem-fonte
-## (256×256) é feita para o anel do time ocupar 80% dela: 2 × (raio + 3) / 0,8.
-const HERO_SPRITE_PX := {"talos": 62.0, "artemis": 45.0, "asclepio": 48.0, "hercules": 62.0, "zeus": 47.5, "atena": 50.0}
+## (256×256) foi feita para o anel do time ocupar 80% dela: 2 × (raio + 3) / 0,8.
+## Desde 12 nov. 2026 não há mais anel (a cor do time fica na sombra e na barra
+## de vida), e o sprite ficou 12% maior. A colisão continua no raio do herói.
+const HERO_SPRITE_SCALE := 1.12
+const HERO_SPRITE_PX := {"talos": 62.0 * HERO_SPRITE_SCALE, "artemis": 45.0 * HERO_SPRITE_SCALE, "asclepio": 48.0 * HERO_SPRITE_SCALE,
+	"hercules": 62.0 * HERO_SPRITE_SCALE, "zeus": 47.5 * HERO_SPRITE_SCALE, "atena": 50.0 * HERO_SPRITE_SCALE}
 ## Giro máximo do sprite do herói (graus por segundo).
 const HERO_TURN_DEG := 720.0
 
